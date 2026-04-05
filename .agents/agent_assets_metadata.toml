@@ -5,31 +5,31 @@ outputs = []
 id = "n5fWBmosO5EGcVVVO9LzO"
 uri = "file://artifacts/mockup-sandbox/public/images/hub-hero-bg.png"
 type = "image"
-title = "Londrina golden hour skyline"
+title = "Londrina golden hour aerial view"
 
 [[generated]]
 id = "0m3K_f5c74-opu_PCCYCy"
 uri = "file://artifacts/mockup-sandbox/public/images/biz-restaurant.png"
 type = "image"
-title = "Local Brazilian restaurant"
+title = "Cozy Brazilian restaurant interior"
 
 [[generated]]
 id = "1GXUCkvTCnj16dTegIPcf"
 uri = "file://artifacts/mockup-sandbox/public/images/biz-salon.png"
 type = "image"
-title = "Modern hair salon"
+title = "Modern Brazilian hair salon"
 
 [[generated]]
 id = "jLSt3iDtd8DovohdXaAyy"
 uri = "file://artifacts/mockup-sandbox/public/images/biz-grocery.png"
 type = "image"
-title = "Local grocery store"
+title = "Brazilian grocery store"
 
 [[generated]]
 id = "pNaROUUklBkSy3xmRQ8ye"
 uri = "file://artifacts/mockup-sandbox/public/images/biz-coffee.png"
 type = "image"
-title = "Artisan coffee shop"
+title = "Brazilian artisan coffee shop"
 
 [[generated]]
 id = "y_Q8rq66OZjjd5M4WluiK"
