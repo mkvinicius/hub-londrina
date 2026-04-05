@@ -5,17 +5,21 @@ import { Button } from "@/components/ui/button";
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-3 cursor-pointer">
-      <div className="relative flex items-center justify-center w-10 h-10">
-        <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-md">
-          <path d="M50 10 C30 10, 20 30, 20 50 C20 70, 50 90, 50 90 C50 90, 80 70, 80 50 C80 30, 70 10, 50 10 Z" fill="#FF9800" />
-          <path d="M50 25 C40 25, 35 35, 35 45 C35 55, 50 65, 50 65 C50 65, 65 55, 65 45 C65 35, 60 25, 50 25 Z" fill="#6F4E37" />
-          <path d="M45 35 Q50 45, 45 55" stroke="#F5F5DC" strokeWidth="2" fill="none" />
+    <Link href="/" className="flex items-center gap-2 cursor-pointer">
+      <div className="relative flex items-center justify-center w-9 h-9 flex-shrink-0">
+        <svg viewBox="0 0 100 120" className="w-9 h-9">
+          <ellipse cx="50" cy="48" rx="38" ry="38" fill="#4CAF50" />
+          <path d="M50 10 C25 10, 12 30, 12 48 C12 70, 50 110, 50 110 C50 110, 88 70, 88 48 C88 30, 75 10, 50 10 Z" fill="#6F4E37" />
+          <ellipse cx="50" cy="48" rx="24" ry="24" fill="#4CAF50" />
+          <ellipse cx="50" cy="48" rx="14" ry="14" fill="#2e7d32" />
         </svg>
       </div>
-      <div className="flex flex-col">
-        <span className="font-serif font-black text-2xl tracking-tight leading-none text-[#6F4E37]">HUB LONDRINA</span>
-        <span className="text-[10px] tracking-[0.2em] font-bold text-[#4CAF50] mt-0.5">NEGÓCIO LOCAL</span>
+      <div className="flex flex-col leading-none">
+        <div className="flex items-baseline gap-1">
+          <span className="font-black text-xl tracking-tight text-[#6F4E37]">HUB</span>
+          <span className="font-black text-xl tracking-tight text-[#6F4E37]">LONDRINA</span>
+        </div>
+        <span className="text-[11px] tracking-[0.15em] font-bold text-[#FF9800] uppercase">Negócio Local</span>
       </div>
     </Link>
   );
@@ -33,24 +37,25 @@ export function Layout({ children }: LayoutProps) {
     { href: "/", label: "Início" },
     { href: "/categorias", label: "Categorias" },
     { href: "/busca", label: "Busca" },
-    { href: "/anuncie", label: "Para Empresas" },
+    { href: "/anuncie", label: "Contato" },
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F5DC] font-sans text-[#6F4E37] selection:bg-[#FF9800] selection:text-white">
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0" style={{ backgroundImage: 'radial-gradient(#6F4E37 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
-
-      <header className="fixed top-0 inset-x-0 z-50 bg-[#F5F5DC]/90 backdrop-blur-md border-b border-[#6F4E37]/10">
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+    <div className="min-h-screen bg-white font-sans text-[#3a2512]">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-8">
           <Logo />
 
-          <nav className="hidden md:flex items-center gap-8 font-medium">
+          <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm uppercase tracking-wider font-bold transition-colors ${
-                  location === link.href ? "text-[#FF9800]" : "hover:text-[#FF9800]"
+                className={`text-sm font-semibold transition-colors ${
+                  location === link.href
+                    ? "text-[#FF9800]"
+                    : "text-[#4a3020] hover:text-[#FF9800]"
                 }`}
               >
                 {link.label}
@@ -58,10 +63,10 @@ export function Layout({ children }: LayoutProps) {
             ))}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link href="/anuncie">
-              <Button className="hidden md:flex bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-full px-6 py-5 font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
-                Anuncie Seu Negócio
+              <Button className="hidden md:flex bg-[#d97706] hover:bg-[#b45309] text-white rounded-full px-6 h-10 font-bold text-sm shadow-none border-0">
+                Anuncie Aqui
               </Button>
             </Link>
             <Button
@@ -75,14 +80,15 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
+        {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden bg-[#F5F5DC] border-t border-[#6F4E37]/10 px-4 py-6 flex flex-col gap-4">
+          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 flex flex-col gap-4">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm uppercase tracking-wider font-bold transition-colors ${
-                  location === link.href ? "text-[#FF9800]" : "hover:text-[#FF9800]"
+                className={`text-sm font-semibold py-2 transition-colors ${
+                  location === link.href ? "text-[#FF9800]" : "text-[#4a3020]"
                 }`}
                 onClick={() => setMenuOpen(false)}
               >
@@ -90,8 +96,8 @@ export function Layout({ children }: LayoutProps) {
               </Link>
             ))}
             <Link href="/anuncie" onClick={() => setMenuOpen(false)}>
-              <Button className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-full font-bold shadow-lg">
-                Anuncie Seu Negócio
+              <Button className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-full font-bold text-sm">
+                Anuncie Aqui
               </Button>
             </Link>
           </div>
@@ -100,45 +106,52 @@ export function Layout({ children }: LayoutProps) {
 
       <main>{children}</main>
 
-      <footer className="bg-[#6F4E37] text-[#F5F5DC] py-12 relative z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
-            <div className="flex flex-col items-center md:items-start gap-2">
-              <span className="font-serif font-black text-2xl tracking-tight">HUB LONDRINA</span>
-              <span className="text-[10px] tracking-[0.2em] font-bold text-[#4CAF50]">NEGÓCIO LOCAL</span>
-              <p className="text-white/60 text-sm mt-2 text-center md:text-left max-w-xs">
-                O maior guia de negócios locais da região de Londrina, PR.
+      <footer className="bg-[#3a1f0d] text-[#f5e9dd] py-12">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-10">
+            <div className="flex flex-col gap-2 max-w-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7">
+                  <svg viewBox="0 0 100 120">
+                    <path d="M50 10 C25 10, 12 30, 12 48 C12 70, 50 110, 50 110 C50 110, 88 70, 88 48 C88 30, 75 10, 50 10 Z" fill="#FF9800" />
+                    <ellipse cx="50" cy="48" rx="18" ry="18" fill="#3a1f0d" />
+                  </svg>
+                </div>
+                <span className="font-black text-lg text-white">HUB LONDRINA</span>
+              </div>
+              <p className="text-sm text-white/60 leading-relaxed">
+                O maior guia de negócios locais de Londrina, PR.
               </p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-8 text-sm">
               <div>
-                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/60">Descobrir</h4>
+                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Descobrir</h4>
                 <ul className="space-y-2">
-                  <li><Link href="/categorias" className="text-white/80 hover:text-white transition-colors">Categorias</Link></li>
-                  <li><Link href="/busca" className="text-white/80 hover:text-white transition-colors">Busca</Link></li>
+                  <li><Link href="/categorias" className="text-white/70 hover:text-white transition-colors">Categorias</Link></li>
+                  <li><Link href="/busca" className="text-white/70 hover:text-white transition-colors">Busca</Link></li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/60">Empresas</h4>
+                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Empresas</h4>
                 <ul className="space-y-2">
-                  <li><Link href="/anuncie" className="text-white/80 hover:text-white transition-colors">Anunciar</Link></li>
-                  <li><Link href="/anuncie#planos" className="text-white/80 hover:text-white transition-colors">Planos</Link></li>
+                  <li><Link href="/anuncie" className="text-white/70 hover:text-white transition-colors">Anunciar</Link></li>
+                  <li><Link href="/anuncie#planos" className="text-white/70 hover:text-white transition-colors">Planos</Link></li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/60">Regiões</h4>
+                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Regiões</h4>
                 <ul className="space-y-2">
-                  <li><Link href="/busca?regiao=centro" className="text-white/80 hover:text-white transition-colors">Centro</Link></li>
-                  <li><Link href="/busca?regiao=Gleba+Palhano" className="text-white/80 hover:text-white transition-colors">Gleba Palhano</Link></li>
-                  <li><Link href="/busca?regiao=Zona+Norte" className="text-white/80 hover:text-white transition-colors">Zona Norte</Link></li>
+                  <li><Link href="/busca?regiao=Centro" className="text-white/70 hover:text-white transition-colors">Centro</Link></li>
+                  <li><Link href="/busca?regiao=Gleba+Palhano" className="text-white/70 hover:text-white transition-colors">Gleba Palhano</Link></li>
+                  <li><Link href="/busca?regiao=Zona+Norte" className="text-white/70 hover:text-white transition-colors">Zona Norte</Link></li>
                 </ul>
               </div>
             </div>
           </div>
 
           <div className="border-t border-white/10 pt-6 text-center">
-            <p className="text-white/50 text-sm">
+            <p className="text-white/40 text-sm">
               © {new Date().getFullYear()} Hub Londrina. Todos os direitos reservados.
             </p>
           </div>
