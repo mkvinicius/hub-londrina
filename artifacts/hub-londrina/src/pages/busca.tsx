@@ -1,19 +1,22 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
-  Search, MapPin, Star, Filter, SlidersHorizontal,
-  ChevronDown, X
+  Search, MapPin, SlidersHorizontal,
+  ChevronDown, X, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
 import { useSearch, useListCategories } from "@workspace/api-client-react";
+import type { Business, Category } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
+import { BusinessCard } from "@/components/BusinessCard";
+
+const PAGE_SIZE = 8;
 
 export default function Busca() {
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
 
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
@@ -22,6 +25,7 @@ export default function Busca() {
   const [sort, setSort] = useState("relevance");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [localQuery, setLocalQuery] = useState(query);
+  const [page, setPage] = useState(1);
 
   const { data: searchData, isLoading } = useSearch({
     q: query || undefined,
@@ -32,12 +36,18 @@ export default function Busca() {
   const { data: categoriesData } = useListCategories();
   const categories = categoriesData?.data ?? [];
 
-  const results = searchData?.data ?? [];
+  const results: Business[] = searchData?.data ?? [];
   const sorted = [...results].sort((a, b) => {
     if (sort === "rating") return b.rating - a.rating;
     if (sort === "reviews") return b.reviewsCount - a.reviewsCount;
     return 0;
   });
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [query, region, categoria, sort]);
 
   function handleSearch() {
     setQuery(localQuery);
@@ -63,63 +73,58 @@ export default function Busca() {
 
   return (
     <Layout>
-      <div className="min-h-screen pb-20">
-        {/* Search Bar Section */}
-        <section className="pt-28 pb-8 relative z-10 bg-gradient-to-b from-[#6F4E37]/10 to-transparent">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-white p-2 rounded-2xl shadow-xl flex flex-col md:flex-row gap-2 border border-[#6F4E37]/10">
-                <div className="flex-1 relative flex items-center">
-                  <Search className="absolute left-4 h-5 w-5 text-gray-400" />
-                  <Input
-                    value={localQuery}
-                    onChange={(e) => setLocalQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    placeholder="Buscar negócios, serviços..."
-                    className="w-full pl-12 pr-4 h-14 bg-transparent border-0 focus-visible:ring-0 rounded-xl text-lg text-[#6F4E37] font-medium shadow-none"
-                  />
-                </div>
-
-                <div className="hidden md:block w-px h-8 bg-gray-200 self-center"></div>
-
-                <div className="w-full md:w-64">
-                  <Select value={region} onValueChange={setRegion}>
-                    <SelectTrigger className="w-full h-14 px-4 bg-transparent border-0 focus:ring-0 rounded-xl text-base text-[#6F4E37] font-medium shadow-none">
-                      <MapPin className="h-4 w-4 mr-2 text-[#FF9800]" />
-                      <SelectValue placeholder="Qualquer região" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-0 shadow-xl">
-                      <SelectItem value="todas">Todas as regiões</SelectItem>
-                      <SelectItem value="Centro">Centro</SelectItem>
-                      <SelectItem value="Gleba Palhano">Gleba Palhano</SelectItem>
-                      <SelectItem value="Zona Norte">Zona Norte</SelectItem>
-                      <SelectItem value="Zona Sul">Zona Sul</SelectItem>
-                      <SelectItem value="Jardim Quebec">Jardim Quebec</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={handleSearch}
-                  className="w-full md:w-auto h-14 bg-[#FF9800] hover:bg-[#e68a00] text-white px-8 rounded-xl text-base font-bold shadow-md transition-all"
-                >
-                  Buscar
-                </Button>
+      <div className="min-h-screen pb-20 bg-gray-50">
+        {/* Search Bar */}
+        <div className="bg-white border-b border-gray-100 py-4 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-col sm:flex-row bg-gray-50 rounded-xl border border-gray-200 overflow-hidden gap-0">
+              <div className="flex-1 relative flex items-center">
+                <Search className="absolute left-4 h-5 w-5 text-gray-400" />
+                <Input
+                  value={localQuery}
+                  onChange={(e) => setLocalQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  placeholder="Buscar negócios, serviços..."
+                  className="w-full pl-12 pr-4 h-12 bg-transparent border-0 focus-visible:ring-0 text-base text-[#3a2512] font-medium shadow-none"
+                />
               </div>
+              <div className="hidden sm:block w-px h-8 bg-gray-200 self-center"></div>
+              <div className="w-full sm:w-52">
+                <Select value={region} onValueChange={setRegion}>
+                  <SelectTrigger className="w-full h-12 px-4 bg-transparent border-0 focus:ring-0 text-sm text-[#3a2512] font-medium shadow-none">
+                    <MapPin className="h-4 w-4 mr-2 text-[#d97706]" />
+                    <SelectValue placeholder="Qualquer região" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-0 shadow-xl">
+                    <SelectItem value="todas">Todas as regiões</SelectItem>
+                    <SelectItem value="Centro">Centro</SelectItem>
+                    <SelectItem value="Gleba Palhano">Gleba Palhano</SelectItem>
+                    <SelectItem value="Zona Norte">Zona Norte</SelectItem>
+                    <SelectItem value="Zona Sul">Zona Sul</SelectItem>
+                    <SelectItem value="Jardim Quebec">Jardim Quebec</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <button
+                onClick={handleSearch}
+                className="w-full sm:w-auto bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-8 h-12 text-sm transition-colors"
+              >
+                Buscar
+              </button>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Main Content */}
-        <section className="container mx-auto px-4 mt-8 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-            <h1 className="font-serif text-2xl md:text-3xl font-bold text-[#6F4E37]">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <h1 className="font-bold text-xl text-[#3a2512]">
               {isLoading ? (
                 <span className="text-gray-400">Buscando...</span>
               ) : (
                 <>
-                  <span className="text-[#FF9800]">{sorted.length} {sorted.length === 1 ? "negócio" : "negócios"}</span>
-                  {" "}encontrado{sorted.length !== 1 ? "s" : ""}
+                  <span className="text-[#d97706] font-black">{sorted.length}</span>{" "}
+                  {sorted.length === 1 ? "negócio encontrado" : "negócios encontrados"}
                   {region && region !== "todas" && ` em ${region}`}
                   {query && ` para "${query}"`}
                 </>
@@ -127,22 +132,21 @@ export default function Busca() {
             </h1>
 
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                className="md:hidden flex-1 rounded-xl border-[#6F4E37]/20 text-[#6F4E37]"
+              <button
+                className="md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] border border-gray-200 rounded-xl px-4 py-2.5 bg-white"
                 onClick={() => setMobileFiltersOpen(true)}
               >
-                <Filter className="h-4 w-4 mr-2" />
+                <SlidersHorizontal className="h-4 w-4" />
                 Filtrar
                 {activeFiltersCount > 0 && (
-                  <Badge className="ml-2 bg-[#FF9800] text-white border-0 h-5 px-1.5 text-xs">{activeFiltersCount}</Badge>
+                  <span className="w-5 h-5 bg-[#d97706] text-white rounded-full text-xs flex items-center justify-center font-black">{activeFiltersCount}</span>
                 )}
-              </Button>
+              </button>
 
-              <div className="flex-1 md:flex-none flex items-center bg-white rounded-xl border border-[#6F4E37]/10 shadow-sm px-3 h-10">
-                <span className="text-sm text-gray-500 mr-2 whitespace-nowrap">Ordenar:</span>
+              <div className="flex items-center bg-white rounded-xl border border-gray-200 px-3 h-10 gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap font-medium">Ordenar:</span>
                 <Select value={sort} onValueChange={setSort}>
-                  <SelectTrigger className="border-0 shadow-none h-8 px-0 focus:ring-0 text-sm font-bold text-[#6F4E37] w-[120px]">
+                  <SelectTrigger className="border-0 shadow-none h-8 px-0 focus:ring-0 text-sm font-bold text-[#3a2512] w-[110px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-0 shadow-xl">
@@ -155,53 +159,52 @@ export default function Busca() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-8 items-start">
+          <div className="flex gap-6 items-start">
             {/* Sidebar Filters */}
             <aside className={`
-              w-full md:w-[260px] flex-shrink-0 bg-white rounded-3xl p-6 shadow-lg border border-[#6F4E37]/5
-              ${mobileFiltersOpen ? 'fixed inset-0 z-[60] overflow-auto rounded-none' : 'hidden md:block sticky top-28'}
+              w-[240px] flex-shrink-0 bg-white rounded-2xl p-5 shadow-sm border border-gray-100
+              ${mobileFiltersOpen
+                ? "fixed inset-0 z-[60] overflow-auto rounded-none w-full shadow-none"
+                : "hidden md:block sticky top-24"}
             `}>
-              {mobileFiltersOpen && (
+              {mobileFiltersOpen ? (
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-                  <h2 className="font-serif text-xl font-bold text-[#6F4E37]">Filtros</h2>
-                  <Button variant="ghost" size="icon" onClick={() => setMobileFiltersOpen(false)}>
-                    <X className="h-6 w-6" />
-                  </Button>
+                  <h2 className="font-black text-xl text-[#3a2512]">Filtros</h2>
+                  <button onClick={() => setMobileFiltersOpen(false)}>
+                    <X className="h-6 w-6 text-gray-500" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
+                  <SlidersHorizontal className="h-4 w-4 text-[#d97706]" />
+                  <h2 className="font-black text-base text-[#3a2512]">Filtros</h2>
                 </div>
               )}
 
-              {!mobileFiltersOpen && (
-                <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-100">
-                  <SlidersHorizontal className="h-5 w-5 text-[#FF9800]" />
-                  <h2 className="font-serif text-xl font-bold text-[#6F4E37]">Filtrar por</h2>
-                </div>
-              )}
-
-              <div className="space-y-8">
-                {/* Category Filter */}
+              <div className="space-y-6">
+                {/* Category */}
                 <div>
-                  <h3 className="font-bold text-[#6F4E37] mb-4 flex items-center justify-between">
-                    Categoria
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <h3 className="font-bold text-sm text-[#3a2512] mb-3 flex items-center justify-between">
+                    Categoria <ChevronDown className="h-4 w-4 text-gray-400" />
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <button
                       onClick={() => setCategoria("")}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                        !categoria ? "bg-[#FF9800]/10 text-[#FF9800] font-bold" : "text-gray-600 hover:bg-gray-50"
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        !categoria ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 hover:bg-gray-50"
                       }`}
                     >
-                      Todas as categorias
+                      Todas
                     </button>
-                    {categories.map((cat) => {
+                    {categories.map((cat: Category) => {
                       const Icon = getCategoryIcon(cat.icon);
                       const colorClasses = getCategoryColorClasses(cat.color);
                       return (
                         <button
                           key={cat.id}
                           onClick={() => setCategoria(cat.slug === categoria ? "" : cat.slug)}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-between group ${
-                            categoria === cat.slug ? "bg-[#FF9800]/10 text-[#FF9800] font-bold" : "text-gray-600 hover:bg-gray-50"
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between ${
+                            categoria === cat.slug ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 hover:bg-gray-50"
                           }`}
                         >
                           <span className="flex items-center gap-2">
@@ -217,24 +220,23 @@ export default function Busca() {
                   </div>
                 </div>
 
-                {/* Region Filter */}
+                {/* Region */}
                 <div>
-                  <h3 className="font-bold text-[#6F4E37] mb-4 flex items-center justify-between">
-                    Região
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <h3 className="font-bold text-sm text-[#3a2512] mb-3 flex items-center justify-between">
+                    Região <ChevronDown className="h-4 w-4 text-gray-400" />
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {["todas", "Centro", "Gleba Palhano", "Zona Norte", "Zona Sul", "Jardim Quebec"].map((reg) => (
                       <button
                         key={reg}
                         onClick={() => setRegion(reg === "todas" ? "" : reg)}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           (reg === "todas" && !region) || region === reg
-                            ? "bg-[#FF9800]/10 text-[#FF9800] font-bold"
+                            ? "bg-[#d97706]/10 text-[#d97706] font-bold"
                             : "text-gray-600 hover:bg-gray-50"
                         }`}
                       >
-                        {reg === "todas" ? "Todas as regiões" : reg}
+                        {reg === "todas" ? "Todas" : reg}
                       </button>
                     ))}
                   </div>
@@ -242,134 +244,106 @@ export default function Busca() {
               </div>
 
               {(activeFiltersCount > 0 || query) && (
-                <div className="mt-8 pt-6 border-t border-gray-100">
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-xl border-[#6F4E37]/20 text-[#6F4E37]"
+                <div className="mt-6 pt-4 border-t border-gray-100">
+                  <button
+                    className="w-full border border-gray-200 text-[#3a2512] rounded-xl py-2 text-sm font-bold hover:bg-gray-50 transition-colors"
                     onClick={() => { clearFilters(); setMobileFiltersOpen(false); }}
                   >
                     Limpar filtros
-                  </Button>
+                  </button>
                 </div>
               )}
 
               {mobileFiltersOpen && (
                 <div className="mt-4">
-                  <Button
-                    className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-xl"
+                  <button
+                    className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl py-3 text-sm font-bold transition-colors"
                     onClick={() => { handleSearch(); setMobileFiltersOpen(false); }}
                   >
                     Aplicar Filtros
-                  </Button>
+                  </button>
                 </div>
               )}
             </aside>
 
-            {/* Results Grid */}
-            <div className="flex-1 w-full">
+            {/* Results */}
+            <div className="flex-1 min-w-0">
               {isLoading ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-80 bg-white rounded-3xl animate-pulse" />
+                    <div key={i} className="h-72 bg-white rounded-2xl animate-pulse border border-gray-100" />
                   ))}
                 </div>
               ) : sorted.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                  <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="font-serif text-2xl font-bold text-[#6F4E37] mb-2">Nenhum resultado</h3>
-                  <p className="text-gray-500 mb-6">Tente buscar com outros termos ou remover filtros.</p>
-                  <Button
-                    variant="outline"
+                <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
+                  <Search className="h-14 w-14 text-gray-300 mx-auto mb-4" />
+                  <h3 className="font-black text-xl text-[#3a2512] mb-2">Nenhum resultado</h3>
+                  <p className="text-gray-500 mb-6 text-sm">Tente buscar com outros termos ou remover filtros.</p>
+                  <button
                     onClick={clearFilters}
-                    className="border-[#6F4E37]/20 text-[#6F4E37] rounded-xl"
+                    className="border border-gray-200 text-[#3a2512] rounded-xl px-6 py-2.5 text-sm font-bold hover:bg-gray-50 transition-colors"
                   >
                     Limpar filtros
-                  </Button>
+                  </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {sorted.map((biz) => (
-                    <div
-                      key={biz.id}
-                      onClick={() => navigate(`/negocio/${biz.id}`)}
-                      className="group flex flex-col bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
-                    >
-                      <div className="relative h-[200px] overflow-hidden">
-                        <div className="absolute top-4 left-4 z-20">
-                          <Badge className="px-3 py-1 font-bold text-xs uppercase tracking-wider rounded-full bg-[#6F4E37]/10 text-[#6F4E37] border-0">
-                            {biz.categorySlug}
-                          </Badge>
-                        </div>
-                        <div className="absolute top-4 right-4 z-20 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1 text-sm font-black text-[#6F4E37] shadow-sm">
-                          <Star className="h-3.5 w-3.5 fill-[#FF9800] text-[#FF9800]" />
-                          {biz.rating}
-                        </div>
-                        {biz.photoUrl ? (
-                          <img
-                            src={biz.photoUrl}
-                            alt={biz.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#FF9800]" />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-80" />
-                        {biz.verified && (
-                          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-400 shadow"></span>
-                            <span className="text-white text-xs font-bold drop-shadow-md">Verificado</span>
-                          </div>
-                        )}
-                      </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {paginated.map((biz) => (
+                      <BusinessCard key={biz.id} business={biz} />
+                    ))}
+                  </div>
 
-                      <div className="p-5 flex flex-col flex-grow">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-serif text-xl font-bold text-[#6F4E37] group-hover:text-[#FF9800] transition-colors leading-tight">
-                            {biz.name}
-                          </h3>
-                          <span className="text-xs text-gray-400 font-medium ml-2 flex-shrink-0">{biz.reviewsCount} aval.</span>
-                        </div>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-[#3a2512] hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
 
-                        <p className="text-gray-600 text-sm mb-4 flex-grow line-clamp-2">{biz.description}</p>
-
-                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                          <MapPin className="h-4 w-4 text-[#FF9800] flex-shrink-0" />
-                          <span>{biz.region}, Londrina</span>
-                        </div>
-
-                        <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                          {biz.whatsapp ? (
-                            <a
-                              href={`https://wa.me/55${biz.whatsapp.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex-1"
-                            >
-                              <Button className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl py-5 font-bold shadow-sm">
-                                WhatsApp
-                              </Button>
-                            </a>
-                          ) : (
-                            <Button className="flex-1 bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl py-5 font-bold shadow-sm">
-                              Ver Perfil
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            className="flex-1 border-gray-200 text-[#6F4E37] hover:bg-[#F5F5DC] rounded-xl py-5 font-semibold"
+                      {[...Array(totalPages)].map((_, i) => {
+                        const p = i + 1;
+                        if (totalPages > 7 && Math.abs(p - page) > 2 && p !== 1 && p !== totalPages) {
+                          if (p === 2 || p === totalPages - 1) return <span key={p} className="text-gray-400 text-sm">…</span>;
+                          return null;
+                        }
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => setPage(p)}
+                            className={`w-9 h-9 rounded-lg text-sm font-bold transition-colors ${
+                              p === page
+                                ? "bg-[#d97706] text-white shadow-sm"
+                                : "border border-gray-200 bg-white text-[#3a2512] hover:bg-gray-50"
+                            }`}
                           >
-                            Detalhes
-                          </Button>
-                        </div>
-                      </div>
+                            {p}
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-[#3a2512] hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  <p className="text-center text-xs text-gray-400 mt-3 font-medium">
+                    Página {page} de {totalPages} — {sorted.length} negócios
+                  </p>
+                </>
               )}
             </div>
           </div>
-        </section>
+        </div>
       </div>
     </Layout>
   );
