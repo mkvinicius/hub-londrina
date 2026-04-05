@@ -5,8 +5,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const reviewsTable = pgTable("reviews", {
   id: serial("id").primaryKey(),
@@ -17,10 +15,5 @@ export const reviewsTable = pgTable("reviews", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertReviewSchema = createInsertSchema(reviewsTable).omit({
-  id: true,
-  createdAt: true,
-});
-export const selectReviewSchema = createSelectSchema(reviewsTable);
-export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type InsertReview = typeof reviewsTable.$inferInsert;
 export type Review = typeof reviewsTable.$inferSelect;

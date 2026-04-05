@@ -1,6 +1,4 @@
 import { pgTable, serial, text } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const categoriesTable = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -11,9 +9,5 @@ export const categoriesTable = pgTable("categories", {
   photoUrl: text("photo_url"),
 });
 
-export const insertCategorySchema = createInsertSchema(categoriesTable).omit({
-  id: true,
-});
-export const selectCategorySchema = createSelectSchema(categoriesTable);
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type InsertCategory = typeof categoriesTable.$inferInsert;
 export type Category = typeof categoriesTable.$inferSelect;

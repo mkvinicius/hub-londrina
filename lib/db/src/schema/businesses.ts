@@ -8,8 +8,6 @@ import {
   timestamp,
   pgEnum,
 } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const planTypeEnum = pgEnum("plan_type", [
   "free",
@@ -35,10 +33,5 @@ export const businessesTable = pgTable("businesses", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertBusinessSchema = createInsertSchema(businessesTable).omit({
-  id: true,
-  createdAt: true,
-});
-export const selectBusinessSchema = createSelectSchema(businessesTable);
-export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
+export type InsertBusiness = typeof businessesTable.$inferInsert;
 export type Business = typeof businessesTable.$inferSelect;
