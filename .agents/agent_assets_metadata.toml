@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "n5fWBmosO5EGcVVVO9LzO"
+uri = "file://artifacts/mockup-sandbox/public/images/hub-hero-bg.png"
+type = "image"
+title = "Londrina golden hour skyline"
+
+[[generated]]
+id = "0m3K_f5c74-opu_PCCYCy"
+uri = "file://artifacts/mockup-sandbox/public/images/biz-restaurant.png"
+type = "image"
+title = "Local Brazilian restaurant"
+
+[[generated]]
+id = "1GXUCkvTCnj16dTegIPcf"
+uri = "file://artifacts/mockup-sandbox/public/images/biz-salon.png"
+type = "image"
+title = "Modern hair salon"
+
+[[generated]]
+id = "jLSt3iDtd8DovohdXaAyy"
+uri = "file://artifacts/mockup-sandbox/public/images/biz-grocery.png"
+type = "image"
+title = "Local grocery store"
+
+[[generated]]
+id = "pNaROUUklBkSy3xmRQ8ye"
+uri = "file://artifacts/mockup-sandbox/public/images/biz-coffee.png"
+type = "image"
+title = "Artisan coffee shop"
+
+[[generated]]
+id = "y_Q8rq66OZjjd5M4WluiK"
+uri = "file://artifacts/mockup-sandbox/public/images/biz-gym.png"
+type = "image"
+title = "Modern local gym"
