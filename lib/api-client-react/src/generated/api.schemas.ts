@@ -8,3 +8,96 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type BusinessPlanType =
+  (typeof BusinessPlanType)[keyof typeof BusinessPlanType];
+
+export const BusinessPlanType = {
+  free: "free",
+  destaque: "destaque",
+  premium: "premium",
+} as const;
+
+export interface Business {
+  id: number;
+  name: string;
+  categorySlug: string;
+  region: string;
+  description: string;
+  address: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  rating: number;
+  reviewsCount: number;
+  planType: BusinessPlanType;
+  verified: boolean;
+  photoUrl?: string | null;
+  hours?: string | null;
+}
+
+export interface Category {
+  id: number;
+  slug: string;
+  name: string;
+  icon: string;
+  color: string;
+  photoUrl?: string | null;
+  businessCount?: number;
+}
+
+export interface Review {
+  id: number;
+  businessId: number;
+  author: string;
+  rating: number;
+  text: string;
+  createdAt: string;
+}
+
+export type BusinessDetail = Business & {
+  category?: Category;
+  reviews?: Review[];
+};
+
+export interface BusinessListResponse {
+  data: Business[];
+  total: number;
+}
+
+export interface CategoryListResponse {
+  data: Category[];
+}
+
+export interface ReviewListResponse {
+  data: Review[];
+}
+
+export interface ApiError {
+  error: string;
+}
+
+export type ListBusinessesParams = {
+  category?: string;
+  region?: string;
+  q?: string;
+  sort?: ListBusinessesSort;
+};
+
+export type ListBusinessesSort =
+  (typeof ListBusinessesSort)[keyof typeof ListBusinessesSort];
+
+export const ListBusinessesSort = {
+  rating: "rating",
+  recent: "recent",
+  name: "name",
+} as const;
+
+export type ListReviewsParams = {
+  businessId: number;
+};
+
+export type SearchParams = {
+  q?: string;
+  region?: string;
+  category?: string;
+};

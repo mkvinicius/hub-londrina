@@ -14,3 +14,159 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns a list of businesses with optional filters
+ * @summary List businesses
+ */
+export const ListBusinessesQueryParams = zod.object({
+  category: zod.coerce.string().optional(),
+  region: zod.coerce.string().optional(),
+  q: zod.coerce.string().optional(),
+  sort: zod.enum(["rating", "recent", "name"]).optional(),
+});
+
+export const ListBusinessesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      categorySlug: zod.string(),
+      region: zod.string(),
+      description: zod.string(),
+      address: zod.string(),
+      phone: zod.string().nullish(),
+      whatsapp: zod.string().nullish(),
+      rating: zod.number(),
+      reviewsCount: zod.number(),
+      planType: zod.enum(["free", "destaque", "premium"]),
+      verified: zod.boolean(),
+      photoUrl: zod.string().nullish(),
+      hours: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * Returns full profile of a single business
+ * @summary Get business by ID
+ */
+export const GetBusinessByIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBusinessByIdResponse = zod
+  .object({
+    id: zod.number(),
+    name: zod.string(),
+    categorySlug: zod.string(),
+    region: zod.string(),
+    description: zod.string(),
+    address: zod.string(),
+    phone: zod.string().nullish(),
+    whatsapp: zod.string().nullish(),
+    rating: zod.number(),
+    reviewsCount: zod.number(),
+    planType: zod.enum(["free", "destaque", "premium"]),
+    verified: zod.boolean(),
+    photoUrl: zod.string().nullish(),
+    hours: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      category: zod
+        .object({
+          id: zod.number(),
+          slug: zod.string(),
+          name: zod.string(),
+          icon: zod.string(),
+          color: zod.string(),
+          photoUrl: zod.string().nullish(),
+          businessCount: zod.number().optional(),
+        })
+        .optional(),
+      reviews: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            businessId: zod.number(),
+            author: zod.string(),
+            rating: zod.number(),
+            text: zod.string(),
+            createdAt: zod.coerce.date(),
+          }),
+        )
+        .optional(),
+    }),
+  );
+
+/**
+ * Returns all categories with business count
+ * @summary List categories
+ */
+export const ListCategoriesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      name: zod.string(),
+      icon: zod.string(),
+      color: zod.string(),
+      photoUrl: zod.string().nullish(),
+      businessCount: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary List reviews for a business
+ */
+export const ListReviewsQueryParams = zod.object({
+  businessId: zod.coerce.number(),
+});
+
+export const ListReviewsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      businessId: zod.number(),
+      author: zod.string(),
+      rating: zod.number(),
+      text: zod.string(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * Full-text search across name and description
+ * @summary Search businesses
+ */
+export const SearchQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  region: zod.coerce.string().optional(),
+  category: zod.coerce.string().optional(),
+});
+
+export const SearchResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      categorySlug: zod.string(),
+      region: zod.string(),
+      description: zod.string(),
+      address: zod.string(),
+      phone: zod.string().nullish(),
+      whatsapp: zod.string().nullish(),
+      rating: zod.number(),
+      reviewsCount: zod.number(),
+      planType: zod.enum(["free", "destaque", "premium"]),
+      verified: zod.boolean(),
+      photoUrl: zod.string().nullish(),
+      hours: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});

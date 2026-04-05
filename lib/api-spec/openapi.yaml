@@ -10,6 +10,14 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: businesses
+    description: Business directory
+  - name: categories
+    description: Business categories
+  - name: reviews
+    description: Business reviews
+  - name: search
+    description: Search operations
 paths:
   /healthz:
     get:
@@ -24,6 +32,132 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /businesses:
+    get:
+      operationId: listBusinesses
+      tags: [businesses]
+      summary: List businesses
+      description: Returns a list of businesses with optional filters
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [rating, recent, name]
+      responses:
+        "200":
+          description: List of businesses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessListResponse"
+
+  /businesses/{id}:
+    get:
+      operationId: getBusinessById
+      tags: [businesses]
+      summary: Get business by ID
+      description: Returns full profile of a single business
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Business detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List categories
+      description: Returns all categories with business count
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryListResponse"
+
+  /reviews:
+    get:
+      operationId: listReviews
+      tags: [reviews]
+      summary: List reviews for a business
+      parameters:
+        - name: businessId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewListResponse"
+
+  /search:
+    get:
+      operationId: search
+      tags: [search]
+      summary: Search businesses
+      description: Full-text search across name and description
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessListResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +168,153 @@ components:
       required:
         - status
 
+    Business:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        categorySlug:
+          type: string
+        region:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        whatsapp:
+          type: string
+          nullable: true
+        rating:
+          type: number
+          format: float
+        reviewsCount:
+          type: integer
+        planType:
+          type: string
+          enum: [free, destaque, premium]
+        verified:
+          type: boolean
+        photoUrl:
+          type: string
+          nullable: true
+        hours:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - categorySlug
+        - region
+        - description
+        - address
+        - rating
+        - reviewsCount
+        - planType
+        - verified
+
+    BusinessDetail:
+      allOf:
+        - $ref: "#/components/schemas/Business"
+        - type: object
+          properties:
+            category:
+              $ref: "#/components/schemas/Category"
+            reviews:
+              type: array
+              items:
+                $ref: "#/components/schemas/Review"
+
+    BusinessListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+        total:
+          type: integer
+      required:
+        - data
+        - total
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        photoUrl:
+          type: string
+          nullable: true
+        businessCount:
+          type: integer
+      required:
+        - id
+        - slug
+        - name
+        - icon
+        - color
+
+    CategoryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+      required:
+        - data
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        businessId:
+          type: integer
+        author:
+          type: string
+        rating:
+          type: integer
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - businessId
+        - author
+        - rating
+        - text
+        - createdAt
+
+    ReviewListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+      required:
+        - data
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
