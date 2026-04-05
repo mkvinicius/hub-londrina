@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Hub Londrina — Negócio Local"
+version = "1.0.0"
+id = "artifacts/hub-londrina"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22662
+
+[services.development]
+run = "pnpm --filter @workspace/hub-londrina run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hub-londrina", "run", "build" ]
+publicDir = "artifacts/hub-londrina/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22662"
+BASE_PATH = "/"
