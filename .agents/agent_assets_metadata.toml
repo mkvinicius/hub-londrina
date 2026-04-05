@@ -36,3 +36,21 @@ id = "y_Q8rq66OZjjd5M4WluiK"
 uri = "file://artifacts/mockup-sandbox/public/images/biz-gym.png"
 type = "image"
 title = "Modern local gym"
+
+[[generated]]
+id = "fUaX8D0R7gQygaG5wND-U"
+uri = "file://artifacts/mockup-sandbox/public/images/hub-search-bg.png"
+type = "image"
+title = "Beige and brown gradient narrow banner"
+
+[[generated]]
+id = "ASfsd9g0cHibhaFs6n3VU"
+uri = "file://artifacts/mockup-sandbox/public/images/anunciante-hero.png"
+type = "image"
+title = "Empreendedora sorridente em sua loja"
+
+[[generated]]
+id = "GfXT4r58CrKHifU3IlXav"
+uri = "file://artifacts/mockup-sandbox/public/images/biz-coffee-detail.png"
+type = "image"
+title = "cafe artesanal visto de cima"
