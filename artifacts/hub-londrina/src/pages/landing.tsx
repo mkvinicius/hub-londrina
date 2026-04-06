@@ -95,18 +95,15 @@ export default function Landing() {
           {/* Search bar */}
           <div className="w-full max-w-3xl">
             <div
-              className="flex flex-col sm:flex-row overflow-visible relative z-20 rounded-2xl"
+              className="flex flex-col sm:flex-row overflow-visible relative z-20 rounded-2xl p-1.5 gap-1.5"
               style={{
-                background: "rgba(255,255,255,0.93)",
-                backdropFilter: "blur(14px)",
-                WebkitBackdropFilter: "blur(14px)",
-                boxShadow: "0 8px 40px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.7)",
-                border: "1px solid rgba(255,255,255,0.55)",
+                background: "rgba(255,255,255,0.97)",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2)",
               }}
             >
               {/* Text input */}
-              <div className="flex flex-1 items-center px-5 py-4 gap-3 border-b sm:border-b-0 sm:border-r border-gray-200/70">
-                <Search className="h-5 w-5 text-[#b45309] flex-shrink-0" />
+              <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
+                <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
                 <input
                   type="text"
                   value={query}
@@ -122,14 +119,14 @@ export default function Landing() {
                 <button
                   type="button"
                   onClick={() => setRegionOpen(!regionOpen)}
-                  className="flex items-center gap-3 px-5 py-4 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto border-b sm:border-b-0 border-gray-200/70"
+                  className="flex items-center gap-3 px-5 py-3 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full"
                 >
-                  <span>{region || "Selecione a Região"}</span>
+                  <span className="text-sm">{region || "Selecione a Região"}</span>
                   <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${regionOpen ? "rotate-180" : ""}`} />
                 </button>
                 {regionOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl z-50 min-w-[200px] py-2 overflow-hidden"
-                    style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.1)" }}>
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl z-50 min-w-[200px] py-2 overflow-hidden"
+                    style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
                     {regions.map((r) => (
                       <button
                         key={r}
@@ -150,17 +147,19 @@ export default function Landing() {
               <button
                 type="button"
                 onClick={handleSearch}
-                className="flex items-center justify-center gap-2 text-white font-bold text-base px-8 py-4 rounded-b-2xl sm:rounded-b-none sm:rounded-r-2xl transition-all duration-200 active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 text-white font-bold text-base px-8 py-3 rounded-xl transition-all duration-200 active:scale-[0.97] flex-shrink-0"
                 style={{
-                  background: "linear-gradient(135deg, #e8940a 0%, #c96a08 55%, #a04d06 100%)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.15), 0 4px 16px rgba(180,83,9,0.45)",
-                  textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                  background: "linear-gradient(160deg, #f0a020 0%, #d97706 40%, #b45309 100%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2), 0 4px 12px rgba(180,83,9,0.4)",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.25)",
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, #f59e1a 0%, #d97706 55%, #b45309 100%)";
+                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(160deg, #f7b733 0%, #f0a020 40%, #d97706 100%)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.2), 0 6px 20px rgba(180,83,9,0.5)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, #e8940a 0%, #c96a08 55%, #a04d06 100%)";
+                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(160deg, #f0a020 0%, #d97706 40%, #b45309 100%)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2), 0 4px 12px rgba(180,83,9,0.4)";
                 }}
               >
                 <Search className="h-4 w-4" />
