@@ -176,28 +176,39 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className="bg-[#6F4E37] py-5">
-        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-center gap-6 md:gap-16 text-white">
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-black">+500</span>
-            <span className="text-xs uppercase tracking-wider text-white/70 font-semibold">Negócios Cadastrados</span>
-          </div>
-          <div className="hidden md:block w-px h-10 bg-white/20"></div>
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-black">+12 mil</span>
-            <span className="text-xs uppercase tracking-wider text-white/70 font-semibold">Usuários Ativos</span>
-          </div>
-          <div className="hidden md:block w-px h-10 bg-white/20"></div>
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-black">10</span>
-            <span className="text-xs uppercase tracking-wider text-white/70 font-semibold">Categorias</span>
-          </div>
-          <div className="hidden md:block w-px h-10 bg-white/20"></div>
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-black">5</span>
-            <span className="text-xs uppercase tracking-wider text-white/70 font-semibold">Regiões da Cidade</span>
-          </div>
+      {/* Stats card — glassmorphism flutuante */}
+      <div className="relative z-20 flex justify-center px-4" style={{ marginTop: "-36px" }}>
+        <div
+          className="w-full max-w-4xl flex flex-wrap items-center justify-center gap-6 md:gap-0 text-white py-6 px-8 md:px-12"
+          style={{
+            borderRadius: "20px",
+            background: "linear-gradient(135deg, rgba(111,78,55,0.82) 0%, rgba(58,37,18,0.90) 100%)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10)",
+          }}
+        >
+          {[
+            { value: "+500", label: "Negócios Cadastrados" },
+            { value: "+12 mil", label: "Usuários Ativos" },
+            { value: "10", label: "Categorias" },
+            { value: "5", label: "Regiões da Cidade" },
+          ].map((stat, i, arr) => (
+            <div key={stat.label} className="flex items-center gap-0 flex-1 min-w-[120px] justify-center">
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-black tracking-tight" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+                  {stat.value}
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-white/65 font-semibold mt-0.5">
+                  {stat.label}
+                </span>
+              </div>
+              {i < arr.length - 1 && (
+                <div className="hidden md:block w-px h-10 bg-white/15 ml-auto mr-0 self-center mx-6" />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
