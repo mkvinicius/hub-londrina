@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "n5fWBmosO5EGcVVVO9LzO"
@@ -54,3 +53,9 @@ id = "GfXT4r58CrKHifU3IlXav"
 uri = "file://artifacts/mockup-sandbox/public/images/biz-coffee-detail.png"
 type = "image"
 title = "cafe artesanal visto de cima"
+
+[[outputs]]
+id = "cn4ckMkZs3qK-Q9IBbOFi"
+uri = "file://REGRAS_DE_NEGOCIO.md"
+type = "text"
+title = "Hub Londrina — Regras de Negócio v1.0"
