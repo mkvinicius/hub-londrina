@@ -94,10 +94,19 @@ export default function Landing() {
 
           {/* Search bar */}
           <div className="w-full max-w-3xl">
-            <div className="flex flex-col sm:flex-row bg-white rounded-2xl shadow-2xl overflow-visible border border-white/20 relative z-20">
+            <div
+              className="flex flex-col sm:flex-row overflow-visible relative z-20 rounded-2xl"
+              style={{
+                background: "rgba(255,255,255,0.93)",
+                backdropFilter: "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+                boxShadow: "0 8px 40px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.7)",
+                border: "1px solid rgba(255,255,255,0.55)",
+              }}
+            >
               {/* Text input */}
-              <div className="flex flex-1 items-center px-5 py-4 gap-3 border-b sm:border-b-0 sm:border-r border-gray-200">
-                <Search className="h-5 w-5 text-gray-400 flex-shrink-0" />
+              <div className="flex flex-1 items-center px-5 py-4 gap-3 border-b sm:border-b-0 sm:border-r border-gray-200/70">
+                <Search className="h-5 w-5 text-[#b45309] flex-shrink-0" />
                 <input
                   type="text"
                   value={query}
@@ -113,13 +122,14 @@ export default function Landing() {
                 <button
                   type="button"
                   onClick={() => setRegionOpen(!regionOpen)}
-                  className="flex items-center gap-3 px-5 py-4 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto border-b sm:border-b-0 border-gray-200"
+                  className="flex items-center gap-3 px-5 py-4 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto border-b sm:border-b-0 border-gray-200/70"
                 >
                   <span>{region || "Selecione a Região"}</span>
                   <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${regionOpen ? "rotate-180" : ""}`} />
                 </button>
                 {regionOpen && (
-                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 min-w-[200px] py-2 overflow-hidden">
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl z-50 min-w-[200px] py-2 overflow-hidden"
+                    style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.1)" }}>
                     {regions.map((r) => (
                       <button
                         key={r}
@@ -140,7 +150,18 @@ export default function Landing() {
               <button
                 type="button"
                 onClick={handleSearch}
-                className="flex items-center justify-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white font-bold text-base px-8 py-4 transition-colors rounded-b-2xl sm:rounded-b-none sm:rounded-r-2xl"
+                className="flex items-center justify-center gap-2 text-white font-bold text-base px-8 py-4 rounded-b-2xl sm:rounded-b-none sm:rounded-r-2xl transition-all duration-200 active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(135deg, #e8940a 0%, #c96a08 55%, #a04d06 100%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.15), 0 4px 16px rgba(180,83,9,0.45)",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, #f59e1a 0%, #d97706 55%, #b45309 100%)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, #e8940a 0%, #c96a08 55%, #a04d06 100%)";
+                }}
               >
                 <Search className="h-4 w-4" />
                 Buscar
