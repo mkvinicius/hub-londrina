@@ -179,10 +179,10 @@ export default function Landing() {
       {/* Stats card — glassmorphism flutuante */}
       <div className="relative z-20 flex justify-center px-4" style={{ marginTop: "-36px" }}>
         <div
-          className="w-full max-w-3xl flex flex-wrap items-center justify-center gap-6 md:gap-0 text-white py-5 px-6 md:px-10"
+          className="w-full max-w-xl flex items-center justify-around text-white py-8 px-6"
           style={{
-            borderRadius: "20px",
-            background: "linear-gradient(135deg, rgba(111,78,55,0.82) 0%, rgba(58,37,18,0.90) 100%)",
+            borderRadius: "24px",
+            background: "linear-gradient(135deg, rgba(111,78,55,0.85) 0%, rgba(58,37,18,0.92) 100%)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
             border: "1px solid rgba(255,255,255,0.12)",
@@ -190,22 +190,22 @@ export default function Landing() {
           }}
         >
           {[
-            { value: "+500", label: "Negócios Cadastrados" },
-            { value: "+12 mil", label: "Usuários Ativos" },
+            { value: "+500", label: "Negócios" },
+            { value: "+12 mil", label: "Usuários" },
             { value: "10", label: "Categorias" },
-            { value: "5", label: "Regiões da Cidade" },
+            { value: "5", label: "Regiões" },
           ].map((stat, i, arr) => (
-            <div key={stat.label} className="flex items-center gap-0 flex-1 min-w-[120px] justify-center">
-              <div className="flex flex-col items-center">
-                <span className="text-2xl font-black tracking-tight" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+            <div key={stat.label} className="flex items-center">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-3xl font-black tracking-tight leading-none" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
                   {stat.value}
                 </span>
-                <span className="text-[11px] uppercase tracking-wider text-white/65 font-semibold mt-0.5">
+                <span className="text-[10px] uppercase tracking-widest text-white/60 font-bold">
                   {stat.label}
                 </span>
               </div>
               {i < arr.length - 1 && (
-                <div className="hidden md:block w-px h-10 bg-white/15 ml-auto mr-0 self-center mx-6" />
+                <div className="w-px h-12 bg-white/15 mx-6" />
               )}
             </div>
           ))}
