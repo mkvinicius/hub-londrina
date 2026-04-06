@@ -79,10 +79,31 @@ export function Layout({ children }: LayoutProps) {
               )}
             </button>
 
-            <Link href="/anuncie">
-              <Button className="hidden md:flex bg-[#d97706] hover:bg-[#b45309] text-white rounded-full px-6 h-10 font-bold text-sm shadow-none border-0">
+            <Link href="/anuncie" className="hidden md:flex">
+              <button
+                className="flex items-center justify-center text-white font-bold text-sm px-6 py-2.5 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5"
+                style={{
+                  borderRadius: "999px",
+                  background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
+                  boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  transform: "translateY(-1px)",
+                }}
+                onMouseEnter={(e) => {
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.style.background = "linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%)";
+                  btn.style.boxShadow = "0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2)";
+                  btn.style.transform = "translateY(-3px)";
+                }}
+                onMouseLeave={(e) => {
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.style.background = "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)";
+                  btn.style.boxShadow = "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)";
+                  btn.style.transform = "translateY(-1px)";
+                }}
+              >
                 Anuncie Aqui
-              </Button>
+              </button>
             </Link>
             <Button
               variant="ghost"
