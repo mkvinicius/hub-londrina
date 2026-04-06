@@ -179,8 +179,11 @@ export default function Landing() {
       {/* Stats card — glassmorphism flutuante */}
       <div className="relative z-20 flex justify-center px-4" style={{ marginTop: "-36px" }}>
         <div
-          className="w-full max-w-xl flex items-center justify-around text-white py-8 px-6"
+          className="flex items-center justify-around text-white px-8"
           style={{
+            width: "800px",
+            maxWidth: "calc(100% - 32px)",
+            height: "80px",
             borderRadius: "24px",
             background: "linear-gradient(135deg, rgba(111,78,55,0.85) 0%, rgba(58,37,18,0.92) 100%)",
             backdropFilter: "blur(20px)",
