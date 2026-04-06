@@ -58,27 +58,43 @@ export default function Landing() {
   return (
     <Layout>
       {/* ===== HERO SECTION ===== */}
-      <section className="relative w-full overflow-hidden bg-[#f5ead8]">
-        {/* Hero content sits on top, image anchored to bottom */}
-        <div className="relative z-10 flex flex-col items-center pt-14 pb-0 px-4 text-center">
+      <div
+        className="relative w-full overflow-hidden"
+        style={{ height: "clamp(480px, 72vh, 700px)" }}
+      >
+        {/* Background image — full, sem ofuscação */}
+        <img
+          src="/hero-empreendedores.jpg"
+          alt="Empreendedores locais de Londrina"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: "center 40%" }}
+        />
+        {/* Overlay escuro leve só para legibilidade do texto */}
+        <div className="absolute inset-0 bg-black/45" />
+
+        {/* Content — absolutamente centrado */}
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center">
           <h1
-            className="font-black uppercase leading-tight mb-3 max-w-4xl"
+            className="font-black uppercase leading-tight mb-4 max-w-4xl text-white"
             style={{
-              color: "#4a2c0e",
-              fontSize: "clamp(1.5rem, 4.2vw, 2.9rem)",
+              fontSize: "clamp(1.8rem, 4.5vw, 3.4rem)",
               letterSpacing: "0.01em",
+              textShadow: "0 2px 20px rgba(0,0,0,0.5)",
             }}
           >
             Descubra os Melhores Negócios Locais de Londrina
           </h1>
 
-          <p className="text-[#7a5230] text-base md:text-lg font-medium mb-8">
+          <p
+            className="text-white text-base md:text-lg font-medium mb-10"
+            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}
+          >
             Encontre produtos e serviços perto de você.
           </p>
 
           {/* Search bar */}
-          <div className="w-full max-w-3xl mb-0">
-            <div className="flex flex-col sm:flex-row bg-white rounded-2xl shadow-xl overflow-visible border border-gray-200 relative z-20">
+          <div className="w-full max-w-3xl">
+            <div className="flex flex-col sm:flex-row bg-white rounded-2xl shadow-2xl overflow-visible border border-white/20 relative z-20">
               {/* Text input */}
               <div className="flex flex-1 items-center px-5 py-4 gap-3 border-b sm:border-b-0 sm:border-r border-gray-200">
                 <Search className="h-5 w-5 text-gray-400 flex-shrink-0" />
@@ -132,23 +148,7 @@ export default function Landing() {
             </div>
           </div>
         </div>
-
-        {/* Hero image — positioned to show people, gradient masks top portion */}
-        <div className="relative mt-0" style={{ height: "clamp(280px, 40vw, 480px)" }}>
-          <div
-            className="absolute inset-0 z-10 pointer-events-none"
-            style={{
-              background: "linear-gradient(to bottom, #f5ead8 0%, #f5ead8 20%, rgba(245,234,216,0.98) 38%, rgba(245,234,216,0.80) 52%, rgba(245,234,216,0.30) 65%, transparent 78%)",
-            }}
-          />
-          <img
-            src="/hero-empreendedores.jpg"
-            alt="Empreendedores locais de Londrina"
-            className="w-full h-full object-cover"
-            style={{ objectPosition: "center 65%" }}
-          />
-        </div>
-      </section>
+      </div>
 
       {/* Stats bar */}
       <div className="bg-[#6F4E37] py-5">
