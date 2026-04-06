@@ -59,8 +59,8 @@ export default function Landing() {
     <Layout>
       {/* ===== HERO SECTION ===== */}
       <div
-        className="relative w-full overflow-hidden"
-        style={{ height: "clamp(480px, 72vh, 700px)" }}
+        className="relative w-full"
+        style={{ height: "clamp(480px, 72vh, 700px)", zIndex: 10 }}
       >
         {/* Background image — full, sem ofuscação */}
         <img
