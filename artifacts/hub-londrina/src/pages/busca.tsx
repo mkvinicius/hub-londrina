@@ -73,11 +73,11 @@ export default function Busca() {
 
   return (
     <Layout>
-      <div className="min-h-screen pb-20 bg-gray-50">
+      <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors">
         {/* Search Bar */}
-        <div className="bg-white border-b border-gray-100 py-4 px-4">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-4 px-4 transition-colors">
           <div className="max-w-4xl mx-auto">
-            <div className="flex flex-col sm:flex-row bg-gray-50 rounded-xl border border-gray-200 overflow-hidden gap-0">
+            <div className="flex flex-col sm:flex-row bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden gap-0">
               <div className="flex-1 relative flex items-center">
                 <Search className="absolute left-4 h-5 w-5 text-gray-400" />
                 <Input
@@ -118,7 +118,7 @@ export default function Busca() {
         <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-            <h1 className="font-bold text-xl text-[#3a2512]">
+            <h1 className="font-bold text-xl text-[#3a2512] dark:text-gray-100">
               {isLoading ? (
                 <span className="text-gray-400">Buscando...</span>
               ) : (
@@ -133,7 +133,7 @@ export default function Busca() {
 
             <div className="flex items-center gap-3">
               <button
-                className="md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] border border-gray-200 rounded-xl px-4 py-2.5 bg-white"
+                className="md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 bg-white dark:bg-gray-800"
                 onClick={() => setMobileFiltersOpen(true)}
               >
                 <SlidersHorizontal className="h-4 w-4" />
@@ -143,10 +143,10 @@ export default function Busca() {
                 )}
               </button>
 
-              <div className="flex items-center bg-white rounded-xl border border-gray-200 px-3 h-10 gap-2">
-                <span className="text-xs text-gray-500 whitespace-nowrap font-medium">Ordenar:</span>
+              <div className="flex items-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-3 h-10 gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">Ordenar:</span>
                 <Select value={sort} onValueChange={setSort}>
-                  <SelectTrigger className="border-0 shadow-none h-8 px-0 focus:ring-0 text-sm font-bold text-[#3a2512] w-[110px]">
+                  <SelectTrigger className="border-0 shadow-none h-8 px-0 focus:ring-0 text-sm font-bold text-[#3a2512] dark:text-gray-100 w-[110px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-0 shadow-xl">
@@ -162,36 +162,36 @@ export default function Busca() {
           <div className="flex gap-6 items-start">
             {/* Sidebar Filters */}
             <aside className={`
-              w-[240px] flex-shrink-0 bg-white rounded-2xl p-5 shadow-sm border border-gray-100
+              w-[240px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors
               ${mobileFiltersOpen
                 ? "fixed inset-0 z-[60] overflow-auto rounded-none w-full shadow-none"
                 : "hidden md:block sticky top-24"}
             `}>
               {mobileFiltersOpen ? (
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-                  <h2 className="font-black text-xl text-[#3a2512]">Filtros</h2>
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
+                  <h2 className="font-black text-xl text-[#3a2512] dark:text-gray-100">Filtros</h2>
                   <button onClick={() => setMobileFiltersOpen(false)}>
                     <X className="h-6 w-6 text-gray-500" />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
                   <SlidersHorizontal className="h-4 w-4 text-[#d97706]" />
-                  <h2 className="font-black text-base text-[#3a2512]">Filtros</h2>
+                  <h2 className="font-black text-base text-[#3a2512] dark:text-gray-100">Filtros</h2>
                 </div>
               )}
 
               <div className="space-y-6">
                 {/* Category */}
                 <div>
-                  <h3 className="font-bold text-sm text-[#3a2512] mb-3 flex items-center justify-between">
+                  <h3 className="font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between">
                     Categoria <ChevronDown className="h-4 w-4 text-gray-400" />
                   </h3>
                   <div className="space-y-1">
                     <button
                       onClick={() => setCategoria("")}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        !categoria ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 hover:bg-gray-50"
+                        !categoria ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       Todas
@@ -204,7 +204,7 @@ export default function Busca() {
                           key={cat.id}
                           onClick={() => setCategoria(cat.slug === categoria ? "" : cat.slug)}
                           className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between ${
-                            categoria === cat.slug ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 hover:bg-gray-50"
+                            categoria === cat.slug ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                           }`}
                         >
                           <span className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export default function Busca() {
 
                 {/* Region */}
                 <div>
-                  <h3 className="font-bold text-sm text-[#3a2512] mb-3 flex items-center justify-between">
+                  <h3 className="font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between">
                     Região <ChevronDown className="h-4 w-4 text-gray-400" />
                   </h3>
                   <div className="space-y-1">
@@ -233,7 +233,7 @@ export default function Busca() {
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           (reg === "todas" && !region) || region === reg
                             ? "bg-[#d97706]/10 text-[#d97706] font-bold"
-                            : "text-gray-600 hover:bg-gray-50"
+                            : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                         }`}
                       >
                         {reg === "todas" ? "Todas" : reg}

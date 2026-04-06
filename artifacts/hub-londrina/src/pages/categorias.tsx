@@ -33,14 +33,14 @@ export default function Categorias() {
 
   return (
     <Layout>
-      <section className="pt-10 pb-20 bg-white relative z-10">
+      <section className="pt-10 pb-20 bg-white dark:bg-gray-900 relative z-10 transition-colors">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-2 block">Todas as categorias</span>
-            <h1 className="font-black text-4xl md:text-5xl text-[#3a2512] mb-4">
+            <h1 className="font-black text-4xl md:text-5xl text-[#3a2512] dark:text-gray-100 mb-4">
               O que você está procurando?
             </h1>
-            <p className="text-gray-600 text-base">
+            <p className="text-gray-600 dark:text-gray-300 text-base">
               Explore os melhores negócios de Londrina organizados por categoria.
             </p>
           </div>

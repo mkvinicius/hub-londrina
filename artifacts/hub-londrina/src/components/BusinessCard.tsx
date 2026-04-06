@@ -13,11 +13,11 @@ export function BusinessCard({ business: biz, size = "md" }: BusinessCardProps) 
 
   return (
     <div
-      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col"
+      className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg dark:hover:shadow-gray-900/50 transition-all duration-300 cursor-pointer flex flex-col"
       onClick={() => navigate(`/negocio/${biz.id}`)}
     >
       <div className={`relative overflow-hidden flex-shrink-0 ${size === "sm" ? "h-40" : "h-48"}`}>
-        <div className="absolute top-3 right-3 z-10 bg-white px-2 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] shadow">
+        <div className="absolute top-3 right-3 z-10 bg-white dark:bg-gray-900 px-2 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] dark:text-gray-100 shadow">
           <Star className="h-3.5 w-3.5 fill-[#d97706] text-[#d97706]" />
           {biz.rating}
         </div>
@@ -36,11 +36,11 @@ export function BusinessCard({ business: biz, size = "md" }: BusinessCardProps) 
         <span className="inline-block text-xs font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full mb-2 uppercase tracking-wider w-fit">
           {biz.categorySlug}
         </span>
-        <h3 className="font-bold text-base text-[#3a2512] group-hover:text-[#d97706] transition-colors leading-tight mb-1">
+        <h3 className="font-bold text-base text-[#3a2512] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight mb-1">
           {biz.name}
         </h3>
-        <p className="text-gray-500 text-xs mb-3 line-clamp-2 flex-grow">{biz.description}</p>
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-4">
+        <p className="text-gray-500 dark:text-gray-400 text-xs mb-3 line-clamp-2 flex-grow">{biz.description}</p>
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-medium mb-4">
           <MapPin className="h-3.5 w-3.5 text-[#d97706] flex-shrink-0" />
           {biz.region}
         </div>

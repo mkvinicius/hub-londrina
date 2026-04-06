@@ -148,13 +148,13 @@ export default function Anuncie() {
       </section>
 
       {/* Benefícios */}
-      <section id="beneficios" className="py-24 bg-[#F5F5DC]">
+      <section id="beneficios" className="py-24 bg-[#F5F5DC] dark:bg-gray-900 transition-colors">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="font-serif text-4xl md:text-5xl font-black text-[#6F4E37] mb-6">
+            <h2 className="font-serif text-4xl md:text-5xl font-black text-[#6F4E37] dark:text-amber-400 mb-6">
               Por que anunciar no Hub Londrina?
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-gray-600 dark:text-gray-300">
               A plataforma focada 100% em conectar o comércio local com moradores da cidade.
             </p>
           </div>
@@ -162,13 +162,13 @@ export default function Anuncie() {
             {beneficios.map((b, i) => (
               <div
                 key={i}
-                className="bg-white p-8 rounded-3xl shadow-sm border border-[#6F4E37]/5 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-[#6F4E37]/5 dark:border-gray-700 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
               >
                 <div className={`w-14 h-14 ${b.bg} rounded-2xl flex items-center justify-center mb-6`}>
                   <b.icon className={`h-7 w-7 ${b.color}`} />
                 </div>
-                <h3 className="font-bold text-xl text-[#6F4E37] mb-3">{b.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{b.desc}</p>
+                <h3 className="font-bold text-xl text-[#6F4E37] dark:text-gray-100 mb-3">{b.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{b.desc}</p>
               </div>
             ))}
           </div>
@@ -176,21 +176,21 @@ export default function Anuncie() {
       </section>
 
       {/* Como Funciona */}
-      <section id="como-funciona" className="py-24 bg-white border-y border-gray-100">
+      <section id="como-funciona" className="py-24 bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 transition-colors">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="font-serif text-4xl md:text-5xl font-black text-[#6F4E37] mb-6">Como funciona</h2>
-            <p className="text-lg text-gray-600">Um processo simples e rápido para colocar seu negócio online.</p>
+            <h2 className="font-serif text-4xl md:text-5xl font-black text-[#6F4E37] dark:text-gray-100 mb-6">Como funciona</h2>
+            <p className="text-lg text-gray-600 dark:text-gray-300">Um processo simples e rápido para colocar seu negócio online.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
-            <div className="hidden md:block absolute top-12 left-0 right-0 h-0.5 bg-gray-100 z-0"></div>
+            <div className="hidden md:block absolute top-12 left-0 right-0 h-0.5 bg-gray-100 dark:bg-gray-800 z-0"></div>
             {steps.map((step, i) => (
               <div key={i} className="relative z-10 flex flex-col items-center text-center">
-                <div className="w-24 h-24 bg-white rounded-full border-4 border-[#F5F5DC] shadow-lg flex items-center justify-center text-3xl font-black text-[#FF9800] mb-6">
+                <div className="w-24 h-24 bg-white dark:bg-gray-800 rounded-full border-4 border-[#F5F5DC] dark:border-gray-700 shadow-lg flex items-center justify-center text-3xl font-black text-[#FF9800] mb-6">
                   {i + 1}
                 </div>
-                <h3 className="font-bold text-xl text-[#6F4E37] mb-2">{step.title}</h3>
-                <p className="text-gray-600">{step.desc}</p>
+                <h3 className="font-bold text-xl text-[#6F4E37] dark:text-gray-100 mb-2">{step.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -198,32 +198,32 @@ export default function Anuncie() {
       </section>
 
       {/* Planos */}
-      <section id="planos" className="py-32 bg-[#F5F5DC]">
+      <section id="planos" className="py-32 bg-[#F5F5DC] dark:bg-gray-900 transition-colors">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-20">
-            <h2 className="font-serif text-4xl md:text-5xl font-black text-[#6F4E37] mb-6">
+            <h2 className="font-serif text-4xl md:text-5xl font-black text-[#6F4E37] dark:text-gray-100 mb-6">
               Escolha o plano certo para você
             </h2>
-            <p className="text-lg text-gray-600">Sem taxas escondidas. Cancele quando quiser.</p>
+            <p className="text-lg text-gray-600 dark:text-gray-300">Sem taxas escondidas. Cancele quando quiser.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-center">
             {/* Gratuito */}
-            <div className="bg-white rounded-[2rem] p-10 shadow-lg border border-gray-200">
-              <h3 className="font-serif text-2xl font-black text-[#6F4E37] mb-2">Gratuito</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-10 shadow-lg border border-gray-200 dark:border-gray-700">
+              <h3 className="font-serif text-2xl font-black text-[#6F4E37] dark:text-gray-100 mb-2">Gratuito</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-black text-[#6F4E37]">R$0</span>
-                <span className="text-gray-500 font-medium">/mês</span>
+                <span className="text-5xl font-black text-[#6F4E37] dark:text-gray-100">R$0</span>
+                <span className="text-gray-500 dark:text-gray-400 font-medium">/mês</span>
               </div>
               <ul className="space-y-4 mb-10 min-h-[200px]">
                 {["Perfil básico do negócio", "1 foto na galeria", "Link para WhatsApp", "Aparece nas buscas locais"].map((f, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-600">
+                  <li key={i} className="flex items-start gap-3 text-gray-600 dark:text-gray-300">
                     <Check className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
                     <span>{f}</span>
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 rounded-2xl py-6 font-bold text-lg">
+              <Button variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl py-6 font-bold text-lg">
                 Começar Grátis
               </Button>
             </div>
@@ -298,27 +298,27 @@ export default function Anuncie() {
       </section>
 
       {/* Depoimentos */}
-      <section id="depoimentos" className="py-24 bg-white">
+      <section id="depoimentos" className="py-24 bg-white dark:bg-gray-900 transition-colors">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="font-serif text-4xl font-black text-[#6F4E37] mb-6">Quem usa, recomenda</h2>
+            <h2 className="font-serif text-4xl font-black text-[#6F4E37] dark:text-gray-100 mb-6">Quem usa, recomenda</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {depoimentos.map((dep, i) => (
-              <div key={i} className="bg-[#F5F5DC]/50 p-8 rounded-3xl border border-gray-100">
+              <div key={i} className="bg-[#F5F5DC]/50 dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700">
                 <div className="flex gap-1 mb-4 text-[#FF9800]">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} className="w-4 h-4 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 italic mb-6">"{dep.text}"</p>
+                <p className="text-gray-700 dark:text-gray-300 italic mb-6">"{dep.text}"</p>
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${dep.color}`}>
                     {dep.name.charAt(0)}
                   </div>
                   <div>
-                    <div className="font-bold text-[#6F4E37]">{dep.name}</div>
-                    <div className="text-sm text-gray-500">{dep.biz}</div>
+                    <div className="font-bold text-[#6F4E37] dark:text-gray-100">{dep.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{dep.biz}</div>
                   </div>
                 </div>
               </div>

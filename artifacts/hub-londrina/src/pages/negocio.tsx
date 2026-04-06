@@ -95,7 +95,7 @@ export default function Negocio() {
 
   return (
     <Layout>
-      <div className="pb-20 bg-gray-50 min-h-screen">
+      <div className="pb-20 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
         {/* Hero Section */}
         <div className="relative h-[320px] bg-[#3a2512] overflow-hidden">
           {business.photoUrl ? (
@@ -147,7 +147,7 @@ export default function Negocio() {
         </div>
 
         {/* Quick Actions Bar */}
-        <div className="bg-white border-b border-gray-100 shadow-sm sticky top-16 z-40">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm sticky top-16 z-40 transition-colors">
           <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex w-full sm:w-auto items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
               {business.whatsapp && (
@@ -211,7 +211,7 @@ export default function Negocio() {
             {/* Left — Tabs */}
             <div className="lg:col-span-2 space-y-6">
               <Tabs defaultValue="sobre" className="w-full">
-                <TabsList className="bg-white border border-gray-100 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
+                <TabsList className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
                   <TabsTrigger value="sobre" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Sobre
                   </TabsTrigger>
@@ -226,16 +226,16 @@ export default function Negocio() {
                 </TabsList>
 
                 <TabsContent value="sobre" className="focus-visible:outline-none">
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                    <h2 className="font-black text-2xl text-[#3a2512] mb-4">Sobre o Negócio</h2>
-                    <p className="text-gray-600 leading-relaxed text-base">{business.description}</p>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-4">Sobre o Negócio</h2>
+                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-base">{business.description}</p>
                   </div>
                 </TabsContent>
 
                 {business.photoUrl && (
                   <TabsContent value="fotos" className="focus-visible:outline-none">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                      <h2 className="font-black text-2xl text-[#3a2512] mb-4">Galeria de Fotos</h2>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                      <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-4">Galeria de Fotos</h2>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <div className="aspect-square rounded-xl overflow-hidden">
                           <img
@@ -250,13 +250,13 @@ export default function Negocio() {
                 )}
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                    <h2 className="font-black text-2xl text-[#3a2512] mb-6">Avaliações</h2>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-6">Avaliações</h2>
 
                     {reviews.length > 0 && (
-                      <div className="flex flex-col md:flex-row items-center gap-6 mb-8 p-5 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="flex flex-col md:flex-row items-center gap-6 mb-8 p-5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700">
                         <div className="flex flex-col items-center flex-shrink-0">
-                          <span className="text-5xl font-black text-[#3a2512]">{business.rating}</span>
+                          <span className="text-5xl font-black text-[#3a2512] dark:text-gray-100">{business.rating}</span>
                           <div className="my-2"><StarRating rating={business.rating} /></div>
                           <span className="text-xs text-gray-500 font-medium">{reviews.length} avaliações</span>
                         </div>
@@ -282,20 +282,20 @@ export default function Negocio() {
                           const colors = ["bg-pink-100 text-pink-700", "bg-blue-100 text-blue-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700"];
                           const color = colors[review.id % colors.length];
                           return (
-                            <div key={review.id} className="border-b border-gray-100 last:border-0 pb-5 last:pb-0">
+                            <div key={review.id} className="border-b border-gray-100 dark:border-gray-700 last:border-0 pb-5 last:pb-0">
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex items-center gap-3">
-                                  <Avatar className="h-10 w-10 border border-gray-100">
+                                  <Avatar className="h-10 w-10 border border-gray-100 dark:border-gray-700">
                                     <AvatarFallback className={`font-bold text-sm ${color}`}>{initials}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <div className="font-bold text-[#3a2512] text-sm">{review.author}</div>
+                                    <div className="font-bold text-[#3a2512] dark:text-gray-100 text-sm">{review.author}</div>
                                     <div className="text-xs text-gray-400">{formatDate(review.createdAt)}</div>
                                   </div>
                                 </div>
                                 <StarRating rating={review.rating} />
                               </div>
-                              <p className="text-gray-600 text-sm leading-relaxed">{review.text}</p>
+                              <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{review.text}</p>
                             </div>
                           );
                         })}
@@ -309,16 +309,16 @@ export default function Negocio() {
             {/* Right Sidebar */}
             <div className="space-y-5">
               {/* Contact Info */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-black text-lg text-[#3a2512] mb-4">Informações</h3>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+                <h3 className="font-black text-lg text-[#3a2512] dark:text-gray-100 mb-4">Informações</h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 rounded-lg bg-[#d97706]/10 flex items-center justify-center flex-shrink-0">
                       <MapPin className="h-4.5 w-4.5 text-[#d97706]" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-[#3a2512] text-xs uppercase tracking-wider mb-1">Endereço</h4>
-                      <p className="text-gray-600 text-sm leading-relaxed">{business.address}, {business.region}<br />Londrina - PR</p>
+                      <h4 className="font-bold text-[#3a2512] dark:text-gray-200 text-xs uppercase tracking-wider mb-1">Endereço</h4>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{business.address}, {business.region}<br />Londrina - PR</p>
                     </div>
                   </div>
 
@@ -328,18 +328,18 @@ export default function Negocio() {
                         <Clock className="h-4.5 w-4.5 text-[#4CAF50]" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-[#3a2512] text-xs uppercase tracking-wider mb-1">Horário</h4>
-                        <p className="text-gray-600 text-sm leading-relaxed">{business.hours}</p>
+                        <h4 className="font-bold text-[#3a2512] dark:text-gray-200 text-xs uppercase tracking-wider mb-1">Horário</h4>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{business.hours}</p>
                       </div>
                     </div>
                   )}
 
                   {business.phone && (
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                         <Phone className="h-4.5 w-4.5 text-blue-600" />
                       </div>
-                      <a href={`tel:${business.phone}`} className="text-sm font-medium text-[#3a2512] hover:text-[#d97706] transition-colors">
+                      <a href={`tel:${business.phone}`} className="text-sm font-medium text-[#3a2512] dark:text-gray-200 hover:text-[#d97706] transition-colors">
                         {business.phone}
                       </a>
                     </div>
@@ -348,7 +348,7 @@ export default function Negocio() {
               </div>
 
               {/* Map Placeholder */}
-              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
                 <div
                   className="relative h-44 bg-gradient-to-br from-[#e8f5e9] to-[#dcedc8] flex flex-col items-center justify-center gap-3 cursor-pointer group"
                   onClick={() =>
