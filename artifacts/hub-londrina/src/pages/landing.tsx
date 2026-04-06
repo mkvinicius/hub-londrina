@@ -143,23 +143,29 @@ export default function Landing() {
                 )}
               </div>
 
-              {/* Buscar button */}
+              {/* Buscar button — floating card */}
               <button
                 type="button"
                 onClick={handleSearch}
-                className="flex items-center justify-center gap-2 text-white font-bold text-base px-8 py-3 rounded-xl transition-all duration-200 active:scale-[0.97] flex-shrink-0"
+                className="flex items-center justify-center gap-2 text-white font-bold text-base px-7 py-3 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5 flex-shrink-0"
                 style={{
-                  background: "linear-gradient(160deg, #f0a020 0%, #d97706 40%, #b45309 100%)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2), 0 4px 12px rgba(180,83,9,0.4)",
-                  textShadow: "0 1px 2px rgba(0,0,0,0.25)",
+                  borderRadius: "999px",
+                  background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
+                  boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  transform: "translateY(-1px)",
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(160deg, #f7b733 0%, #f0a020 40%, #d97706 100%)";
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.2), 0 6px 20px rgba(180,83,9,0.5)";
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.style.background = "linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%)";
+                  btn.style.boxShadow = "0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2)";
+                  btn.style.transform = "translateY(-3px)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(160deg, #f0a020 0%, #d97706 40%, #b45309 100%)";
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2), 0 4px 12px rgba(180,83,9,0.4)";
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.style.background = "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)";
+                  btn.style.boxShadow = "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)";
+                  btn.style.transform = "translateY(-1px)";
                 }}
               >
                 <Search className="h-4 w-4" />
