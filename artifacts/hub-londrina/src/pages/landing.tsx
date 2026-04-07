@@ -295,11 +295,11 @@ export default function Landing() {
       {/* ===== VITRINE DE PRODUTOS ===== */}
       {(() => {
         const produtos = [
-          { name: "Queijo Artesanal", price: "R$ 25,00", likes: "1.2K", comments: 320, whatsapp: "5543999990001", photo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=650&fit=crop", business: "Queijaria Mineira" },
-          { name: "Cerveja Artesanal Gelada", price: "R$ 12,00", likes: "890", comments: 210, whatsapp: "5543999990002", photo: "https://images.unsplash.com/photo-1436076863939-06870fe779c2?w=400&h=650&fit=crop", business: "Cervejaria do Sul" },
-          { name: "Arranjo de Flores", price: "R$ 80,00", likes: "1.5K", comments: 360, whatsapp: "5543999990003", photo: "https://images.unsplash.com/photo-1487530811015-780c2a85d23c?w=400&h=650&fit=crop", business: "Floricultura Bella" },
-          { name: "Pão Artesanal", price: "R$ 18,00", likes: "760", comments: 145, whatsapp: "5543999990004", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop", business: "Padaria Artesanal" },
-          { name: "Café Especial", price: "R$ 9,00", likes: "2.1K", comments: 487, whatsapp: "5543999990005", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop", business: "Cafeteria Grão" },
+          { name: "Queijo Artesanal", price: "R$ 25,00", likes: "1.2K", comments: 320, whatsapp: "5543999990001", photo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-chef-cutting-vegetables-for-a-meal-42932-large.mp4", business: "Queijaria Mineira" },
+          { name: "Cerveja Artesanal Gelada", price: "R$ 12,00", likes: "890", comments: 210, whatsapp: "5543999990002", photo: "https://images.unsplash.com/photo-1436076863939-06870fe779c2?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-pouring-beer-into-a-glass-17537-large.mp4", business: "Cervejaria do Sul" },
+          { name: "Arranjo de Flores", price: "R$ 80,00", likes: "1.5K", comments: 360, whatsapp: "5543999990003", photo: "https://images.unsplash.com/photo-1487530811015-780c2a85d23c?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-red-roses-bouquet-4056-large.mp4", business: "Floricultura Bella" },
+          { name: "Pão Artesanal", price: "R$ 18,00", likes: "760", comments: 145, whatsapp: "5543999990004", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-baking-bread-in-the-oven-763-large.mp4", business: "Padaria Artesanal" },
+          { name: "Café Especial", price: "R$ 9,00", likes: "2.1K", comments: 487, whatsapp: "5543999990005", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-pouring-coffee-in-a-cup-view-from-above-26658-large.mp4", business: "Cafeteria Grão" },
         ];
         return (
           <section className="py-16" style={{ background: "#fdf6ec" }}>
@@ -323,18 +323,24 @@ export default function Landing() {
                       boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)",
                     }}
                   >
-                    {/* photo */}
-                    <img
-                      src={p.photo}
-                      alt={p.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    {/* video / foto */}
+                    <video
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      poster={p.photo}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    >
+                      <source src={p.video} type="video/mp4" />
+                    </video>
                     {/* gradient */}
-                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.05) 100%)" }} />
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.08) 100%)" }} />
 
-                    {/* business tag */}
-                    <div className="absolute top-3 left-3 right-3">
+                    {/* business tag + play indicator */}
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
                       <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">{p.business}</span>
+                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider">▶ ao vivo</span>
                     </div>
 
                     {/* bottom content */}
