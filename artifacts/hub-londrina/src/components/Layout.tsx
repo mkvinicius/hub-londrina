@@ -12,11 +12,11 @@ function Logo() {
         style={{ width: "76px", height: "76px", objectFit: "contain", flexShrink: 0, borderRadius: "6px" }}
       />
       <div className="flex flex-col leading-none" style={{ marginLeft: "-6px" }}>
-        <div className="flex items-baseline gap-1">
-          <span className="font-black text-xl tracking-tight text-[#6F4E37]">HUB</span>
-          <span className="font-black text-xl tracking-tight text-[#6F4E37]">LONDRINA</span>
+        <div className="flex items-baseline" style={{ gap: "0.18em" }}>
+          <span className="font-extrabold text-2xl text-[#3d7a28]" style={{ letterSpacing: "-0.01em" }}>Hub</span>
+          <span className="font-extrabold text-2xl text-[#6F4E37]" style={{ letterSpacing: "-0.01em" }}>Londrina</span>
         </div>
-        <span className="text-[11px] tracking-[0.15em] font-bold text-[#FF9800] uppercase">Negócio Local</span>
+        <span className="font-semibold text-[11px] tracking-[0.18em] text-[#d97706] uppercase">Negócio Local</span>
       </div>
     </Link>
   );
