@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync, createReadStream } from "node:fs";
 import { resolve, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,7 +23,38 @@ const MIME_TYPES = {
   ".woff2": "font/woff2",
   ".ttf": "font/ttf",
   ".webp": "image/webp",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".ogg": "video/ogg",
 };
+
+function serveStaticFile(req, res, filePath, mime) {
+  const stat = statSync(filePath);
+  const fileSize = stat.size;
+  const rangeHeader = req.headers["range"];
+
+  if (rangeHeader) {
+    const parts = rangeHeader.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunkSize = end - start + 1;
+
+    res.writeHead(206, {
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunkSize,
+      "Content-Type": mime,
+    });
+    createReadStream(filePath, { start, end }).pipe(res);
+  } else {
+    res.writeHead(200, {
+      "Content-Length": fileSize,
+      "Accept-Ranges": "bytes",
+      "Content-Type": mime,
+    });
+    createReadStream(filePath).pipe(res);
+  }
+}
 
 let renderFn = null;
 async function getRender() {
@@ -91,8 +122,7 @@ async function handler(req, res) {
     if (existsSync(filePath)) {
       const ext = extname(filePath);
       const mime = MIME_TYPES[ext] || "application/octet-stream";
-      res.writeHead(200, { "Content-Type": mime });
-      res.end(readFileSync(filePath));
+      serveStaticFile(req, res, filePath, mime);
       return;
     }
   }
