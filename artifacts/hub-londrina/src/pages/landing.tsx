@@ -39,8 +39,11 @@ function VitrineCard({ p }: { p: { name: string; price: string; likes: string; c
 
   return (
     <div
-      className="flex-shrink-0 relative rounded-2xl overflow-hidden cursor-pointer group"
-      style={{ width: "175px", height: "295px", scrollSnapAlign: "start", boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)" }}
+      className="flex-shrink-0 md:flex-shrink relative rounded-2xl overflow-hidden cursor-pointer group w-[72vw] md:w-full h-[calc(72vw*1.45)] md:h-[295px]"
+      style={{
+        scrollSnapAlign: "start",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)",
+      }}
     >
       <div className="absolute inset-0" style={{ backgroundImage: `url(${p.photo})`, backgroundSize: "cover", backgroundPosition: "center" }} />
       <video
