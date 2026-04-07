@@ -9,7 +9,7 @@ function Logo() {
       <img
         src="/logo.jpeg"
         alt="Hub Londrina"
-        className="w-9 h-9 object-contain flex-shrink-0"
+        className="w-12 h-12 object-contain flex-shrink-0"
         style={{ borderRadius: "6px" }}
       />
       <div className="flex flex-col leading-none">
