@@ -16,18 +16,25 @@ function VitrineCard({ p }: { p: { name: string; price: string; likes: string; c
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    const tryPlay = () => video.play().catch(() => {});
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
+        if (entry.isIntersecting) tryPlay();
+        else video.pause();
       },
-      { threshold: 0.3 }
+      { threshold: 0.1 }
     );
     observer.observe(video);
-    return () => observer.disconnect();
+
+    const onTouch = () => tryPlay();
+    document.addEventListener("touchstart", onTouch, { once: true });
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("touchstart", onTouch);
+    };
   }, []);
 
   return (
@@ -38,10 +45,11 @@ function VitrineCard({ p }: { p: { name: string; price: string; likes: string; c
       <div className="absolute inset-0" style={{ backgroundImage: `url(${p.photo})`, backgroundSize: "cover", backgroundPosition: "center" }} />
       <video
         ref={videoRef}
+        autoPlay
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="auto"
         className="absolute inset-0 w-full h-full object-cover"
       >
         <source src={p.video} type="video/mp4" />
