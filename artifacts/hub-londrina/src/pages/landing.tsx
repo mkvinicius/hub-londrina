@@ -137,7 +137,7 @@ export default function Landing() {
       {/* ===== HERO SECTION ===== */}
       <div
         className="relative w-full"
-        style={{ height: "clamp(480px, 72vh, 700px)", zIndex: 10 }}
+        style={{ height: "clamp(480px, 72vh, 700px)" }}
       >
         {/* Background image — full, sem ofuscação */}
         <img
