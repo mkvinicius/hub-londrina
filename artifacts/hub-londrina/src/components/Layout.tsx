@@ -6,14 +6,12 @@ import { Button } from "@/components/ui/button";
 function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2 cursor-pointer">
-      <div className="relative flex items-center justify-center w-9 h-9 flex-shrink-0">
-        <svg viewBox="0 0 100 120" className="w-9 h-9">
-          <ellipse cx="50" cy="48" rx="38" ry="38" fill="#4CAF50" />
-          <path d="M50 10 C25 10, 12 30, 12 48 C12 70, 50 110, 50 110 C50 110, 88 70, 88 48 C88 30, 75 10, 50 10 Z" fill="#6F4E37" />
-          <ellipse cx="50" cy="48" rx="24" ry="24" fill="#4CAF50" />
-          <ellipse cx="50" cy="48" rx="14" ry="14" fill="#2e7d32" />
-        </svg>
-      </div>
+      <img
+        src="/logo.jpeg"
+        alt="Hub Londrina"
+        className="w-9 h-9 object-contain flex-shrink-0"
+        style={{ borderRadius: "6px" }}
+      />
       <div className="flex flex-col leading-none">
         <div className="flex items-baseline gap-1">
           <span className="font-black text-xl tracking-tight text-[#6F4E37]">HUB</span>
