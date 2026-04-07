@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import {
   Search, ArrowRight, Quote,
-  CheckCircle2, ChevronDown
+  CheckCircle2, ChevronDown, Heart, MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
@@ -291,6 +291,84 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ===== VITRINE DE PRODUTOS ===== */}
+      {(() => {
+        const produtos = [
+          { name: "Queijo Artesanal", price: "R$ 25,00", likes: "1.2K", comments: 320, whatsapp: "5543999990001", photo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=650&fit=crop", business: "Queijaria Mineira" },
+          { name: "Cerveja Artesanal Gelada", price: "R$ 12,00", likes: "890", comments: 210, whatsapp: "5543999990002", photo: "https://images.unsplash.com/photo-1436076863939-06870fe779c2?w=400&h=650&fit=crop", business: "Cervejaria do Sul" },
+          { name: "Arranjo de Flores", price: "R$ 80,00", likes: "1.5K", comments: 360, whatsapp: "5543999990003", photo: "https://images.unsplash.com/photo-1487530811015-780c2a85d23c?w=400&h=650&fit=crop", business: "Floricultura Bella" },
+          { name: "Pão Artesanal", price: "R$ 18,00", likes: "760", comments: 145, whatsapp: "5543999990004", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop", business: "Padaria Artesanal" },
+          { name: "Café Especial", price: "R$ 9,00", likes: "2.1K", comments: 487, whatsapp: "5543999990005", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop", business: "Cafeteria Grão" },
+        ];
+        return (
+          <section className="py-16" style={{ background: "#fdf6ec" }}>
+            <div className="max-w-7xl mx-auto px-4 md:px-8">
+              <div className="flex items-end justify-between mb-10 gap-4">
+                <div>
+                  <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Direto pelo WhatsApp</span>
+                  <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Vitrine de Produtos</h2>
+                </div>
+              </div>
+
+              <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible scrollbar-hide" style={{ scrollSnapType: "x mandatory" }}>
+                {produtos.map((p, i) => (
+                  <div
+                    key={i}
+                    className="flex-shrink-0 relative rounded-2xl overflow-hidden cursor-pointer group"
+                    style={{
+                      width: "175px",
+                      height: "295px",
+                      scrollSnapAlign: "start",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)",
+                    }}
+                  >
+                    {/* photo */}
+                    <img
+                      src={p.photo}
+                      alt={p.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {/* gradient */}
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.05) 100%)" }} />
+
+                    {/* business tag */}
+                    <div className="absolute top-3 left-3 right-3">
+                      <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">{p.business}</span>
+                    </div>
+
+                    {/* bottom content */}
+                    <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-2">
+                      <div>
+                        <p className="text-white font-black text-sm leading-tight mb-0.5">{p.name}</p>
+                        <p className="text-white font-bold text-base leading-tight">{p.price}</p>
+                      </div>
+                      <a
+                        href={`https://wa.me/${p.whatsapp}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1dbd59] text-white font-bold text-[11px] rounded-full py-1.5 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        Pedir no WhatsApp
+                      </a>
+                      <div className="flex items-center gap-3 pt-0.5">
+                        <span className="flex items-center gap-1 text-white/70 text-[10px] font-semibold">
+                          <Heart className="h-3 w-3" /> {p.likes}
+                        </span>
+                        <span className="flex items-center gap-1 text-white/70 text-[10px] font-semibold">
+                          <MessageCircle className="h-3 w-3" /> {p.comments}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ===== FEATURED BUSINESSES ===== */}
       <section className="py-16 bg-gray-50">

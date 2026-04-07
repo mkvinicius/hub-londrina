@@ -220,6 +220,9 @@ export default function Negocio() {
                       Fotos
                     </TabsTrigger>
                   )}
+                  <TabsTrigger value="vitrine" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
+                    Vitrine
+                  </TabsTrigger>
                   <TabsTrigger value="avaliacoes" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Avaliações ({reviews.length})
                   </TabsTrigger>
@@ -248,6 +251,75 @@ export default function Negocio() {
                     </div>
                   </TabsContent>
                 )}
+
+                <TabsContent value="vitrine" className="focus-visible:outline-none">
+                  {(() => {
+                    const vitrineMap: Record<string, { name: string; price: string; photo: string }[]> = {
+                      restaurantes: [
+                        { name: "Prato do Dia", price: "R$ 32,00", photo: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=650&fit=crop" },
+                        { name: "Frango na Brasa", price: "R$ 45,00", photo: "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=400&h=650&fit=crop" },
+                        { name: "Feijoada Completa", price: "R$ 55,00", photo: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=650&fit=crop" },
+                        { name: "Sobremesa do Chef", price: "R$ 18,00", photo: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400&h=650&fit=crop" },
+                      ],
+                      saloes: [
+                        { name: "Corte + Barba", price: "R$ 60,00", photo: "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=400&h=650&fit=crop" },
+                        { name: "Escova Progressiva", price: "R$ 180,00", photo: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=650&fit=crop" },
+                        { name: "Manicure + Pedicure", price: "R$ 75,00", photo: "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=650&fit=crop" },
+                        { name: "Coloração Completa", price: "R$ 220,00", photo: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=650&fit=crop" },
+                      ],
+                      cafeterias: [
+                        { name: "Café + Pão na Chapa", price: "R$ 14,00", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop" },
+                        { name: "Cappuccino Especial", price: "R$ 12,00", photo: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=650&fit=crop" },
+                        { name: "Bolo do Dia", price: "R$ 10,00", photo: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=650&fit=crop" },
+                        { name: "Combo Brunch", price: "R$ 38,00", photo: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=400&h=650&fit=crop" },
+                      ],
+                      padarias: [
+                        { name: "Pão Artesanal", price: "R$ 18,00", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop" },
+                        { name: "Kit Café da Manhã", price: "R$ 35,00", photo: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=400&h=650&fit=crop" },
+                        { name: "Bolo de Cenoura", price: "R$ 22,00", photo: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=650&fit=crop" },
+                        { name: "Croissant Recheado", price: "R$ 8,00", photo: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&h=650&fit=crop" },
+                      ],
+                    };
+                    const defaultItems = [
+                      { name: "Serviço Básico", price: "R$ 50,00", photo: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=400&h=650&fit=crop" },
+                      { name: "Pacote Completo", price: "R$ 120,00", photo: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&h=650&fit=crop" },
+                      { name: "Atendimento VIP", price: "R$ 200,00", photo: "https://images.unsplash.com/photo-1556155092-490a1ba16284?w=400&h=650&fit=crop" },
+                      { name: "Consulta Grátis", price: "Gratuito", photo: "https://images.unsplash.com/photo-1562564055-71e051d33c19?w=400&h=650&fit=crop" },
+                    ];
+                    const items = vitrineMap[business.categorySlug] ?? defaultItems;
+                    const waBase = business.whatsapp ? `https://wa.me/55${business.whatsapp.replace(/\D/g, "")}` : "#";
+                    return (
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-5">
+                          <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Vitrine de Produtos</h2>
+                          <span className="text-xs text-gray-400 font-medium">Peça pelo WhatsApp</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {items.map((item, i) => (
+                            <div key={i} className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ height: "240px", boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}>
+                              <img src={item.photo} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.90) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)" }} />
+                              <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-1.5">
+                                <p className="text-white font-black text-sm leading-tight">{item.name}</p>
+                                <p className="text-white font-bold text-base leading-tight">{item.price}</p>
+                                <a
+                                  href={`${waBase}?text=${encodeURIComponent(`Olá! Quero pedir: ${item.name} (${item.price})`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1dbd59] text-white font-bold text-[11px] rounded-full py-1.5 transition-colors"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MessageCircle className="h-3 w-3" />
+                                  Pedir no WhatsApp
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">
                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
