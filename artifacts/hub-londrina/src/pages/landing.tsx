@@ -295,11 +295,11 @@ export default function Landing() {
       {/* ===== VITRINE DE PRODUTOS ===== */}
       {(() => {
         const produtos = [
-          { name: "Queijo Artesanal", price: "R$ 25,00", likes: "1.2K", comments: 320, whatsapp: "5543999990001", photo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-chef-cutting-vegetables-for-a-meal-42932-large.mp4", business: "Queijaria Mineira" },
-          { name: "Cerveja Artesanal Gelada", price: "R$ 12,00", likes: "890", comments: 210, whatsapp: "5543999990002", photo: "https://images.unsplash.com/photo-1436076863939-06870fe779c2?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-pouring-beer-into-a-glass-17537-large.mp4", business: "Cervejaria do Sul" },
-          { name: "Arranjo de Flores", price: "R$ 80,00", likes: "1.5K", comments: 360, whatsapp: "5543999990003", photo: "https://images.unsplash.com/photo-1487530811015-780c2a85d23c?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-red-roses-bouquet-4056-large.mp4", business: "Floricultura Bella" },
-          { name: "Pão Artesanal", price: "R$ 18,00", likes: "760", comments: 145, whatsapp: "5543999990004", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-baking-bread-in-the-oven-763-large.mp4", business: "Padaria Artesanal" },
-          { name: "Café Especial", price: "R$ 9,00", likes: "2.1K", comments: 487, whatsapp: "5543999990005", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop", video: "https://assets.mixkit.co/videos/preview/mixkit-pouring-coffee-in-a-cup-view-from-above-26658-large.mp4", business: "Cafeteria Grão" },
+          { name: "Queijo Artesanal", price: "R$ 25,00", likes: "1.2K", comments: 320, whatsapp: "5543999990001", photo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=650&fit=crop", video: "/videos/vitrine-queijo.mp4", business: "Queijaria Mineira" },
+          { name: "Cerveja Artesanal Gelada", price: "R$ 12,00", likes: "890", comments: 210, whatsapp: "5543999990002", photo: "https://images.unsplash.com/photo-1436076863939-06870fe779c2?w=400&h=650&fit=crop", video: "/videos/vitrine-cerveja.mp4", business: "Cervejaria do Sul" },
+          { name: "Arranjo de Flores", price: "R$ 80,00", likes: "1.5K", comments: 360, whatsapp: "5543999990003", photo: "https://images.unsplash.com/photo-1487530811015-780c2a85d23c?w=400&h=650&fit=crop", video: "/videos/vitrine-flores.mp4", business: "Floricultura Bella" },
+          { name: "Pão Artesanal", price: "R$ 18,00", likes: "760", comments: 145, whatsapp: "5543999990004", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop", video: "/videos/vitrine-pao.mp4", business: "Padaria Artesanal" },
+          { name: "Café Especial", price: "R$ 9,00", likes: "2.1K", comments: 487, whatsapp: "5543999990005", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4", business: "Cafeteria Grão" },
         ];
         return (
           <section className="py-16" style={{ background: "#fdf6ec" }}>
