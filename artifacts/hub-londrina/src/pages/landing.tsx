@@ -216,12 +216,17 @@ export default function Landing() {
       </div>
 
       {/* ===== CATEGORIES SECTION ===== */}
-      <section className="py-16 bg-white dark:bg-gray-900 transition-colors">
+      <section
+        className="py-16"
+        style={{
+          background: "linear-gradient(145deg, #fef3c7 0%, #fff7ed 40%, #fef0d0 70%, #fde8b8 100%)",
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
               <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Explore por categoria</span>
-              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100">O que você precisa?</h2>
+              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">O que você precisa?</h2>
             </div>
             <button
               onClick={() => navigate("/categorias")}
@@ -239,16 +244,38 @@ export default function Landing() {
                 <button
                   key={category.id}
                   onClick={() => navigate(`/busca?categoria=${category.slug}`)}
-                  className="group flex flex-col items-center gap-3 p-5 bg-gray-50 dark:bg-gray-800 hover:bg-[#FFF3E0] dark:hover:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-[#d97706]/30 transition-all duration-300"
+                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl transition-all duration-300"
+                  style={{
+                    background: "rgba(255,255,255,0.62)",
+                    backdropFilter: "blur(16px)",
+                    WebkitBackdropFilter: "blur(16px)",
+                    border: "1px solid rgba(255,255,255,0.85)",
+                    boxShadow: "0 4px 20px rgba(111,78,55,0.10), 0 1px 4px rgba(0,0,0,0.04)",
+                    transform: "translateY(0px)",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.transform = "translateY(-5px)";
+                    el.style.boxShadow = "0 12px 36px rgba(111,78,55,0.18), 0 4px 12px rgba(217,119,6,0.12)";
+                    el.style.background = "rgba(255,255,255,0.85)";
+                    el.style.border = "1px solid rgba(217,119,6,0.25)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.transform = "translateY(0px)";
+                    el.style.boxShadow = "0 4px 20px rgba(111,78,55,0.10), 0 1px 4px rgba(0,0,0,0.04)";
+                    el.style.background = "rgba(255,255,255,0.62)";
+                    el.style.border = "1px solid rgba(255,255,255,0.85)";
+                  }}
                 >
                   <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${colorClasses} group-hover:scale-110 transition-transform`}>
                     <Icon className="h-7 w-7" />
                   </div>
-                  <span className="font-bold text-sm text-center text-[#3a2512] dark:text-gray-200 group-hover:text-[#d97706] transition-colors leading-tight">
+                  <span className="font-bold text-sm text-center text-[#3a2512] group-hover:text-[#d97706] transition-colors leading-tight">
                     {category.name}
                   </span>
                   {category.businessCount !== undefined && (
-                    <span className="text-xs text-gray-400">{category.businessCount} negócios</span>
+                    <span className="text-xs text-[#6F4E37]/50">{category.businessCount} negócios</span>
                   )}
                 </button>
               );
@@ -267,12 +294,12 @@ export default function Landing() {
       </section>
 
       {/* ===== FEATURED BUSINESSES ===== */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-800/50 transition-colors">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
               <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Aprovados pela comunidade</span>
-              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100">Destaques da Semana</h2>
+              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Destaques da Semana</h2>
             </div>
             <button
               onClick={() => navigate("/busca")}
@@ -291,7 +318,7 @@ export default function Landing() {
       </section>
 
       {/* ===== FOR BUSINESS — PRICING CTA ===== */}
-      <section className="py-16 bg-white dark:bg-gray-900 transition-colors">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="bg-[#4a2c0e] rounded-3xl overflow-hidden">
             <div className="flex flex-col lg:flex-row">
@@ -382,11 +409,11 @@ export default function Landing() {
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-800/50 transition-colors">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100 mb-3">Como funciona</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-base">Simples, rápido e totalmente gratuito para começar.</p>
+            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-3">Como funciona</h2>
+            <p className="text-gray-500 text-base">Simples, rápido e totalmente gratuito para começar.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative">
             <div className="hidden md:block absolute top-10 left-[17%] right-[17%] h-px border-t-2 border-dashed border-[#d97706]/30 z-0"></div>
@@ -399,8 +426,8 @@ export default function Landing() {
                 <div className={`w-20 h-20 ${step.color} text-white rounded-full flex items-center justify-center text-3xl font-black shadow-lg mb-5`}>
                   {step.n}
                 </div>
-                <h3 className="font-black text-xl text-[#3a2512] dark:text-gray-100 mb-2">{step.title}</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{step.desc}</p>
+                <h3 className="font-black text-xl text-[#3a2512] mb-2">{step.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -408,23 +435,23 @@ export default function Landing() {
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
-      <section className="py-16 bg-white dark:bg-gray-900 transition-colors">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-12">
-            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100 mb-2">O que dizem os londrinenses</h2>
+            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-2">O que dizem os londrinenses</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((t, i) => (
-              <div key={i} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-7 border border-gray-100 dark:border-gray-700">
+              <div key={i} className="bg-gray-50 rounded-2xl p-7 border border-gray-100">
                 <Quote className="h-7 w-7 text-[#d97706] mb-4 opacity-40" />
-                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-5 italic">"{t.content}"</p>
+                <p className="text-gray-600 text-sm leading-relaxed mb-5 italic">"{t.content}"</p>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${t.bg}`}>
                     {t.initials}
                   </div>
                   <div>
-                    <div className="font-bold text-sm text-[#3a2512] dark:text-gray-100">{t.name}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{t.role}</div>
+                    <div className="font-bold text-sm text-[#3a2512]">{t.name}</div>
+                    <div className="text-xs text-gray-500">{t.role}</div>
                   </div>
                 </div>
               </div>

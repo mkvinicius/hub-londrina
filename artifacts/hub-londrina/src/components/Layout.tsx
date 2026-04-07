@@ -1,8 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/lib/theme";
 
 function Logo() {
   return (
@@ -17,8 +16,8 @@ function Logo() {
       </div>
       <div className="flex flex-col leading-none">
         <div className="flex items-baseline gap-1">
-          <span className="font-black text-xl tracking-tight text-[#6F4E37] dark:text-amber-400">HUB</span>
-          <span className="font-black text-xl tracking-tight text-[#6F4E37] dark:text-amber-400">LONDRINA</span>
+          <span className="font-black text-xl tracking-tight text-[#6F4E37]">HUB</span>
+          <span className="font-black text-xl tracking-tight text-[#6F4E37]">LONDRINA</span>
         </div>
         <span className="text-[11px] tracking-[0.15em] font-bold text-[#FF9800] uppercase">Negócio Local</span>
       </div>
@@ -33,7 +32,6 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
-  const { theme, toggleTheme } = useTheme();
 
   const navLinks = [
     { href: "/", label: "Início" },
@@ -43,9 +41,9 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 font-sans text-[#3a2512] dark:text-gray-100 transition-colors duration-300">
+    <div className="min-h-screen bg-white font-sans text-[#3a2512]">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-8">
           <Logo />
 
@@ -57,7 +55,7 @@ export function Layout({ children }: LayoutProps) {
                 className={`text-sm font-semibold transition-colors ${
                   location === link.href
                     ? "text-[#d97706]"
-                    : "text-[#4a3020] dark:text-gray-300 hover:text-[#d97706] dark:hover:text-[#d97706]"
+                    : "text-[#4a3020] hover:text-[#d97706]"
                 }`}
               >
                 {link.label}
@@ -66,19 +64,6 @@ export function Layout({ children }: LayoutProps) {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
-            >
-              {theme === "dark" ? (
-                <Sun className="h-4.5 w-4.5" />
-              ) : (
-                <Moon className="h-4.5 w-4.5" />
-              )}
-            </button>
-
             <Link href="/anuncie" className="hidden md:flex">
               <button
                 className="flex items-center justify-center text-white font-bold text-sm px-6 py-2.5 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5"
@@ -108,7 +93,7 @@ export function Layout({ children }: LayoutProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden text-[#6F4E37] dark:text-gray-300"
+              className="md:hidden text-[#6F4E37]"
               onClick={() => setMenuOpen(!menuOpen)}
             >
               {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -118,13 +103,13 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-4 flex flex-col gap-4">
+          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 flex flex-col gap-4">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={`text-sm font-semibold py-2 transition-colors ${
-                  location === link.href ? "text-[#d97706]" : "text-[#4a3020] dark:text-gray-300"
+                  location === link.href ? "text-[#d97706]" : "text-[#4a3020]"
                 }`}
                 onClick={() => setMenuOpen(false)}
               >
@@ -142,7 +127,7 @@ export function Layout({ children }: LayoutProps) {
 
       <main>{children}</main>
 
-      <footer className="bg-[#1e1208] dark:bg-gray-950 border-t dark:border-gray-800 text-[#f5e9dd] py-12">
+      <footer className="bg-[#1e1208] border-t text-[#f5e9dd] py-12">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-10">
             <div className="flex flex-col gap-2 max-w-xs">
@@ -190,13 +175,6 @@ export function Layout({ children }: LayoutProps) {
             <p className="text-white/40 text-sm">
               © {new Date().getFullYear()} Hub Londrina. Todos os direitos reservados.
             </p>
-            <button
-              onClick={toggleTheme}
-              className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors text-xs font-medium"
-            >
-              {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-              {theme === "dark" ? "Modo Claro" : "Modo Escuro"}
-            </button>
           </div>
         </div>
       </footer>
