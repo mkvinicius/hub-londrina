@@ -176,52 +176,51 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Stats card — glassmorphism flutuante */}
-      <div className="relative z-20 flex justify-center px-4" style={{ marginTop: "-36px" }}>
-        <div
-          className="flex items-center justify-around text-white px-8"
-          style={{
-            width: "800px",
-            maxWidth: "calc(100% - 32px)",
-            height: "80px",
-            borderRadius: "24px",
-            background: "linear-gradient(135deg, rgba(111,78,55,0.85) 0%, rgba(58,37,18,0.92) 100%)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            boxShadow: "0 24px 64px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10)",
-          }}
-        >
-          {[
-            { value: "+500", label: "Negócios" },
-            { value: "+12 mil", label: "Usuários" },
-            { value: "10", label: "Categorias" },
-            { value: "5", label: "Regiões" },
-          ].map((stat, i, arr) => (
-            <div key={stat.label} className="flex items-center">
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-3xl font-black tracking-tight leading-none" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
-                  {stat.value}
-                </span>
-                <span className="text-[10px] uppercase tracking-widest text-white/60 font-bold">
-                  {stat.label}
-                </span>
-              </div>
-              {i < arr.length - 1 && (
-                <div className="w-px h-12 bg-white/15 mx-6" />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ===== CATEGORIES SECTION ===== */}
       <section
-        className="py-16"
         style={{
           background: "linear-gradient(145deg, #fef3c7 0%, #fff7ed 40%, #fef0d0 70%, #fde8b8 100%)",
+          paddingBottom: "64px",
         }}
       >
+        {/* Stats card — glassmorphism flutuante, dentro da seção para não vazar branco */}
+        <div className="relative z-20 flex justify-center px-4 mb-10" style={{ marginTop: "-36px" }}>
+          <div
+            className="flex items-center justify-around text-white px-8"
+            style={{
+              width: "800px",
+              maxWidth: "calc(100% - 32px)",
+              height: "80px",
+              borderRadius: "24px",
+              background: "linear-gradient(135deg, rgba(111,78,55,0.85) 0%, rgba(58,37,18,0.92) 100%)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10)",
+            }}
+          >
+            {[
+              { value: "+500", label: "Negócios" },
+              { value: "+12 mil", label: "Usuários" },
+              { value: "10", label: "Categorias" },
+              { value: "5", label: "Regiões" },
+            ].map((stat, i, arr) => (
+              <div key={stat.label} className="flex items-center">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-3xl font-black tracking-tight leading-none" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+                    {stat.value}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-widest text-white/60 font-bold">
+                    {stat.label}
+                  </span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div className="w-px h-12 bg-white/15 mx-6" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
