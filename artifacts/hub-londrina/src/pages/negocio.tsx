@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
@@ -64,6 +64,17 @@ export default function Negocio() {
   const reviews: Review[] = business?.reviews ?? [];
   const ratingDist = getRatingDistribution(reviews);
   const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 2);
+
+  useEffect(() => {
+    const tryPlay = () => {
+      document.querySelectorAll<HTMLVideoElement>("video[autoplay]").forEach(v => {
+        if (v.paused) v.play().catch(() => {});
+      });
+    };
+    tryPlay();
+    document.addEventListener("touchstart", tryPlay, { once: true });
+    return () => document.removeEventListener("touchstart", tryPlay);
+  }, []);
 
   if (isLoading) {
     return (
@@ -297,7 +308,7 @@ export default function Negocio() {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                           {items.map((item, i) => (
                             <div key={i} className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ height: "240px", boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}>
-                              <video autoPlay muted loop playsInline poster={item.photo} className="absolute inset-0 w-full h-full object-cover">
+                              <video autoPlay muted loop playsInline preload="auto" poster={item.photo} className="absolute inset-0 w-full h-full object-cover">
                                 <source src={item.video} type="video/mp4" />
                               </video>
                               <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.90) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)" }} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Search, ArrowRight, Quote,
@@ -47,6 +47,17 @@ export default function Landing() {
   const featuredBusinesses = (featuredData?.data ?? []).slice(0, 4);
 
   const regions = ["Todas as regiões", "Centro", "Gleba Palhano", "Zona Norte", "Zona Sul", "Jardim Quebec"];
+
+  useEffect(() => {
+    const tryPlay = () => {
+      document.querySelectorAll<HTMLVideoElement>("video[autoplay]").forEach(v => {
+        if (v.paused) v.play().catch(() => {});
+      });
+    };
+    tryPlay();
+    document.addEventListener("touchstart", tryPlay, { once: true });
+    return () => document.removeEventListener("touchstart", tryPlay);
+  }, []);
 
   function handleSearch() {
     const params = new URLSearchParams();
@@ -186,12 +197,12 @@ export default function Landing() {
         {/* Stats card — glassmorphism flutuante, dentro da seção para não vazar branco */}
         <div className="relative z-20 flex justify-center px-4 mb-10" style={{ marginTop: "-36px" }}>
           <div
-            className="flex items-center justify-around text-white px-8"
+            className="grid grid-cols-4 text-white"
             style={{
               width: "800px",
               maxWidth: "calc(100% - 32px)",
-              height: "80px",
-              borderRadius: "24px",
+              minHeight: "72px",
+              borderRadius: "20px",
               background: "linear-gradient(135deg, rgba(111,78,55,0.85) 0%, rgba(58,37,18,0.92) 100%)",
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
@@ -201,21 +212,21 @@ export default function Landing() {
           >
             {[
               { value: "+500", label: "Negócios" },
-              { value: "+12 mil", label: "Usuários" },
+              { value: "+12mil", label: "Usuários" },
               { value: "10", label: "Categorias" },
               { value: "5", label: "Regiões" },
             ].map((stat, i, arr) => (
-              <div key={stat.label} className="flex items-center">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-3xl font-black tracking-tight leading-none" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+              <div key={stat.label} className="flex items-center justify-center">
+                <div className="flex flex-col items-center gap-0.5 py-4 px-2">
+                  <span className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-none" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
                     {stat.value}
                   </span>
-                  <span className="text-[10px] uppercase tracking-widest text-white/60 font-bold">
+                  <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-white/60 font-bold">
                     {stat.label}
                   </span>
                 </div>
                 {i < arr.length - 1 && (
-                  <div className="w-px h-12 bg-white/15 mx-6" />
+                  <div className="w-px h-10 bg-white/15" />
                 )}
               </div>
             ))}
@@ -329,6 +340,7 @@ export default function Landing() {
                       muted
                       loop
                       playsInline
+                      preload="auto"
                       poster={p.photo}
                       className="absolute inset-0 w-full h-full object-cover"
                     >
