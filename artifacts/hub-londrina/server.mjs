@@ -67,56 +67,22 @@ async function getRender() {
 
 const template = readFileSync(resolve(DIST_DIR, "index.html"), "utf-8");
 
+const API_BASE = process.env.API_INTERNAL_URL || "http://localhost:8080";
+
+async function safeFetch(url) {
+  try {
+    const r = await fetch(url);
+    return r.ok ? r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 async function handler(req, res) {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
 
-  const match = pathname.match(/^\/negocio\/(\d+)$/);
-  if (match) {
-    try {
-      const id = Number(match[1]);
-      const apiBase =
-        process.env.API_INTERNAL_URL || "http://localhost:8080";
-      const apiRes = await fetch(`${apiBase}/api/businesses/${id}`);
-
-      if (apiRes.ok) {
-        const business = await apiRes.json();
-        const render = await getRender();
-        const appHtml = render(`/negocio/${id}`, business);
-
-        const title = `${business.name} — Hub Londrina`;
-        const rawDesc =
-          business.description ||
-          `${business.name} em Londrina, PR. Veja avaliações, horários e contato.`;
-        const desc = rawDesc.slice(0, 155);
-        const safeData = JSON.stringify(business).replace(/</g, "\\u003c");
-        const ssrScript = `<script>window.__SSR_DATA__=${safeData}</script>`;
-
-        let html = template
-          .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
-          .replace(
-            "<title>Hub Londrina — Negócio Local</title>",
-            `<title>${title}</title>`
-          )
-          .replace(
-            `content="Descubra os melhores serviços, restaurantes e lojas em Londrina, PR. O maior guia de negócios locais da região."`,
-            `content="${desc.replace(/"/g, "&quot;")}"`
-          )
-          .replace("</head>", `${ssrScript}\n</head>`);
-
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(html);
-        return;
-      }
-    } catch (e) {
-      console.error("[SSR error]", e.message);
-    }
-
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(template);
-    return;
-  }
-
+  // ── Static assets ─────────────────────────────────────────────
   if (pathname !== "/" && pathname !== "") {
     const filePath = resolve(DIST_DIR, pathname.slice(1));
     if (existsSync(filePath)) {
@@ -125,6 +91,70 @@ async function handler(req, res) {
       serveStaticFile(req, res, filePath, mime);
       return;
     }
+  }
+
+  // ── SSR: /negocio/:id ──────────────────────────────────────────
+  const negocioMatch = pathname.match(/^\/negocio\/(\d+)$/);
+  if (negocioMatch) {
+    try {
+      const id = Number(negocioMatch[1]);
+      const business = await safeFetch(`${API_BASE}/api/businesses/${id}`);
+      if (business) {
+        const render = await getRender();
+        const appHtml = render(`/negocio/${id}`, business);
+        const title = `${business.name} — Hub Londrina`;
+        const rawDesc = business.description ||
+          `${business.name} em Londrina, PR. Veja avaliações, horários e contato.`;
+        const desc = rawDesc.slice(0, 155);
+        const safeData = JSON.stringify(business).replace(/</g, "\\u003c");
+        const ssrScript = `<script>window.__SSR_DATA__=${safeData}</script>`;
+        let html = template
+          .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
+          .replace("<title>Hub Londrina — Negócio Local</title>", `<title>${title}</title>`)
+          .replace(
+            `content="Descubra os melhores serviços, restaurantes e lojas em Londrina, PR. O maior guia de negócios locais da região."`,
+            `content="${desc.replace(/"/g, "&quot;")}"`
+          )
+          .replace("</head>", `${ssrScript}\n</head>`);
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+        return;
+      }
+    } catch (e) {
+      console.error("[SSR /negocio error]", e.message);
+    }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(template);
+    return;
+  }
+
+  // ── SSR: home page and other app routes ────────────────────────
+  try {
+    const render = await getRender();
+    const [categories, businesses] = await Promise.all([
+      safeFetch(`${API_BASE}/api/categories`),
+      safeFetch(`${API_BASE}/api/businesses?sort=rating`),
+    ]);
+
+    const extraQueries = [];
+    if (categories) extraQueries.push({ key: ["/api/categories"], data: categories });
+    if (businesses) extraQueries.push({ key: ["/api/businesses", { sort: "rating" }], data: businesses });
+
+    const appHtml = render(pathname || "/", undefined, extraQueries);
+
+    const hydrationScript = `<script>window.__SSR_QUERIES__=${
+      JSON.stringify(extraQueries).replace(/</g, "\\u003c")
+    }</script>`;
+
+    const html = template
+      .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
+      .replace("</head>", `${hydrationScript}\n</head>`);
+
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(html);
+    return;
+  } catch (e) {
+    console.error("[SSR home error]", e.message);
   }
 
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });

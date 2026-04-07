@@ -29,7 +29,9 @@ function Routes() {
   );
 }
 
-export function render(url: string, prefetchedData?: Record<string, unknown>) {
+type QueryEntry = { key: unknown[]; data: unknown };
+
+export function render(url: string, prefetchedData?: Record<string, unknown>, extraQueries?: QueryEntry[]) {
   const hook = makeStaticLocationHook(url);
 
   const qc = new QueryClient({
@@ -44,6 +46,12 @@ export function render(url: string, prefetchedData?: Record<string, unknown>) {
 
   if (prefetchedData?.id) {
     qc.setQueryData([`/api/businesses/${prefetchedData.id}`], prefetchedData);
+  }
+
+  if (extraQueries) {
+    for (const { key, data } of extraQueries) {
+      qc.setQueryData(key, data);
+    }
   }
 
   return renderToString(
