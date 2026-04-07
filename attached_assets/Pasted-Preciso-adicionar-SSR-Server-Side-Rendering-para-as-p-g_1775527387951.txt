@@ -1,0 +1,208 @@
+Preciso adicionar SSR (Server-Side Rendering) para as páginas de negócio 
+do Hub Londrina, sem migrar o stack atual (React + Vite + Wouter + Express).
+
+## Objetivo
+A rota /negocio/:id precisa retornar HTML completo com os dados do negócio 
+já renderizados, para que o Google indexe o conteúdo de cada perfil.
+
+## Stack atual
+- Frontend: React + Vite (SPA pura) em artifacts/hub-londrina/
+- Backend: Express.js em artifacts/api-server/
+- Roteamento: Wouter
+- Dados: React Query via hooks de api-client-react
+- Banco: PostgreSQL + Drizzle
+
+## O que fazer
+
+### 1. Instalar dependências de SSR no frontend
+No package.json de artifacts/hub-londrina/, adicionar:
+- @vitejs/plugin-react (já deve existir)
+- vite-plugin-ssr (ou vike) NÃO — usar a abordagem abaixo
+
+Usar a abordagem de SSR nativa do Vite com Express, sem plugin externo.
+
+### 2. Criar o entry server no frontend
+Criar arquivo artifacts/hub-londrina/src/entry-server.tsx:
+
+import React from 'react'
+import { renderToString } from 'react-dom/server'
+import { Router } from 'wouter'
+import staticLocationHook from 'wouter/static-location'
+import App from './App'
+
+export function render(url: string, empresaData: any) {
+  const html = renderToString(
+    <Router hook={staticLocationHook(url)}>
+      <App prefetchedData={empresaData} />
+    </Router>
+  )
+  return html
+}
+
+### 3. Adaptar App.tsx para aceitar dados prefetchados
+Em App.tsx, adicionar prop opcional prefetchedData que é passada 
+para a rota /negocio/:id. Quando presente, o componente usa esses dados 
+em vez de fazer fetch.
+
+No componente artifacts/hub-londrina/src/pages/negocio.tsx, adicionar:
+
+interface Props {
+  prefetchedData?: BusinessWithDetails
+}
+
+export default function NegocioPage({ prefetchedData }: Props) {
+  const [, params] = useRoute("/negocio/:id")
+  
+  // Se tem dados prefetchados (SSR), usa direto sem fetch
+  const { data } = prefetchedData 
+    ? { data: prefetchedData }
+    : useGetBusinessById({ id: Number(params?.id) })
+  
+  // resto do componente igual
+}
+
+### 4. Configurar vite.config.ts para SSR
+Em artifacts/hub-londrina/vite.config.ts, adicionar build SSR:
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+      }
+    }
+  }
+})
+
+Criar também artifacts/hub-londrina/vite.ssr.config.ts:
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    ssr: true,
+    rollupOptions: {
+      input: 'src/entry-server.tsx',
+      output: {
+        format: 'esm'
+      }
+    },
+    outDir: 'dist/server'
+  }
+})
+
+### 5. Adicionar rota SSR no Express
+Em artifacts/api-server/src/index.ts (ou routes/), adicionar ANTES 
+das rotas de API:
+
+import { createServer as createViteServer } from 'vite'
+import fs from 'fs'
+import path from 'path'
+
+// Em desenvolvimento: usa Vite como middleware
+// Em produção: serve o bundle SSR compilado
+
+app.get('/negocio/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    
+    // Busca os dados do negócio (mesma lógica da API GET /api/businesses/:id)
+    const business = await getBusinessById(id) // função já existente
+    
+    if (!business) {
+      return res.status(404).send('Negócio não encontrado')
+    }
+
+    // Renderiza o HTML com os dados
+    let render
+    if (process.env.NODE_ENV === 'production') {
+      // Carrega o bundle SSR compilado
+      const module = await import('../../../hub-londrina/dist/server/entry-server.js')
+      render = module.render
+    } else {
+      // Em dev, usa Vite SSR transform
+      const vite = await createViteServer({ server: { middlewareMode: true } })
+      const module = await vite.ssrLoadModule('/src/entry-server.tsx')
+      render = module.render
+    }
+
+    const appHtml = render(`/negocio/${id}`, business)
+    
+    // Lê o template HTML
+    const template = fs.readFileSync(
+      path.resolve('../hub-londrina/index.html'), 'utf-8'
+    )
+    
+    // Injeta o HTML renderizado e os dados para hidratação
+    const html = template
+      .replace('<!--ssr-outlet-->', appHtml)
+      .replace(
+        '</head>',
+        `<script>window.__SSR_DATA__ = ${JSON.stringify(business)}</script>
+         <meta name="description" content="${business.description || business.name + ' em Londrina'}">
+         <title>${business.name} — Hub Londrina</title>
+         </head>`
+      )
+    
+    res.status(200).set({ 'Content-Type': 'text/html' }).end(html)
+    
+  } catch (e) {
+    console.error(e)
+    res.status(500).send('Erro interno')
+  }
+})
+
+### 6. Adaptar index.html para SSR
+Em artifacts/hub-londrina/index.html, adicionar o placeholder:
+
+<div id="root"><!--ssr-outlet--></div>
+
+### 7. Hidratação no cliente
+Em artifacts/hub-londrina/src/main.tsx, adaptar para hidratar 
+quando dados SSR estiverem presentes:
+
+import React from 'react'
+import { hydrateRoot, createRoot } from 'react-dom/client'
+import App from './App'
+
+const ssrData = (window as any).__SSR_DATA__
+const container = document.getElementById('root')!
+
+if (ssrData) {
+  // Hidrata o HTML já renderizado pelo servidor
+  hydrateRoot(container, <App prefetchedData={ssrData} />)
+} else {
+  // Renderização normal SPA
+  createRoot(container).render(<App />)
+}
+
+### 8. Adicionar scripts de build no package.json do frontend
+Em artifacts/hub-londrina/package.json:
+
+"scripts": {
+  "dev": "vite",
+  "build": "vite build && vite build --config vite.ssr.config.ts",
+  "build:ssr": "vite build --config vite.ssr.config.ts",
+  "preview": "vite preview"
+}
+
+## Resultado esperado
+- /negocio/123 retorna HTML completo com nome, descrição, categoria do negócio
+- Google consegue indexar o conteúdo de cada perfil
+- No browser, o React hidrata normalmente e o site continua sendo SPA
+- Todas as outras rotas (/, /categorias, /busca, /anuncie) continuam 
+  funcionando como SPA normal — apenas /negocio/:id tem SSR
+
+## Importante
+- Não quebrar nenhuma rota existente
+- Não remover nem substituir o React Query — ele continua sendo usado 
+  no cliente após hidratação
+- Manter o Wouter como roteador
+- Testar que /negocio/1 retorna HTML com o nome do negócio visível 
+  no source (view-source:) antes de finalizar

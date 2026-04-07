@@ -19,12 +19,14 @@ run = "pnpm --filter @workspace/hub-londrina run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/hub-londrina", "run", "build" ]
-publicDir = "artifacts/hub-londrina/dist/public"
-serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.run]
+args = [ "node", "artifacts/hub-londrina/server.mjs" ]
+
+[services.production.run.env]
+PORT = "22662"
+NODE_ENV = "production"
+API_INTERNAL_URL = "http://localhost:8080"
 
 [services.env]
 PORT = "22662"
