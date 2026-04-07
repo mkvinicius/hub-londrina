@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-0.5 cursor-pointer">
+    <Link href="/" className="flex items-center cursor-pointer" style={{ gap: 0 }}>
       <img
         src="/logo.jpeg"
         alt="Hub Londrina"
         style={{ width: "76px", height: "76px", objectFit: "contain", flexShrink: 0, borderRadius: "6px" }}
       />
-      <div className="flex flex-col leading-none">
+      <div className="flex flex-col leading-none" style={{ marginLeft: "-6px" }}>
         <div className="flex items-baseline gap-1">
           <span className="font-black text-xl tracking-tight text-[#6F4E37]">HUB</span>
           <span className="font-black text-xl tracking-tight text-[#6F4E37]">LONDRINA</span>
