@@ -128,14 +128,19 @@ export function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-10">
             <div className="flex flex-col gap-2 max-w-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7">
-                  <svg viewBox="0 0 100 120">
-                    <path d="M50 10 C25 10, 12 30, 12 48 C12 70, 50 110, 50 110 C50 110, 88 70, 88 48 C88 30, 75 10, 50 10 Z" fill="#d97706" />
-                    <ellipse cx="50" cy="48" rx="18" ry="18" fill="#1e1208" />
-                  </svg>
+              <div className="flex items-center" style={{ gap: 0 }}>
+                <img
+                  src="/logo.jpeg"
+                  alt="Hub Londrina"
+                  style={{ width: "52px", height: "52px", objectFit: "contain", flexShrink: 0, borderRadius: "6px" }}
+                />
+                <div className="flex flex-col leading-none" style={{ marginLeft: "-4px" }}>
+                  <div className="flex items-baseline" style={{ gap: "0.18em" }}>
+                    <span className="font-extrabold text-lg text-[#5ab533]">Hub</span>
+                    <span className="font-extrabold text-lg text-[#f5e9dd]">Londrina</span>
+                  </div>
+                  <span className="font-semibold text-[10px] tracking-[0.18em] text-[#d97706] uppercase">Negócio Local</span>
                 </div>
-                <span className="font-black text-lg text-white">HUB LONDRINA</span>
               </div>
               <p className="text-sm text-white/60 leading-relaxed">
                 O maior guia de negócios locais de Londrina, PR.
