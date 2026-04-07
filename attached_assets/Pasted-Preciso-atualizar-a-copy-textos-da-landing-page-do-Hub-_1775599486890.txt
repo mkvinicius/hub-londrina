@@ -1,0 +1,94 @@
+Preciso atualizar a copy (textos) da landing page do Hub Londrina.
+Não mexer em nenhuma lógica, componente, rota ou estilo — apenas substituir textos.
+
+## Posicionamento
+Orgulho local — "feito por londrinense, para londrinense"
+
+---
+
+## ALTERAÇÕES EXATAS
+
+### 1. Hero — headline e subtítulo
+ATUAL: "Descubra os Melhores Negócios Locais de Londrina"
+NOVO:  "Feito por londrinense. Para londrinense."
+
+ATUAL: "Encontre produtos e serviços perto de você."
+NOVO:  "Aqui você encontra negócios de verdade — da sua cidade, do seu bairro, de gente que vive do mesmo lado que você."
+
+### 2. Placeholder da barra de busca
+ATUAL: "O que você está procurando?"
+NOVO:  "Restaurante, salão, mecânica em Londrina..."
+
+### 3. Stats — substituir todos os números fictícios
+ATUAL: "+500" com label "Negócios"
+NOVO:  "20" com label "Negócios verificados"
+
+ATUAL: "+12mil" com label "Usuários"
+NOVO:  "5" com label "Regiões de Londrina"
+
+ATUAL: "10" com label "Categorias"
+NOVO:  "10" com label "Categorias"
+
+ATUAL: "5" com label "Regiões"
+NOVO:  "Novo" com label "Negócio todo dia"
+
+### 4. Seção consumidor — headline da seção de categorias
+ATUAL: "O que você precisa?"
+NOVO:  "Quando você compra local, Londrina cresce."
+
+ATUAL (subtítulo da seção): "Explore por categoria"
+NOVO:  "Negócios do seu bairro, da sua cidade"
+
+### 5. Seção empresário — headline e subtítulo
+ATUAL: "Coloque seu negócio no mapa de Londrina."
+NOVO:  "Você construiu seu negócio em Londrina. Agora Londrina vai te encontrar."
+
+ATUAL: "Conecte sua marca aos londrinenses que já estão procurando pelos seus produtos e serviços."
+NOVO:  "Seu perfil aparece pra londrinenses que já estão procurando o que você oferece. Comece grátis — sem cartão, sem contrato."
+
+### 6. Seção planos — headline
+ATUAL: "Coloque seu negócio no mapa de Londrina." (se repetir na seção de planos)
+NOVO:  "Comece grátis. Cresça no seu ritmo."
+
+### 7. CTAs da seção empresário
+ATUAL: "Anuncie Seu Negócio"
+NOVO:  "Cadastrar meu negócio — é grátis"
+
+### 8. Depoimentos — substituir os 3 textos e nomes
+Depoimento 1:
+TEXTO: "Achei uma padaria artesanal a 3 quadras de casa que eu não sabia que existia. Agora compro lá toda semana."
+NOME:  "Mariana Costa"
+CARGO: "Moradora da Zona Sul"
+
+Depoimento 2:
+TEXTO: "Na primeira semana já recebi contato de cliente novo pelo WhatsApp. O perfil paga ele mesmo."
+NOME:  "Roberto Silva"
+CARGO: "Dono de oficina, Zona Norte"
+
+Depoimento 3:
+TEXTO: "Uso toda vez que preciso de algum serviço aqui em Londrina. Muito melhor do que ficar perguntando no grupo do WhatsApp."
+NOME:  "Juliana Alves"
+CARGO: "Estudante, Centro"
+
+### 9. Seção "Seu negócio ainda não está aqui?"
+ATUAL: "Seu negócio ainda não está aqui?"
+NOVO:  "Seu negócio é de Londrina. Seu cliente também."
+
+ATUAL: "Cadastrar Meu Negócio"
+NOVO:  "Cadastrar meu negócio — é grátis"
+
+### 10. Tagline do rodapé
+ATUAL: "O maior guia de negócios locais de Londrina, PR."
+NOVO:  "O guia de negócios locais feito por quem é de Londrina."
+
+### 11. Meta description no index.html ou server.mjs
+ATUAL: "Descubra os melhores serviços, restaurantes e lojas em Londrina, PR. O maior guia de negócios locais da região."
+NOVO:  "Feito por londrinense, para londrinense. Encontre restaurantes, salões, clínicas e serviços locais em Londrina, PR."
+
+---
+
+## REGRAS
+- Não alterar nenhum estilo, cor, layout ou lógica
+- Não remover nenhum componente
+- Apenas substituir os textos indicados acima
+- Após as alterações, confirmar quais arquivos foram modificados

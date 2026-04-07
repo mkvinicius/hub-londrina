@@ -143,7 +143,7 @@ export function Layout({ children }: LayoutProps) {
                 </div>
               </div>
               <p className="text-sm text-white/60 leading-relaxed">
-                O maior guia de negócios locais de Londrina, PR.
+                O guia de negócios locais feito por quem é de Londrina.
               </p>
             </div>
 

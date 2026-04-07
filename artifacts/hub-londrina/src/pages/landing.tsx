@@ -91,21 +91,21 @@ const testimonials = [
   {
     name: "Mariana Costa",
     role: "Moradora da Zona Sul",
-    content: "O Hub Londrina mudou a forma como descubro novos lugares. Encontrei uma padaria artesanal incrível do lado de casa.",
+    content: "Achei uma padaria artesanal a 3 quadras de casa que eu não sabia que existia. Agora compro lá toda semana.",
     initials: "MC",
     bg: "bg-pink-100 text-pink-700",
   },
   {
     name: "Roberto Silva",
-    role: "Dono de Oficina",
-    content: "Desde que anunciei minha oficina aqui, o movimento aumentou muito. Ótimo para conectar o negócio com a comunidade.",
+    role: "Dono de oficina, Zona Norte",
+    content: "Na primeira semana já recebi contato de cliente novo pelo WhatsApp. O perfil paga ele mesmo.",
     initials: "RS",
     bg: "bg-blue-100 text-blue-700",
   },
   {
     name: "Juliana Alves",
-    role: "Estudante",
-    content: "Sempre uso para achar onde comer no fim de semana. As avaliações são reais e me ajudam a escolher bem.",
+    role: "Estudante, Centro",
+    content: "Uso toda vez que preciso de algum serviço aqui em Londrina. Muito melhor do que ficar perguntando no grupo do WhatsApp.",
     initials: "JA",
     bg: "bg-green-100 text-green-700",
   },
@@ -159,14 +159,14 @@ export default function Landing() {
               textShadow: "0 2px 20px rgba(0,0,0,0.5)",
             }}
           >
-            Descubra os Melhores Negócios Locais de Londrina
+            Feito por londrinense. Para londrinense.
           </h1>
 
           <p
             className="text-white text-base md:text-lg font-medium mb-10"
             style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}
           >
-            Encontre produtos e serviços perto de você.
+            Aqui você encontra negócios de verdade — da sua cidade, do seu bairro, de gente que vive do mesmo lado que você.
           </p>
 
           {/* Search bar */}
@@ -186,7 +186,7 @@ export default function Landing() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="O que você está procurando?"
+                  placeholder="Restaurante, salão, mecânica em Londrina..."
                   className="flex-1 text-base text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
                 />
               </div>
@@ -277,10 +277,10 @@ export default function Landing() {
             }}
           >
             {[
-              { value: "+500", label: "Negócios" },
-              { value: "+12mil", label: "Usuários" },
+              { value: "20", label: "Negócios verificados" },
+              { value: "5", label: "Regiões de Londrina" },
               { value: "10", label: "Categorias" },
-              { value: "5", label: "Regiões" },
+              { value: "Novo", label: "Negócio todo dia" },
             ].map((stat, i, arr) => (
               <div key={stat.label} className="flex items-center justify-center">
                 <div className="flex flex-col items-center gap-0.5 py-4 px-2">
@@ -301,8 +301,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
-              <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Explore por categoria</span>
-              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">O que você precisa?</h2>
+              <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Negócios do seu bairro, da sua cidade</span>
+              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Quando você compra local, Londrina cresce.</h2>
             </div>
             <button
               onClick={() => navigate("/categorias")}
@@ -431,16 +431,16 @@ export default function Landing() {
               <div className="lg:w-5/12 p-10 lg:p-14 flex flex-col justify-center">
                 <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-3 block">Para Empreendedores</span>
                 <h2 className="font-black text-3xl lg:text-4xl text-white mb-4 leading-tight">
-                  Coloque seu negócio no mapa de Londrina.
+                  Você construiu seu negócio em Londrina. Agora Londrina vai te encontrar.
                 </h2>
                 <p className="text-white/70 text-base mb-8 leading-relaxed">
-                  Conecte sua marca aos londrinenses que já estão procurando pelos seus produtos e serviços.
+                  Seu perfil aparece pra londrinenses que já estão procurando o que você oferece. Comece grátis — sem cartão, sem contrato.
                 </p>
                 <Button
                   onClick={() => navigate("/anuncie")}
                   className="w-full sm:w-auto bg-[#d97706] hover:bg-[#b45309] text-white rounded-full px-8 h-12 font-bold text-sm shadow-none border-0 self-start"
                 >
-                  Anuncie Seu Negócio
+                  Cadastrar meu negócio — é grátis
                 </Button>
               </div>
 
@@ -569,14 +569,14 @@ export default function Landing() {
       <section className="py-14 bg-[#d97706]">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h2 className="font-black text-2xl md:text-3xl text-white mb-6">
-            Seu negócio ainda não está aqui?
+            Seu negócio é de Londrina. Seu cliente também.
           </h2>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => navigate("/anuncie")}
               className="bg-white hover:bg-gray-100 text-[#d97706] font-black text-base px-10 py-3.5 rounded-full shadow-lg transition-colors"
             >
-              Cadastrar Meu Negócio
+              Cadastrar meu negócio — é grátis
             </button>
             <button
               onClick={() => navigate("/busca")}

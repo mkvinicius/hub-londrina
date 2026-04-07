@@ -112,7 +112,7 @@ async function handler(req, res) {
           .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
           .replace("<title>Hub Londrina — Negócio Local</title>", `<title>${title}</title>`)
           .replace(
-            `content="Descubra os melhores serviços, restaurantes e lojas em Londrina, PR. O maior guia de negócios locais da região."`,
+            `content="Feito por londrinense, para londrinense. Encontre restaurantes, salões, clínicas e serviços locais em Londrina, PR."`,
             `content="${desc.replace(/"/g, "&quot;")}"`
           )
           .replace("</head>", `${ssrScript}\n</head>`);
