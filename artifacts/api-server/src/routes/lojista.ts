@@ -97,6 +97,57 @@ function lojistaAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+router.post("/lojista/register", async (req: Request, res: Response) => {
+  const { businessName, categorySlug, zone, ownerName, email, password } = req.body;
+
+  if (!businessName || !email || !password || !ownerName) {
+    res.status(400).json({ error: "Nome do negócio, responsável, email e senha são obrigatórios" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "A senha deve ter no mínimo 6 caracteres" });
+    return;
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const existing = await db.select().from(businessUsersTable).where(eq(businessUsersTable.email, normalizedEmail));
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Este email já está cadastrado" });
+    return;
+  }
+
+  const validZones = ["centro", "norte", "sul", "leste", "oeste"];
+  const selectedZone = validZones.includes(zone) ? zone : "centro";
+
+  const [business] = await db.insert(businessesTable).values({
+    name: businessName.trim(),
+    categorySlug: categorySlug || "servicos",
+    zone: selectedZone,
+    ownerName: ownerName.trim(),
+    ownerEmail: normalizedEmail,
+    planType: "free",
+    isVisible: true,
+    description: "",
+    phone: "",
+    whatsapp: "",
+  }).returning();
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await db.insert(businessUsersTable).values({
+    email: normalizedEmail,
+    passwordHash,
+    businessId: business.id,
+  });
+
+  const token = jwt.sign(
+    { businessId: business.id, email: normalizedEmail, role: "lojista" },
+    JWT_SECRET!,
+    { expiresIn: "7d" }
+  );
+
+  res.status(201).json({ token, businessId: business.id });
+});
+
 router.post("/lojista/login", async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -199,6 +250,12 @@ router.post("/lojista/upload/logo", uploadLogo.single("file"), async (req: Reque
     res.status(400).json({ error: "Nenhum arquivo enviado" });
     return;
   }
+  const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!business || business.planType === "free") {
+    fs.unlinkSync(req.file.path);
+    res.status(403).json({ error: "Logo disponível apenas nos planos Destaque e Premium" });
+    return;
+  }
   const logoUrl = `/uploads/logos/${req.file.filename}`;
   await db.update(businessesTable).set({ logoUrl }).where(eq(businessesTable.id, businessId));
   res.json({ logoUrl });
@@ -208,6 +265,12 @@ router.post("/lojista/upload/banner", uploadBanner.single("file"), async (req: R
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+  const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!business || business.planType === "free") {
+    fs.unlinkSync(req.file.path);
+    res.status(403).json({ error: "Banner disponível apenas nos planos Destaque e Premium" });
     return;
   }
   const bannerUrl = `/uploads/banners/${req.file.filename}`;
@@ -376,6 +439,12 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
 
   if (!name) {
     res.status(400).json({ error: "Nome do produto é obrigatório" });
+    return;
+  }
+
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz || biz.planType !== "premium") {
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium" });
     return;
   }
 

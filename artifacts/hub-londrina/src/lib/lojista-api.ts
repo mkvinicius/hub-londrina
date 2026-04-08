@@ -40,6 +40,28 @@ async function lojistaFetch(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
+export async function registerLojista(data: {
+  businessName: string;
+  ownerName: string;
+  email: string;
+  password: string;
+  categorySlug: string;
+  zone: string;
+}) {
+  const res = await fetch(`${API_BASE}/api/lojista/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Erro ao criar conta");
+  }
+  const result = await res.json();
+  setToken(result.token);
+  return result;
+}
+
 export async function lojistaLogin(email: string, password: string) {
   const res = await fetch(`${API_BASE}/api/lojista/login`, {
     method: "POST",

@@ -291,6 +291,50 @@ router.delete("/admin/businesses/:id", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+router.get("/admin/lojistas", async (req: Request, res: Response) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = 25;
+  const offset = (page - 1) * limit;
+  const search = req.query.search as string | undefined;
+
+  const rows = await db.select({
+    id: businessUsersTable.id,
+    email: businessUsersTable.email,
+    businessId: businessUsersTable.businessId,
+    businessName: businessesTable.name,
+    planType: businessesTable.planType,
+    region: businessesTable.region,
+    isVisible: businessesTable.isVisible,
+    createdAt: businessUsersTable.createdAt,
+  })
+    .from(businessUsersTable)
+    .leftJoin(businessesTable, eq(businessUsersTable.businessId, businessesTable.id))
+    .where(search ? ilike(businessUsersTable.email, `%${search}%`) : undefined)
+    .orderBy(desc(businessUsersTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(businessUsersTable)
+    .where(search ? ilike(businessUsersTable.email, `%${search}%`) : undefined);
+
+  res.json({ data: rows, total: countResult?.count ?? 0, page, limit });
+});
+
+router.post("/admin/lojistas/:id/reset-password", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const tempPassword = "Hub@" + Math.floor(1000 + Math.random() * 9000);
+  const bcryptjs = await import("bcryptjs");
+  const passwordHash = await bcryptjs.hash(tempPassword, 10);
+
+  const result = await db.update(businessUsersTable).set({ passwordHash }).where(eq(businessUsersTable.id, id)).returning();
+  if (result.length === 0) { res.status(404).json({ error: "Lojista não encontrado" }); return; }
+
+  res.json({ tempPassword });
+});
+
 router.get("/admin/categories", async (_req: Request, res: Response) => {
   const cats = await db.select({
     id: categoriesTable.id,
