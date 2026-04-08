@@ -36,6 +36,15 @@ export default function Busca() {
   const { data: categoriesData } = useListCategories();
   const categories = categoriesData?.data ?? [];
 
+  const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
+  useEffect(() => {
+    const BASE = import.meta.env.VITE_API_URL || "";
+    fetch(`${BASE}/api/regions`)
+      .then(r => r.json())
+      .then(d => setDynamicRegions(d.data || []))
+      .catch(() => {});
+  }, []);
+
   const results: Business[] = searchData?.data ?? [];
   const sorted = [...results].sort((a, b) => {
     if (sort === "rating") return b.rating - a.rating;
@@ -97,11 +106,9 @@ export default function Busca() {
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-0 shadow-xl">
                     <SelectItem value="todas">Todas as regiões</SelectItem>
-                    <SelectItem value="Centro">Centro</SelectItem>
-                    <SelectItem value="Gleba Palhano">Gleba Palhano</SelectItem>
-                    <SelectItem value="Zona Norte">Zona Norte</SelectItem>
-                    <SelectItem value="Zona Sul">Zona Sul</SelectItem>
-                    <SelectItem value="Jardim Quebec">Jardim Quebec</SelectItem>
+                    {dynamicRegions.map(r => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -226,7 +233,7 @@ export default function Busca() {
                     Região <ChevronDown className="h-4 w-4 text-gray-400" />
                   </h3>
                   <div className="space-y-1">
-                    {["todas", "Centro", "Gleba Palhano", "Zona Norte", "Zona Sul", "Jardim Quebec"].map((reg) => (
+                    {["todas", ...dynamicRegions].map((reg) => (
                       <button
                         key={reg}
                         onClick={() => setRegion(reg === "todas" ? "" : reg)}

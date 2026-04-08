@@ -123,6 +123,22 @@ router.post("/businesses/:id/click-whatsapp", async (req, res) => {
   res.json({ success: true });
 });
 
+router.get("/regions", async (_req, res) => {
+  try {
+    const rows = await db
+      .select({ region: businessesTable.region })
+      .from(businessesTable)
+      .where(and(eq(businessesTable.isVisible, true), sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`))
+      .groupBy(businessesTable.region)
+      .orderBy(businessesTable.region);
+
+    const regions = rows.map(r => r.region).filter(Boolean) as string[];
+    res.json({ data: regions });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar regiões" });
+  }
+});
+
 router.get("/stats", async (_req, res) => {
   try {
     const [businessCount] = await db
@@ -135,9 +151,9 @@ router.get("/stats", async (_req, res) => {
       .from(categoriesTable);
 
     const [regionResult] = await db
-      .select({ count: sql<number>`count(distinct ${businessesTable.zone})::int` })
+      .select({ count: sql<number>`count(distinct ${businessesTable.region})::int` })
       .from(businessesTable)
-      .where(and(eq(businessesTable.isVisible, true), sql`${businessesTable.zone} is not null`));
+      .where(and(eq(businessesTable.isVisible, true), sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`));
 
     const [clickResult] = await db
       .select({ count: sql<number>`coalesce(sum(${businessesTable.clicks}), 0)::int` })

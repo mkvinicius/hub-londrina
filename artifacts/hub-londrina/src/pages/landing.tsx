@@ -125,15 +125,21 @@ export default function Landing() {
   const categories = categoriesData?.data ?? [];
   const featuredBusinesses = (featuredData?.data ?? []).slice(0, 4);
 
+  const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
+
   useEffect(() => {
     const BASE = import.meta.env.VITE_API_URL || "";
     fetch(`${BASE}/api/stats`)
       .then(r => r.json())
       .then(d => setPlatformStats(d))
       .catch(() => {});
+    fetch(`${BASE}/api/regions`)
+      .then(r => r.json())
+      .then(d => setDynamicRegions(d.data || []))
+      .catch(() => {});
   }, []);
 
-  const regions = ["Todas as regiões", "Centro", "Gleba Palhano", "Zona Norte", "Zona Sul", "Jardim Quebec"];
+  const regions = ["Todas as regiões", ...dynamicRegions];
 
   function handleSearch() {
     const params = new URLSearchParams();
