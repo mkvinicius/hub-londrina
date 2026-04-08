@@ -39,7 +39,7 @@ function VitrineCard({ p }: { p: { name: string; price: string; likes: string; c
 
   return (
     <div
-      className="flex-shrink-0 md:flex-shrink relative rounded-2xl overflow-hidden cursor-pointer group w-[88vw] md:w-full h-[calc(100vh-220px)] md:h-[295px]"
+      className="flex-shrink-0 md:flex-shrink relative rounded-2xl overflow-hidden cursor-pointer group w-[92vw] md:w-full vitrine-card"
       style={{
         scrollSnapAlign: "start",
         boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)",

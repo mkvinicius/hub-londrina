@@ -306,4 +306,17 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  .vitrine-card {
+    height: 70svh;
+    min-height: 480px;
+    max-height: 700px;
+  }
+  @media (min-width: 768px) {
+    .vitrine-card {
+      height: 295px;
+      min-height: unset;
+      max-height: unset;
+    }
+  }
 }
