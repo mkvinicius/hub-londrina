@@ -1,0 +1,304 @@
+# Hub Londrina — Contexto Completo do Projeto
+# Atualizado: Abril 2026
+# LEIA ESTE ARQUIVO ANTES DE QUALQUER ALTERAÇÃO
+
+---
+
+## 1. IDENTIDADE DO PRODUTO
+
+**Nome:** Hub Londrina  
+**Domínio:** https://www.hublondrina.com.br  
+**Tagline:** Feito por londrinense. Para londrinense.  
+**Descrição:** Diretório SaaS de negócios locais para Londrina, PR. Conecta consumidores a negócios locais organizados por zona geográfica, com perfis completos, avaliações verificadas e contato direto pelo WhatsApp.
+
+---
+
+## 2. STACK TÉCNICO — NÃO ALTERAR SEM NECESSIDADE
+
+```
+Camada         | Tecnologia
+---------------|------------------------------------------
+Frontend       | React + Vite (SPA)
+Roteamento     | Wouter (useLocation, <Link>, useRoute)
+Estilização    | Tailwind CSS
+Backend        | Express.js (Node.js)
+Linguagem      | TypeScript em todo o projeto
+Banco          | PostgreSQL + Drizzle ORM
+Monorepo       | pnpm workspaces
+SSR            | server.mjs (Node puro, sem Next.js)
+Domínio        | hublondrina.com.br
+Hospedagem     | Replit
+```
+
+### Estrutura de pastas
+```
+workspace/
+├── artifacts/
+│   ├── hub-londrina/          ← Frontend React + Vite
+│   │   └── src/
+│   │       ├── pages/         → landing, categorias, busca, negocio, anuncie
+│   │       │                    lojista/*, admin/*
+│   │       ├── components/    → Layout, BusinessCard, AdminLayout,
+│   │       │                    LojistaLayout, ui/
+│   │       └── lib/           → icons, theme, utils
+│   └── api-server/            ← Backend Express
+│       └── src/routes/        → businesses, categories, reviews,
+│                                search, health, admin, lojista
+└── lib/
+    ├── db/                    ← Schema Drizzle + conexão Postgres
+    ├── api-spec/              ← Tipos compartilhados
+    ├── api-zod/               ← Validações Zod
+    └── api-client-react/      ← Hooks React Query gerados
+```
+
+---
+
+## 3. O QUE ESTÁ FUNCIONANDO — NÃO QUEBRAR
+
+### 3.1 SSR (Server-Side Rendering)
+- `server.mjs` serve HTML completo para home e /negocio/:id
+- `curl https://www.hublondrina.com.br/ | wc -c` retorna ~82.000 bytes
+- `entry-server.tsx` renderiza React no servidor com dados prefetchados
+- `window.__SSR_QUERIES__` injeta cache do React Query no cliente
+- `main.tsx` usa `hydrateRoot()` quando SSR data está presente
+- **NUNCA substituir o server.mjs por vite preview ou servidor estático**
+
+### 3.2 Painel Administrativo (/admin)
+- Protegido por JWT com role admin
+- Senha via variável de ambiente `ADMIN_PASSWORD`
+- Token expira em 24h
+- Módulos funcionando: dashboard, gestão de negócios, categorias
+- Rotas backend: `/api/admin/*` todas com middleware de autenticação
+
+### 3.3 Painel do Lojista (/lojista)
+- Protegido por JWT com role lojista
+- Login via email + senha (bcrypt)
+- Token expira em 7 dias, salvo em localStorage como "hub_lojista_token"
+- Módulos: dashboard, perfil, fotos, produtos, métricas, senha
+- Upload de imagens em `/public/uploads/` (logos, banners, fotos)
+- Busca de CEP via ViaCEP
+- Geocodificação via Nominatim (OpenStreetMap)
+- Rotas backend: `/api/lojista/*` todas com middleware de autenticação
+
+### 3.4 Rotas públicas funcionando
+```
+GET /                    → Landing page (SSR)
+GET /categorias          → Lista de categorias
+GET /busca               → Busca com filtros
+GET /negocio/:id         → Perfil do negócio (SSR)
+GET /anuncie             → Página de planos
+GET /api/businesses      → Lista de negócios (com filtros)
+GET /api/businesses/:id  → Negócio individual (incrementa clicks)
+GET /api/categories      → Lista de categorias
+GET /api/search          → Busca full-text
+POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
+```
+
+### 3.5 Tracking de cliques
+- `businesses.clicks` — incrementa em GET /api/businesses/:id
+- `businesses.whatsappClicks` — incrementa em POST /api/businesses/:id/click-whatsapp
+
+---
+
+## 4. BANCO DE DADOS — ESTADO ATUAL
+
+### 4.1 Tabelas existentes
+```
+businesses      — negócios (20 registros reais)
+categories      — categorias (10 registros)
+reviews         — avaliações (10 registros)
+business_users  — contas dos lojistas (20 registros)
+products        — vitrine de produtos (42 registros)
+```
+
+### 4.2 Campos da tabela businesses
+```
+id, name, categorySlug, region, zone, description, address,
+phone, whatsapp, rating, reviewsCount, planType, verified,
+photoUrl, hours, createdAt, clicks, whatsappClicks, isVisible,
+cnpj, ownerName, ownerEmail, ownerPhone, logoUrl, bannerUrl,
+photos (array), cep, street, number, neighborhood, city, state,
+lat, lng, instagram, website, paymentMethods (array), tags (array),
+videoUrl
+```
+
+### 4.3 Dados seed
+- 20 negócios com endereços reais de Londrina, coordenadas lat/lng
+- 20 contas de lojistas — senha padrão: **Hub@2026**
+- 42 produtos de exemplo distribuídos entre os negócios
+- 10 categorias: Restaurantes, Salões, Academias, Mercados,
+  Cafeterias, Pet Shops, Farmácias, Serviços, Padarias, Saúde
+- Zonas: norte, sul, leste, oeste, centro
+
+### 4.4 Exemplos de login de lojista (para teste)
+```
+contato@sabordosul.com.br     / Hub@2026  → Restaurante Sabor do Sul
+contato@churrascariapantanal.com.br / Hub@2026 → Churrascaria Pantanal
+```
+
+---
+
+## 5. REGRAS DE NEGÓCIO FIXAS — NUNCA ALTERAR SEM INSTRUÇÃO EXPLÍCITA
+
+### 5.1 Planos
+```
+Plano      | Preço    | Fotos | Busca          | Home
+-----------|----------|-------|----------------|------------------
+free       | R$0/mês  | 1     | Por último     | Não
+destaque   | R$49/mês | 10    | Prioridade     | Não
+premium    | R$89/mês | ∞     | Topo garantido | Sim (destaques)
+```
+
+### 5.2 O que cada plano libera (backend deve enforçar)
+```
+Recurso                  | free | destaque | premium
+-------------------------|------|----------|--------
+Upload fotos             | 1    | 10       | ∞
+Logo e banner            | não  | sim      | sim
+Selo verificado          | não  | sim      | sim
+Métricas                 | não  | básica   | avançada
+Avaliações               | não  | sim      | sim
+Vitrine de produtos      | não  | não      | sim
+Vídeo                    | não  | não      | sim
+Instagram/Website        | não  | sim      | sim
+Relatório PDF            | não  | não      | sim
+Impulsionamento          | não  | não      | sim
+```
+
+### 5.3 Ordenação na busca (em ordem de prioridade)
+1. Impulsionamento ativo (máx 3 por página)
+2. Plano premium
+3. Plano destaque
+4. Nota de avaliação (dentro do mesmo plano)
+5. Completude do perfil (logo + fotos + descrição)
+6. Cliques recentes (últimos 30 dias)
+7. Plano free (por último)
+
+### 5.4 Zoneamento
+- Cada negócio pertence a **uma** zona principal
+- Zonas: norte, sul, leste, oeste, centro
+- Cores por zona:
+  - Norte: #3d7a28 (verde)
+  - Sul: #2563eb (azul)
+  - Leste: #d97706 (âmbar)
+  - Oeste: #7c3aed (roxo)
+  - Centro: #dc2626 (vermelho)
+
+### 5.5 Produtos avulsos (ainda não implementados)
+```
+Banner da Home           | R$299/mês  | máx 2 simultâneos
+Destaque de Zona         | R$99/zona  | 1 vaga por categoria por zona
+Impulsionamento 7 dias   | R$29       | avulso
+Impulsionamento 15 dias  | R$49       | avulso
+Impulsionamento 30 dias  | R$79       | avulso
+Subdomínio personalizado | R$29/mês   | ex: negocio.hublondrina.com.br
+SEO Boost                | R$49/mês   | schema.org avançado
+```
+
+---
+
+## 6. COPY E POSICIONAMENTO — NÃO ALTERAR
+
+```
+Headline principal: "Feito por londrinense. Para londrinense."
+Subtítulo: "Aqui você encontra negócios de verdade — da sua cidade,
+            do seu bairro, de gente que vive do mesmo lado que você."
+Tagline do rodapé: "O guia de negócios locais feito por quem é de Londrina."
+Meta description: "Feito por londrinense, para londrinense. Encontre
+                   restaurantes, salões, clínicas e serviços locais
+                   em Londrina, PR."
+CTA principal: "Cadastrar meu negócio — é grátis"
+CTA secundário: "Ver planos a partir de R$49/mês"
+```
+
+---
+
+## 7. VARIÁVEIS DE AMBIENTE OBRIGATÓRIAS
+
+```
+DATABASE_URL      — string de conexão PostgreSQL
+ADMIN_PASSWORD    — senha do painel /admin
+JWT_SECRET        — secret para assinar tokens JWT
+```
+
+---
+
+## 8. O QUE AINDA NÃO FOI IMPLEMENTADO
+
+```
+[ ] Cadastro público de novos lojistas (/cadastro)
+[ ] Enforcement das regras de plano no backend
+[ ] Gateway de pagamento (Stripe ou Asaas/PagSeguro)
+[ ] Tabela subscriptions (ciclo de vida da assinatura)
+[ ] Avaliações por visitantes (formulário público)
+[ ] Notificação pós-clique para solicitar avaliação
+[ ] Selos automáticos (Bem Avaliado, Mais Avaliado)
+[ ] Páginas de zona (/norte, /sul, /leste, /oeste, /centro)
+[ ] Banner da Home (slot pago)
+[ ] Destaque de Zona (slot pago por categoria)
+[ ] Impulsionamento avulso
+[ ] Subdomínios personalizados
+[ ] SEO Boost (schema.org avançado)
+[ ] Busca por proximidade (Perto de mim)
+[ ] Relatório mensal PDF para Premium
+[ ] Sitemap.xml dinâmico
+[ ] Google Search Console ping automático
+```
+
+---
+
+## 9. INSTRUÇÕES PARA O AGENTE
+
+**Antes de qualquer alteração:**
+1. Leia este arquivo completamente
+2. Identifique o que está sendo pedido
+3. Verifique se o que será feito pode quebrar algo da seção 3
+4. Se houver risco, avise antes de implementar
+
+**Durante a implementação:**
+- Não altere rotas públicas existentes sem necessidade explícita
+- Não remova campos do banco — apenas adicione
+- Não altere a copy da landing (seção 6)
+- Não altere as variáveis de ambiente existentes
+- Mantenha o padrão de autenticação JWT já implementado
+- Mantenha o padrão de hooks do api-client-react
+
+**Ao finalizar qualquer tarefa, confirme:**
+```bash
+# Teste 1 — SSR funcionando
+curl https://www.hublondrina.com.br/ | wc -c
+# Esperado: acima de 50000
+
+# Teste 2 — API respondendo
+curl https://www.hublondrina.com.br/api/categories
+# Esperado: JSON com array de categorias
+
+# Teste 3 — Admin acessível
+# Abrir /admin/login no browser e confirmar que carrega
+
+# Teste 4 — Lojista acessível
+# Abrir /lojista/login no browser e confirmar que carrega
+```
+
+**Se qualquer teste falhar:** corrija antes de considerar a tarefa concluída.
+
+---
+
+## 10. TEMPLATE DE PROMPT PARA NOVAS TAREFAS
+
+Copie e use este template toda vez que for pedir algo novo:
+
+```
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+
+Não quebre nada listado na seção 3 (O que está funcionando).
+Não altere copy, regras de negócio ou stack sem instrução explícita.
+
+## O que precisa ser feito:
+[descreva aqui o que quer implementar]
+
+## Restrições:
+[liste aqui o que NÃO deve ser tocado, se houver algo específico]
+
+## Ao finalizar, execute os 4 testes da seção 9 e confirme os resultados.
+```
