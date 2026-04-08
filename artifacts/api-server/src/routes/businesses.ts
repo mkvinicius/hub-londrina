@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable } from "@workspace/db/schema";
-import { eq, ilike, or, and, desc, asc, sql } from "drizzle-orm";
+import { eq, ilike, or, and, desc, asc, sql, ne } from "drizzle-orm";
 import {
   ListBusinessesQueryParams,
   GetBusinessByIdParams,
@@ -33,6 +33,8 @@ router.get("/businesses", async (req, res) => {
       ),
     );
   }
+
+  conditions.push(ne(businessesTable.isVisible, false));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -91,7 +93,24 @@ router.get("/businesses/:id", async (req, res) => {
       .orderBy(desc(reviewsTable.createdAt)),
   ]);
 
+  db.update(businessesTable)
+    .set({ clicks: sql`${businessesTable.clicks} + 1` })
+    .where(eq(businessesTable.id, id))
+    .execute()
+    .catch(() => {});
+
   res.json({ ...business, category, reviews });
+});
+
+router.post("/businesses/:id/click-whatsapp", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  await db.update(businessesTable)
+    .set({ whatsappClicks: sql`${businessesTable.whatsappClicks} + 1` })
+    .where(eq(businessesTable.id, id));
+
+  res.json({ success: true });
 });
 
 export default router;

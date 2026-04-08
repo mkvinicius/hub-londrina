@@ -42,25 +42,44 @@ Full-stack local business directory for Londrina, Brazil.
 
 **Typography**: Playfair Display (serif headings), Inter (body)
 
-**Routes**:
+**Routes (public)**:
 - `/` — Landing page (hero, categories, featured businesses, pricing CTA)
 - `/categorias` — All categories grid
 - `/busca` — Search + filters + results list
 - `/negocio/:id` — Business profile with tabs + reviews + sidebar
 - `/anuncie` — Advertise / pricing page
 
+**Routes (admin — SPA, no SSR)**:
+- `/admin/login` — Password login (JWT auth)
+- `/admin` — Dashboard (stats, charts)
+- `/admin/negocios` — Business management table (CRUD, visibility toggle, plan change)
+- `/admin/categorias` — Category management (CRUD)
+
 **Key files**:
-- `src/App.tsx` — Router setup with wouter
-- `src/components/Layout.tsx` — Shared header + footer
+- `src/App.tsx` — Router setup with wouter + PrivateRoute for admin
+- `src/components/Layout.tsx` — Shared header + footer (public)
 - `src/lib/icons.tsx` — Category icon and color helpers
+- `src/lib/admin-api.ts` — Admin API client (JWT auth, CRUD operations)
 - `src/pages/landing.tsx` — Landing page
 - `src/pages/categorias.tsx` — Categories page
 - `src/pages/busca.tsx` — Search page
 - `src/pages/negocio.tsx` — Business profile page
 - `src/pages/anuncie.tsx` — Advertise/pricing page
+- `src/pages/admin/AdminLayout.tsx` — Admin sidebar layout
+- `src/pages/admin/AdminLogin.tsx` — Admin login page
+- `src/pages/admin/AdminDashboard.tsx` — Admin dashboard
+- `src/pages/admin/AdminNegocios.tsx` — Admin business management
+- `src/pages/admin/AdminCategorias.tsx` — Admin category management
 
 **API Client**: `@workspace/api-client-react` — generated hooks from OpenAPI spec.
 Hooks: `useListBusinesses`, `useGetBusinessById`, `useListCategories`, `useSearch`, `useListReviews`
+
+**Admin API**: Direct fetch calls via `src/lib/admin-api.ts` (JWT Bearer auth)
+Routes: `POST /api/admin/login`, `GET /api/admin/stats`, `GET|PATCH|DELETE /api/admin/businesses`, `GET|POST|PATCH|DELETE /api/admin/categories`
+Env vars: `JWT_SECRET` (auto-generated), `ADMIN_PASSWORD` (user secret)
+
+**DB Schema**: businesses table includes `clicks`, `whatsappClicks`, `isVisible`, `zone` fields
+Click tracking: auto-increment on GET /api/businesses/:id, POST /api/businesses/:id/click-whatsapp
 
 **DB Seed**: 10 categories, 20 businesses, 10 reviews
 
