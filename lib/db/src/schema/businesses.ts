@@ -33,6 +33,10 @@ export const businessesTable = pgTable(
     verified: boolean("verified").notNull().default(false),
     photoUrl: text("photo_url"),
     hours: text("hours"),
+    clicks: integer("clicks").notNull().default(0),
+    whatsappClicks: integer("whatsapp_clicks").notNull().default(0),
+    isVisible: boolean("is_visible").notNull().default(true),
+    zone: text("zone").notNull().default("centro"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

@@ -1,0 +1,150 @@
+Preciso criar o Painel Administrativo do Hub Londrina — acessível em /admin.
+É a visão 360 do dono da plataforma. Nenhuma rota pública é afetada.
+
+## Stack do projeto
+- Frontend: React + Vite + Wouter + Tailwind CSS
+- Backend: Express.js (Node) + TypeScript
+- Banco: PostgreSQL + Drizzle ORM
+- Monorepo: pnpm workspaces
+
+---
+
+## 1. PROTEÇÃO DA ROTA
+
+Criar middleware de autenticação simples no Express:
+- Variável de ambiente ADMIN_PASSWORD no .env
+- Rota POST /api/admin/login recebe { password }
+  → se correta, retorna { token } (JWT assinado com JWT_SECRET do .env)
+  → se errada, retorna 401
+- Todas as rotas /api/admin/* exigem header Authorization: Bearer <token>
+- No frontend, guardar o token no localStorage sob a chave "hub_admin_token"
+- Se não autenticado, redirecionar para /admin/login
+
+---
+
+## 2. ROTAS DO BACKEND — /api/admin/*
+
+### GET /api/admin/stats
+Retorna:
+{
+  totalBusinesses: number,
+  byPlan: { free: number, destaque: number, premium: number },
+  totalClicks: number,          -- soma de businesses.clicks
+  totalWhatsappClicks: number,  -- soma de businesses.whatsappClicks
+  recentSignups: number,        -- cadastros nos últimos 30 dias
+  byZone: { norte: n, sul: n, leste: n, oeste: n, centro: n }
+}
+
+### GET /api/admin/businesses
+Query params: page, limit, search, zone, planType, isVisible
+Retorna lista paginada com todos os campos de cada negócio
+
+### PATCH /api/admin/businesses/:id
+Body pode conter qualquer combinação de:
+{ planType, isVisible, zone, verified }
+Atualiza o negócio no banco
+
+### DELETE /api/admin/businesses/:id
+Remove o negócio
+
+### GET /api/admin/categories
+Lista todas as categorias com businessCount
+
+### POST /api/admin/categories
+Body: { name, slug, icon, color }
+Cria nova categoria
+
+### PATCH /api/admin/categories/:id
+Body: qualquer campo da categoria
+Atualiza categoria
+
+### DELETE /api/admin/categories/:id
+Remove categoria (só se não tiver negócios vinculados)
+
+---
+
+## 3. SCHEMA — campos novos em businesses
+
+Adicionar via Drizzle migration:
+- clicks: integer default 0 not null
+- whatsappClicks: integer default 0 not null
+- isVisible: boolean default true not null
+- zone: text (norte | sul | leste | oeste | centro) default 'centro'
+
+Incrementar clicks toda vez que GET /api/businesses/:id for chamado.
+Incrementar whatsappClicks quando POST /api/businesses/:id/click-whatsapp for chamado (criar essa rota).
+
+---
+
+## 4. FRONTEND — páginas do painel
+
+### /admin/login
+- Campo de senha + botão entrar
+- Chama POST /api/admin/login
+- Salva token e redireciona para /admin
+
+### /admin (dashboard principal)
+Cards de métricas no topo:
+- Total de negócios
+- Por plano: Gratuito / Destaque / Premium
+- Total de cliques
+- Cliques no WhatsApp
+- Cadastros nos últimos 30 dias
+
+Gráfico de barras simples (pode ser CSS puro ou recharts):
+- Negócios por zona
+
+### /admin/negocios
+Tabela com colunas: Nome | Zona | Plano | Cliques | WhatsApp | Visível | Ações
+Filtros no topo: busca por nome, filtro por zona, filtro por plano
+Ações por linha:
+- Toggle visível/invisível (PATCH isVisible)
+- Mudar plano (select inline: free/destaque/premium)
+- Botão excluir (com confirmação)
+
+### /admin/categorias
+Lista de categorias com: Nome | Ícone | Cor | Negócios vinculados | Ações
+Botão "Nova categoria" abre formulário inline
+Ações: editar nome/cor/ícone, excluir (se vazia)
+
+---
+
+## 5. NAVEGAÇÃO DO PAINEL
+
+Criar componente AdminLayout com sidebar fixa contendo:
+- Dashboard (/)
+- Negócios (/negocios)
+- Categorias (/categorias)
+- Botão Sair (limpa localStorage e vai para /admin/login)
+
+Usar Tailwind para estilização. Sidebar escura (bg-gray-900), conteúdo claro.
+
+---
+
+## 6. ADICIONAR ROTAS NO App.tsx (Wouter)
+
+/admin/login  → AdminLogin
+/admin        → AdminDashboard  (protegida)
+/admin/negocios   → AdminNegocios (protegida)
+/admin/categorias → AdminCategorias (protegida)
+
+Criar componente PrivateRoute que verifica token antes de renderizar.
+
+---
+
+## REGRAS
+- Não mexer em nenhuma rota pública existente
+- Não alterar landing page, busca, categorias públicas ou páginas de negócio
+- O painel não precisa de SSR — pode ser SPA normal
+- Usar os hooks e tipos já existentes em api-client-react quando possível
+- Criar novos hooks em api-client-react para as rotas /api/admin/* seguindo o mesmo padrão
+- Testar que /admin redireciona para /admin/login quando sem token
+- Testar que o dashboard carrega os stats reais do banco após login
+
+## ENTREGÁVEL FINAL
+Confirmar que:
+1. curl -X POST /api/admin/login com senha correta retorna token
+2. curl /api/admin/stats com token retorna JSON com os campos acima
+3. /admin/login abre no browser
+4. Login funciona e redireciona para dashboard
+5. Dashboard mostra os cards de métricas com dados reais
