@@ -123,4 +123,35 @@ router.post("/businesses/:id/click-whatsapp", async (req, res) => {
   res.json({ success: true });
 });
 
+router.get("/stats", async (_req, res) => {
+  try {
+    const [businessCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(businessesTable)
+      .where(eq(businessesTable.isVisible, true));
+
+    const [categoryCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(categoriesTable);
+
+    const [regionResult] = await db
+      .select({ count: sql<number>`count(distinct ${businessesTable.zone})::int` })
+      .from(businessesTable)
+      .where(and(eq(businessesTable.isVisible, true), sql`${businessesTable.zone} is not null`));
+
+    const [clickResult] = await db
+      .select({ count: sql<number>`coalesce(sum(${businessesTable.clicks}), 0)::int` })
+      .from(businessesTable);
+
+    res.json({
+      businesses: businessCount?.count ?? 0,
+      categories: categoryCount?.count ?? 0,
+      regions: regionResult?.count ?? 0,
+      totalClicks: clickResult?.count ?? 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar estatísticas" });
+  }
+});
+
 export default router;

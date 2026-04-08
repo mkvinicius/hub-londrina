@@ -117,11 +117,21 @@ export default function Landing() {
   const [regionOpen, setRegionOpen] = useState(false);
   const [, navigate] = useLocation();
 
+  const [platformStats, setPlatformStats] = useState<{ businesses: number; categories: number; regions: number; totalClicks: number } | null>(null);
+
   const { data: categoriesData } = useListCategories();
   const { data: featuredData } = useListBusinesses({ sort: "rating" });
 
   const categories = categoriesData?.data ?? [];
   const featuredBusinesses = (featuredData?.data ?? []).slice(0, 4);
+
+  useEffect(() => {
+    const BASE = import.meta.env.VITE_API_URL || "";
+    fetch(`${BASE}/api/stats`)
+      .then(r => r.json())
+      .then(d => setPlatformStats(d))
+      .catch(() => {});
+  }, []);
 
   const regions = ["Todas as regiões", "Centro", "Gleba Palhano", "Zona Norte", "Zona Sul", "Jardim Quebec"];
 
@@ -277,10 +287,10 @@ export default function Landing() {
             }}
           >
             {[
-              { value: "20", label: "Negócios verificados" },
-              { value: "5", label: "Regiões de Londrina" },
-              { value: "10", label: "Categorias" },
-              { value: "Novo", label: "Negócio todo dia" },
+              { value: platformStats ? `+${platformStats.businesses}` : "…", label: "Negócios" },
+              { value: platformStats ? `+${platformStats.totalClicks.toLocaleString("pt-BR")}` : "…", label: "Usuários" },
+              { value: platformStats ? String(platformStats.categories) : "…", label: "Categorias" },
+              { value: platformStats ? String(platformStats.regions) : "…", label: "Regiões" },
             ].map((stat, i, arr) => (
               <div key={stat.label} className="flex items-center justify-center">
                 <div className="flex flex-col items-center gap-0.5 py-4 px-2">
