@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, reviewsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, reviewsTable, businessClicksTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne } from "drizzle-orm";
 import {
   ListBusinessesQueryParams,
@@ -99,6 +99,11 @@ router.get("/businesses/:id", async (req, res) => {
     .execute()
     .catch(() => {});
 
+  db.insert(businessClicksTable)
+    .values({ businessId: id, type: "profile" })
+    .execute()
+    .catch(() => {});
+
   res.json({ ...business, category, reviews });
 });
 
@@ -109,6 +114,11 @@ router.post("/businesses/:id/click-whatsapp", async (req, res) => {
   await db.update(businessesTable)
     .set({ whatsappClicks: sql`${businessesTable.whatsappClicks} + 1` })
     .where(eq(businessesTable.id, id));
+
+  db.insert(businessClicksTable)
+    .values({ businessId: id, type: "whatsapp" })
+    .execute()
+    .catch(() => {});
 
   res.json({ success: true });
 });

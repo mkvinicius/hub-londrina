@@ -1,0 +1,125 @@
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+function getToken(): string | null {
+  return localStorage.getItem("hub_lojista_token");
+}
+
+export function setToken(token: string) {
+  localStorage.setItem("hub_lojista_token", token);
+}
+
+export function clearToken() {
+  localStorage.removeItem("hub_lojista_token");
+}
+
+export function isLojistaAuthenticated(): boolean {
+  return !!getToken();
+}
+
+async function lojistaFetch(path: string, options: RequestInit = {}) {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+  const res = await fetch(`${API_BASE}/api${path}`, {
+    ...options,
+    headers: { ...headers, ...options.headers },
+  });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = import.meta.env.BASE_URL + "lojista/login";
+    throw new Error("Não autorizado");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function lojistaLogin(email: string, password: string) {
+  const res = await fetch(`${API_BASE}/api/lojista/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Erro no login");
+  }
+  const data = await res.json();
+  setToken(data.token);
+  return data;
+}
+
+export async function getProfile() {
+  return lojistaFetch("/lojista/profile");
+}
+
+export async function updateProfile(data: Record<string, unknown>) {
+  return lojistaFetch("/lojista/profile", { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export async function uploadLogo(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return lojistaFetch("/lojista/upload/logo", { method: "POST", body: formData });
+}
+
+export async function uploadBanner(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return lojistaFetch("/lojista/upload/banner", { method: "POST", body: formData });
+}
+
+export async function uploadPhoto(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return lojistaFetch("/lojista/upload/photo", { method: "POST", body: formData });
+}
+
+export async function deletePhoto(index: number) {
+  return lojistaFetch(`/lojista/photos/${index}`, { method: "DELETE" });
+}
+
+export async function lookupCep(cep: string) {
+  return lojistaFetch(`/lojista/cep/${cep}`);
+}
+
+export async function updateLocation(data: { cep?: string; street: string; number: string; neighborhood: string }) {
+  return lojistaFetch("/lojista/location", { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export async function getProducts() {
+  return lojistaFetch("/lojista/products");
+}
+
+export async function createProduct(data: Record<string, unknown>) {
+  return lojistaFetch("/lojista/products", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function updateProduct(id: number, data: Record<string, unknown>) {
+  return lojistaFetch(`/lojista/products/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export async function deleteProduct(id: number) {
+  return lojistaFetch(`/lojista/products/${id}`, { method: "DELETE" });
+}
+
+export async function reorderProducts(items: Array<{ id: number; sortOrder: number }>) {
+  return lojistaFetch("/lojista/products/reorder", { method: "PATCH", body: JSON.stringify(items) });
+}
+
+export async function getMetrics() {
+  return lojistaFetch("/lojista/metrics");
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return lojistaFetch("/lojista/password", {
+    method: "PATCH",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}

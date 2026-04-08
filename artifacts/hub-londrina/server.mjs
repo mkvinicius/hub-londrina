@@ -128,6 +128,13 @@ async function handler(req, res) {
     return;
   }
 
+  // ── SPA-only routes (no SSR data fetch) ───────────────────────
+  if (pathname.startsWith("/admin") || pathname.startsWith("/lojista")) {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(template);
+    return;
+  }
+
   // ── SSR: home page and other app routes ────────────────────────
   try {
     const render = await getRender();

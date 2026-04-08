@@ -55,21 +55,35 @@ Full-stack local business directory for Londrina, Brazil.
 - `/admin/negocios` — Business management table (CRUD, visibility toggle, plan change)
 - `/admin/categorias` — Category management (CRUD)
 
+**Routes (lojista — SPA, no SSR)**:
+- `/lojista/login` — Email+password login (JWT 7 days)
+- `/lojista` — Dashboard (metrics, profile warnings)
+- `/lojista/perfil` — Business profile editor (data, hours, location w/ CEP, tags, payments)
+- `/lojista/fotos` — Logo, banner, gallery uploads (plan limits enforced)
+- `/lojista/produtos` — Product catalog CRUD
+- `/lojista/metricas` — Click analytics + 30-day chart
+- `/lojista/senha` — Password change
+
 **Key files**:
-- `src/App.tsx` — Router setup with wouter + PrivateRoute for admin
+- `src/App.tsx` — Router setup with wouter + PrivateRoute/LojistaPrivateRoute
 - `src/components/Layout.tsx` — Shared header + footer (public)
 - `src/lib/icons.tsx` — Category icon and color helpers
 - `src/lib/admin-api.ts` — Admin API client (JWT auth, CRUD operations)
+- `src/lib/lojista-api.ts` — Lojista API client (JWT auth, profile, uploads, products, metrics)
 - `src/pages/landing.tsx` — Landing page
 - `src/pages/categorias.tsx` — Categories page
 - `src/pages/busca.tsx` — Search page
 - `src/pages/negocio.tsx` — Business profile page
 - `src/pages/anuncie.tsx` — Advertise/pricing page
-- `src/pages/admin/AdminLayout.tsx` — Admin sidebar layout
-- `src/pages/admin/AdminLogin.tsx` — Admin login page
-- `src/pages/admin/AdminDashboard.tsx` — Admin dashboard
-- `src/pages/admin/AdminNegocios.tsx` — Admin business management
-- `src/pages/admin/AdminCategorias.tsx` — Admin category management
+- `src/pages/admin/*` — Admin panel pages
+- `src/pages/lojista/LojistaLayout.tsx` — Lojista sidebar layout
+- `src/pages/lojista/LojistaLogin.tsx` — Lojista login
+- `src/pages/lojista/LojistaDashboard.tsx` — Lojista dashboard
+- `src/pages/lojista/LojistaPerfil.tsx` — Business profile editor
+- `src/pages/lojista/LojistaFotos.tsx` — Photo management
+- `src/pages/lojista/LojistaProdutos.tsx` — Product catalog
+- `src/pages/lojista/LojistaMetricas.tsx` — Analytics
+- `src/pages/lojista/LojistaSenha.tsx` — Password change
 
 **API Client**: `@workspace/api-client-react` — generated hooks from OpenAPI spec.
 Hooks: `useListBusinesses`, `useGetBusinessById`, `useListCategories`, `useSearch`, `useListReviews`
@@ -78,10 +92,21 @@ Hooks: `useListBusinesses`, `useGetBusinessById`, `useListCategories`, `useSearc
 Routes: `POST /api/admin/login`, `GET /api/admin/stats`, `GET|PATCH|DELETE /api/admin/businesses`, `GET|POST|PATCH|DELETE /api/admin/categories`
 Env vars: `JWT_SECRET` (auto-generated), `ADMIN_PASSWORD` (user secret)
 
-**DB Schema**: businesses table includes `clicks`, `whatsappClicks`, `isVisible`, `zone` fields
-Click tracking: auto-increment on GET /api/businesses/:id, POST /api/businesses/:id/click-whatsapp
+**Lojista API**: Direct fetch calls via `src/lib/lojista-api.ts` (JWT Bearer auth)
+Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/lojista/upload/{logo,banner,photo}`,
+`DELETE /api/lojista/photos/:index`, `GET /api/lojista/cep/:cep`, `PATCH /api/lojista/location`,
+`GET|POST /api/lojista/products`, `PATCH /api/lojista/products/reorder`, `PATCH|DELETE /api/lojista/products/:id`,
+`GET /api/lojista/metrics`, `PATCH /api/lojista/password`
 
-**DB Seed**: 10 categories, 20 businesses, 10 reviews
+**DB Schema**:
+- `businesses` — extended with cnpj, ownerName, ownerEmail, ownerPhone, logoUrl, bannerUrl, photos[], cep, street, number, neighborhood, city, state, lat, lng, instagram, website, paymentMethods[], tags[], videoUrl
+- `business_users` — lojista login accounts (email+bcrypt hash, FK to businesses)
+- `products` — product catalog per business (name, description, price, media, sortOrder)
+- `business_clicks` — click event history (type: profile/whatsapp/phone/maps)
+- Uploads served at `/api/uploads/{logos,banners,photos}/` — MIME filtered (jpg/png/webp/gif only)
+
+**DB Seed**: 10 categories, 20 businesses (real Londrina data), 20 lojista accounts, 42 products, 10 reviews
+Default lojista password: Hub@2026 (all accounts)
 
 **Pricing Plans**:
 - Gratuito: R$0/mês

@@ -1,0 +1,268 @@
+Preciso de duas coisas neste prompt:
+
+1. Criar o painel do lojista completo (cada empresário gerencia seu negócio)
+2. Transformar os 20 negócios fictícios em negócios reais com dados completos
+   salvos no banco, cada um com login e senha próprios
+
+---
+
+## PARTE 1 — SCHEMA DO BANCO (Drizzle migration)
+
+### Tabela businesses — adicionar campos novos
+- cnpj: text (ex: "12.345.678/0001-90")
+- ownerName: text (nome do responsável)
+- ownerEmail: text (email de login do lojista)
+- ownerPhone: text
+- logoUrl: text (URL da logo da empresa)
+- bannerUrl: text (URL do banner/capa)
+- photos: text[] (array de URLs de fotos — até 1 no free, 10 no destaque, ilimitado no premium)
+- cep: text (ex: "86010-010")
+- street: text (rua)
+- number: text (número)
+- neighborhood: text (bairro)
+- city: text default "Londrina"
+- state: text default "PR"
+- lat: numeric (latitude — preenchida automaticamente via CEP)
+- lng: numeric (longitude — preenchida automaticamente via CEP)
+- instagram: text (URL ou @handle)
+- website: text
+- paymentMethods: text[] (ex: ["Dinheiro", "PIX", "Cartão de crédito"])
+- tags: text[] (palavras-chave para busca)
+- videoUrl: text (vitrine — só premium)
+
+### Tabela nova — business_users (lojistas)
+- id: serial primary key
+- businessId: integer references businesses(id)
+- email: text unique not null
+- passwordHash: text not null
+- createdAt: timestamp default now()
+
+### Tabela nova — products (vitrine de produtos)
+- id: serial primary key
+- businessId: integer references businesses(id)
+- name: text not null
+- description: text
+- price: numeric
+- mediaUrl: text (foto ou vídeo)
+- mediaType: text (image | video)
+- whatsappLink: text
+- isActive: boolean default true
+- sortOrder: integer default 0
+- createdAt: timestamp default now()
+
+### Tabela nova — business_clicks (histórico de cliques)
+- id: serial primary key
+- businessId: integer references businesses(id)
+- type: text (profile | whatsapp | phone | maps)
+- createdAt: timestamp default now()
+
+---
+
+## PARTE 2 — BACKEND: rotas do lojista
+
+### Autenticação do lojista
+POST /api/lojista/login
+  Body: { email, password }
+  → valida contra business_users
+  → retorna JWT com { businessId, email }
+  → token expira em 7 dias
+  → guardar no localStorage como "hub_lojista_token"
+
+### Perfil
+GET  /api/lojista/profile
+  → retorna todos os dados do negócio vinculado ao token
+
+PATCH /api/lojista/profile
+  Body: qualquer campo editável de businesses
+  (name, description, phone, whatsapp, hours, cnpj, ownerName,
+   ownerPhone, cep, street, number, neighborhood, instagram,
+   website, paymentMethods, tags, zone, category)
+  → salva no banco
+  → retorna negócio atualizado
+
+### Upload de imagens
+POST /api/lojista/upload/logo
+  → recebe multipart/form-data com campo "file"
+  → salva em /public/uploads/logos/
+  → atualiza logoUrl no banco
+  → retorna { logoUrl }
+
+POST /api/lojista/upload/banner
+  → mesmo fluxo, salva em /public/uploads/banners/
+  → atualiza bannerUrl
+
+POST /api/lojista/upload/photo
+  → salva em /public/uploads/photos/
+  → adiciona URL ao array photos[]
+  → respeita limite por plano (1 free, 10 destaque, ilimitado premium)
+  → retorna { photoUrl, totalPhotos }
+
+DELETE /api/lojista/photos/:index
+  → remove foto do array pelo índice
+
+### Geocodificação por CEP
+GET /api/lojista/cep/:cep
+  → chama https://viacep.com.br/ws/{cep}/json/
+  → retorna { street, neighborhood, city, state }
+  → NÃO salva automaticamente — só retorna os dados para preencher o form
+
+### Coordenadas
+PATCH /api/lojista/location
+  Body: { cep, street, number, neighborhood }
+  → chama API de geocodificação para obter lat/lng
+  → usar https://nominatim.openstreetmap.org/search com parâmetros:
+    q = "{street}, {number}, {neighborhood}, Londrina, PR, Brasil"
+    format=json&limit=1
+  → salva lat, lng, cep, street, number, neighborhood no banco
+  → retorna { lat, lng }
+
+### Produtos (vitrine)
+GET    /api/lojista/products
+POST   /api/lojista/products       Body: { name, description, price, mediaUrl, mediaType, whatsappLink }
+PATCH  /api/lojista/products/:id   Body: qualquer campo
+DELETE /api/lojista/products/:id
+PATCH  /api/lojista/products/reorder  Body: [{ id, sortOrder }]
+
+### Métricas
+GET /api/lojista/metrics
+  → retorna:
+  {
+    totalClicks: number,
+    whatsappClicks: number,
+    phoneClicks: number,
+    profileViews: number,
+    last30Days: { date: string, clicks: number }[]  -- série temporal
+  }
+
+### Senha
+PATCH /api/lojista/password
+  Body: { currentPassword, newPassword }
+  → valida senha atual, salva nova com bcrypt
+
+---
+
+## PARTE 3 — FRONTEND: painel do lojista
+
+Rotas (adicionar no App.tsx com Wouter):
+/lojista/login        → LojistaLogin
+/lojista              → LojistaDashboard  (protegida)
+/lojista/perfil       → LojistaPerfil
+/lojista/fotos        → LojistaFotos
+/lojista/produtos     → LojistaProdutos
+/lojista/metricas     → LojistaMetricas
+/lojista/senha        → LojistaSenha
+
+Criar LojistaLayout com sidebar contendo os itens acima + botão sair.
+
+### /lojista/login
+- Campos: email, senha
+- Chama POST /api/lojista/login
+- Redireciona para /lojista
+
+### /lojista (dashboard)
+- Card com nome do negócio, plano atual, zona
+- Cards de métricas: visualizações, cliques WhatsApp, cliques telefone
+- Aviso se perfil incompleto (sem logo, sem fotos, sem descrição)
+
+### /lojista/perfil
+Formulário dividido em seções:
+
+SEÇÃO 1 — Dados da empresa
+- Nome do negócio
+- CNPJ
+- Nome do responsável
+- Email do responsável
+- Telefone
+- WhatsApp (formato: 5543999999999)
+- Categoria (select com categorias do banco)
+- Zona (select: centro/norte/sul/leste/oeste)
+- Descrição (textarea)
+- Tags (input de chips — ex: "pizza", "delivery", "vegano")
+- Formas de pagamento (checkboxes: Dinheiro, PIX, Cartão débito, Cartão crédito, Vale refeição)
+
+SEÇÃO 2 — Horários
+- Campos de texto livre por dia da semana
+  (Seg-Sex, Sábado, Domingo — ou campo único)
+
+SEÇÃO 3 — Localização
+- Campo CEP com botão "Buscar"
+  → ao clicar, chama GET /api/lojista/cep/:cep
+  → preenche automaticamente: rua, bairro, cidade, estado
+- Número (input)
+- Complemento (input)
+- Botão "Salvar localização e calcular coordenadas"
+  → chama PATCH /api/lojista/location
+  → exibe no mapa (iframe Google Maps ou Leaflet.js)
+    com um pin na posição retornada
+
+SEÇÃO 4 — Links e redes sociais
+- Instagram (@handle ou URL)
+- Website
+- URL do vídeo (só premium — mostrar bloqueado para outros planos)
+
+Botão salvar envia tudo via PATCH /api/lojista/profile
+
+### /lojista/fotos
+- Upload de logo (exibe preview circular)
+- Upload de banner (exibe preview retangular 16:9)
+- Galeria de fotos adicionais
+  → drag-to-reorder
+  → botão excluir por foto
+  → indicador de limite por plano (ex: "2/10 fotos usadas")
+
+### /lojista/produtos
+- Lista de produtos com foto, nome, preço
+- Botão "Novo produto"
+- Form: nome, descrição, preço, URL da mídia, tipo (foto/vídeo), link WhatsApp
+- Toggle ativo/inativo por produto
+- Drag-to-reorder
+
+### /lojista/metricas
+- Cards: total de visualizações, cliques WhatsApp, cliques telefone
+- Gráfico de linha simples com cliques dos últimos 30 dias (recharts)
+
+### /lojista/senha
+- Campos: senha atual, nova senha, confirmar nova senha
+
+---
+
+## PARTE 4 — SEED REAL DOS 20 NEGÓCIOS
+
+Para cada um dos 20 negócios que já existem no banco:
+
+1. Atualizar o registro existente com dados realistas e completos:
+   - cnpj: gerar CNPJ fictício mas formatado corretamente
+   - ownerName: nome fictício coerente com o negócio
+   - ownerEmail: email no formato contato@nomedonegocio.com.br
+   - ownerPhone: telefone com DDD 43
+   - cep: CEP real de Londrina coerente com a região/zona do negócio
+   - street, number, neighborhood: endereço real de Londrina
+   - lat, lng: coordenadas reais de Londrina para aquele bairro
+   - instagram: @handle fictício coerente
+   - paymentMethods: array coerente com o tipo de negócio
+   - tags: 3 a 5 tags relevantes
+   - zone: ajustar conforme o bairro real (ex: Gleba Palhano = sul, Zona Norte = norte)
+
+2. Criar um registro em business_users para cada negócio:
+   - email: o mesmo ownerEmail
+   - password: "Hub@2026" (mesma senha para todos — fácil de testar)
+   - hash com bcrypt
+
+3. Criar 2 a 3 produtos de exemplo em products para cada negócio
+   (nome, descrição, preço coerente com o tipo de estabelecimento)
+
+4. Ao final, gerar e imprimir no console uma tabela com:
+   Negócio | Email de login | Senha
+   (para que eu possa testar cada um)
+
+---
+
+## REGRAS GERAIS
+- Não quebrar nenhuma rota pública existente
+- O painel do lojista é independente do painel admin (/admin)
+- Usar bcrypt para hash de senhas
+- Fotos salvas localmente em /public/uploads/ (sem S3 por enquanto)
+- Manter o SSR funcionando para as rotas públicas
+- Testar que /lojista/login funciona e redireciona para /lojista
+- Testar que editar o perfil pelo painel reflete imediatamente
+  em www.hublondrina.com.br/negocio/:id

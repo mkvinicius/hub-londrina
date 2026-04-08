@@ -1,0 +1,558 @@
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { db } from "@workspace/db";
+import { businessesTable, businessUsersTable, productsTable, businessClicksTable } from "@workspace/db/schema";
+import { eq, sql, and, gte, desc, asc } from "drizzle-orm";
+
+const router: IRouter = Router();
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET env var is required for lojista routes");
+}
+
+const UPLOAD_BASE = path.resolve(
+  process.cwd(),
+  "public/uploads"
+);
+
+function ensureDir(dir: string) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+const logoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOAD_BASE, "logos");
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `logo-${Date.now()}${ext}`);
+  },
+});
+
+const bannerStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOAD_BASE, "banners");
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `banner-${Date.now()}${ext}`);
+  },
+});
+
+const photoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOAD_BASE, "photos");
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `photo-${Date.now()}${ext}`);
+  },
+});
+
+const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
+function imageFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_MIMES.includes(file.mimetype) && ALLOWED_EXTS.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Apenas imagens JPG, PNG, WebP e GIF são permitidas"));
+  }
+}
+
+const uploadLogo = multer({ storage: logoStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
+const uploadBanner = multer({ storage: bannerStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
+const uploadPhoto = multer({ storage: photoStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
+
+interface LojistaPayload { businessId: number; email: string; role: string }
+
+function lojistaAuth(req: Request, res: Response, next: NextFunction) {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Token não fornecido" });
+    return;
+  }
+  try {
+    const payload = jwt.verify(auth.slice(7), JWT_SECRET!) as LojistaPayload;
+    if (payload.role !== "lojista") {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    (req as any).lojista = payload;
+    next();
+  } catch {
+    res.status(401).json({ error: "Token inválido ou expirado" });
+  }
+}
+
+router.post("/lojista/login", async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ error: "Email e senha são obrigatórios" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.email, email.toLowerCase().trim()));
+
+  if (!user) {
+    res.status(401).json({ error: "Email ou senha incorretos" });
+    return;
+  }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Email ou senha incorretos" });
+    return;
+  }
+
+  const token = jwt.sign(
+    { businessId: user.businessId, email: user.email, role: "lojista" },
+    JWT_SECRET!,
+    { expiresIn: "7d" }
+  );
+
+  res.json({ token, businessId: user.businessId });
+});
+
+router.use("/lojista", lojistaAuth);
+
+router.get("/lojista/profile", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const [business] = await db
+    .select()
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+  res.json(business);
+});
+
+router.patch("/lojista/profile", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const allowed = [
+    "name", "description", "phone", "whatsapp", "hours",
+    "cnpj", "ownerName", "ownerPhone",
+    "cep", "street", "number", "neighborhood",
+    "instagram", "website", "zone", "categorySlug",
+    "paymentMethods", "tags",
+  ];
+
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) {
+      updates[key] = req.body[key];
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nenhum campo para atualizar" });
+    return;
+  }
+
+  const [business] = await db
+    .select()
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  if (updates.zone) {
+    const validZones = ["centro", "norte", "sul", "leste", "oeste"];
+    if (!validZones.includes(updates.zone as string)) {
+      res.status(400).json({ error: "Zona inválida" });
+      return;
+    }
+  }
+
+  const result = await db
+    .update(businessesTable)
+    .set(updates)
+    .where(eq(businessesTable.id, businessId))
+    .returning();
+
+  res.json(result[0]);
+});
+
+router.post("/lojista/upload/logo", uploadLogo.single("file"), async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  if (!req.file) {
+    res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+  const logoUrl = `/uploads/logos/${req.file.filename}`;
+  await db.update(businessesTable).set({ logoUrl }).where(eq(businessesTable.id, businessId));
+  res.json({ logoUrl });
+});
+
+router.post("/lojista/upload/banner", uploadBanner.single("file"), async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  if (!req.file) {
+    res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+  const bannerUrl = `/uploads/banners/${req.file.filename}`;
+  await db.update(businessesTable).set({ bannerUrl }).where(eq(businessesTable.id, businessId));
+  res.json({ bannerUrl });
+});
+
+router.post("/lojista/upload/photo", uploadPhoto.single("file"), async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  if (!req.file) {
+    res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+
+  const [business] = await db
+    .select({ photos: businessesTable.photos, planType: businessesTable.planType })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const currentPhotos = business.photos || [];
+  const limits: Record<string, number> = { free: 1, destaque: 10, premium: 999 };
+  const limit = limits[business.planType] || 1;
+
+  if (currentPhotos.length >= limit) {
+    fs.unlinkSync(req.file.path);
+    res.status(400).json({ error: `Limite de ${limit} foto(s) atingido para o plano ${business.planType}` });
+    return;
+  }
+
+  const photoUrl = `/uploads/photos/${req.file.filename}`;
+  const newPhotos = [...currentPhotos, photoUrl];
+
+  await db
+    .update(businessesTable)
+    .set({ photos: newPhotos })
+    .where(eq(businessesTable.id, businessId));
+
+  res.json({ photoUrl, totalPhotos: newPhotos.length });
+});
+
+router.delete("/lojista/photos/:index", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const idx = Number(req.params.index);
+
+  const [business] = await db
+    .select({ photos: businessesTable.photos })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const photos = business.photos || [];
+  if (idx < 0 || idx >= photos.length) {
+    res.status(400).json({ error: "Índice inválido" });
+    return;
+  }
+
+  const removed = photos[idx];
+  const newPhotos = photos.filter((_: string, i: number) => i !== idx);
+
+  await db
+    .update(businessesTable)
+    .set({ photos: newPhotos })
+    .where(eq(businessesTable.id, businessId));
+
+  const filePath = path.join(UPLOAD_BASE, "..", removed);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+
+  res.json({ photos: newPhotos });
+});
+
+router.get("/lojista/cep/:cep", async (req: Request, res: Response) => {
+  const cep = req.params.cep.replace(/\D/g, "");
+  if (cep.length !== 8) {
+    res.status(400).json({ error: "CEP inválido" });
+    return;
+  }
+
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await resp.json() as { logradouro?: string; bairro?: string; localidade?: string; uf?: string; erro?: boolean };
+    if (data.erro) {
+      res.status(404).json({ error: "CEP não encontrado" });
+      return;
+    }
+    res.json({
+      street: data.logradouro || "",
+      neighborhood: data.bairro || "",
+      city: data.localidade || "",
+      state: data.uf || "",
+    });
+  } catch {
+    res.status(500).json({ error: "Erro ao consultar CEP" });
+  }
+});
+
+router.patch("/lojista/location", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const { cep, street, number, neighborhood } = req.body;
+
+  if (!street || !number || !neighborhood) {
+    res.status(400).json({ error: "Rua, número e bairro são obrigatórios" });
+    return;
+  }
+
+  let lat: string | null = null;
+  let lng: string | null = null;
+
+  try {
+    const q = `${street}, ${number}, ${neighborhood}, Londrina, PR, Brasil`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "HubLondrina/1.0" },
+    });
+    const results = await resp.json() as Array<{ lat: string; lon: string }>;
+    if (results.length > 0) {
+      lat = results[0].lat;
+      lng = results[0].lon;
+    }
+  } catch {
+    // geocoding failed silently
+  }
+
+  const address = `${street}, ${number} - ${neighborhood}, Londrina`;
+
+  const updates: Record<string, unknown> = {
+    cep: cep || null,
+    street,
+    number,
+    neighborhood,
+    address,
+    city: "Londrina",
+    state: "PR",
+  };
+  if (lat) updates.lat = lat;
+  if (lng) updates.lng = lng;
+
+  await db.update(businessesTable).set(updates).where(eq(businessesTable.id, businessId));
+
+  res.json({ lat, lng, address });
+});
+
+router.get("/lojista/products", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const products = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.businessId, businessId))
+    .orderBy(asc(productsTable.sortOrder), desc(productsTable.createdAt));
+  res.json({ data: products });
+});
+
+router.post("/lojista/products", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const { name, description, price, mediaUrl, mediaType, whatsappLink } = req.body;
+
+  if (!name) {
+    res.status(400).json({ error: "Nome do produto é obrigatório" });
+    return;
+  }
+
+  const [product] = await db
+    .insert(productsTable)
+    .values({
+      businessId,
+      name,
+      description: description || null,
+      price: price || null,
+      mediaUrl: mediaUrl || null,
+      mediaType: mediaType || null,
+      whatsappLink: whatsappLink || null,
+    })
+    .returning();
+
+  res.json(product);
+});
+
+router.patch("/lojista/products/reorder", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const items = req.body as Array<{ id: number; sortOrder: number }>;
+
+  if (!Array.isArray(items)) {
+    res.status(400).json({ error: "Array de items esperado" });
+    return;
+  }
+
+  await Promise.all(
+    items.map((item) =>
+      db
+        .update(productsTable)
+        .set({ sortOrder: item.sortOrder })
+        .where(and(eq(productsTable.id, item.id), eq(productsTable.businessId, businessId)))
+    )
+  );
+
+  res.json({ success: true });
+});
+
+router.patch("/lojista/products/:id", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder"];
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nenhum campo para atualizar" });
+    return;
+  }
+
+  const result = await db
+    .update(productsTable)
+    .set(updates)
+    .where(and(eq(productsTable.id, id), eq(productsTable.businessId, businessId)))
+    .returning();
+
+  if (result.length === 0) {
+    res.status(404).json({ error: "Produto não encontrado" });
+    return;
+  }
+  res.json(result[0]);
+});
+
+router.delete("/lojista/products/:id", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const result = await db
+    .delete(productsTable)
+    .where(and(eq(productsTable.id, id), eq(productsTable.businessId, businessId)))
+    .returning();
+
+  if (result.length === 0) {
+    res.status(404).json({ error: "Produto não encontrado" });
+    return;
+  }
+  res.json({ success: true });
+});
+
+router.get("/lojista/metrics", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [clicksByType, dailyClicks, businessStats] = await Promise.all([
+    db
+      .select({
+        type: businessClicksTable.type,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(businessClicksTable)
+      .where(eq(businessClicksTable.businessId, businessId))
+      .groupBy(businessClicksTable.type),
+
+    db
+      .select({
+        date: sql<string>`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`,
+        clicks: sql<number>`count(*)::int`,
+      })
+      .from(businessClicksTable)
+      .where(
+        and(
+          eq(businessClicksTable.businessId, businessId),
+          gte(businessClicksTable.createdAt, thirtyDaysAgo)
+        )
+      )
+      .groupBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`),
+
+    db
+      .select({
+        clicks: businessesTable.clicks,
+        whatsappClicks: businessesTable.whatsappClicks,
+      })
+      .from(businessesTable)
+      .where(eq(businessesTable.id, businessId)),
+  ]);
+
+  const byType: Record<string, number> = {};
+  for (const r of clicksByType) {
+    byType[r.type] = r.count;
+  }
+
+  res.json({
+    totalClicks: businessStats[0]?.clicks ?? 0,
+    whatsappClicks: businessStats[0]?.whatsappClicks ?? 0,
+    phoneClicks: byType["phone"] ?? 0,
+    profileViews: byType["profile"] ?? 0,
+    last30Days: dailyClicks,
+  });
+});
+
+router.patch("/lojista/password", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Senha atual e nova senha são obrigatórias" });
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).json({ error: "Nova senha deve ter pelo menos 6 caracteres" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.businessId, businessId));
+
+  if (!user) {
+    res.status(404).json({ error: "Usuário não encontrado" });
+    return;
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Senha atual incorreta" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db
+    .update(businessUsersTable)
+    .set({ passwordHash })
+    .where(eq(businessUsersTable.id, user.id));
+
+  res.json({ success: true });
+});
+
+export default router;

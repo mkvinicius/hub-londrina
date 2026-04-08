@@ -12,7 +12,15 @@ import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminNegocios from "@/pages/admin/AdminNegocios";
 import AdminCategorias from "@/pages/admin/AdminCategorias";
+import LojistaLogin from "@/pages/lojista/LojistaLogin";
+import LojistaDashboard from "@/pages/lojista/LojistaDashboard";
+import LojistaPerfil from "@/pages/lojista/LojistaPerfil";
+import LojistaFotos from "@/pages/lojista/LojistaFotos";
+import LojistaProdutos from "@/pages/lojista/LojistaProdutos";
+import LojistaMetricas from "@/pages/lojista/LojistaMetricas";
+import LojistaSenha from "@/pages/lojista/LojistaSenha";
 import { isAuthenticated } from "@/lib/admin-api";
+import { isLojistaAuthenticated } from "@/lib/lojista-api";
 import { queryClient } from "@/lib/query-client";
 
 export { queryClient };
@@ -20,6 +28,13 @@ export { queryClient };
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   if (!isAuthenticated()) {
     return <Redirect to="/admin/login" />;
+  }
+  return <Component />;
+}
+
+function LojistaPrivateRoute({ component: Component }: { component: React.ComponentType }) {
+  if (!isLojistaAuthenticated()) {
+    return <Redirect to="/lojista/login" />;
   }
   return <Component />;
 }
@@ -36,6 +51,13 @@ function Router() {
       <Route path="/admin/negocios">{() => <PrivateRoute component={AdminNegocios} />}</Route>
       <Route path="/admin/categorias">{() => <PrivateRoute component={AdminCategorias} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>
+      <Route path="/lojista/login" component={LojistaLogin} />
+      <Route path="/lojista/perfil">{() => <LojistaPrivateRoute component={LojistaPerfil} />}</Route>
+      <Route path="/lojista/fotos">{() => <LojistaPrivateRoute component={LojistaFotos} />}</Route>
+      <Route path="/lojista/produtos">{() => <LojistaPrivateRoute component={LojistaProdutos} />}</Route>
+      <Route path="/lojista/metricas">{() => <LojistaPrivateRoute component={LojistaMetricas} />}</Route>
+      <Route path="/lojista/senha">{() => <LojistaPrivateRoute component={LojistaSenha} />}</Route>
+      <Route path="/lojista">{() => <LojistaPrivateRoute component={LojistaDashboard} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
