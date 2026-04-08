@@ -160,7 +160,7 @@ export default function Landing() {
         <div className="absolute inset-0 bg-black/45" />
 
         {/* Content — absolutamente centrado */}
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center">
           <h1
             className="font-black uppercase leading-tight mb-4 max-w-4xl text-white"
             style={{
@@ -182,7 +182,7 @@ export default function Landing() {
           {/* Search bar */}
           <div className="w-full max-w-3xl">
             <div
-              className="flex flex-col sm:flex-row overflow-visible relative z-20 rounded-2xl p-1.5 gap-1.5"
+              className="flex flex-col sm:flex-row overflow-visible relative z-40 rounded-2xl p-1.5 gap-1.5"
               style={{
                 background: "rgba(255,255,255,0.97)",
                 boxShadow: "0 20px 60px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2)",
@@ -212,8 +212,8 @@ export default function Landing() {
                   <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${regionOpen ? "rotate-180" : ""}`} />
                 </button>
                 {regionOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl z-50 min-w-[200px] py-2 overflow-hidden"
-                    style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl min-w-[200px] py-2 overflow-hidden"
+                    style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)", zIndex: 9999 }}>
                     {regions.map((r) => (
                       <button
                         key={r}
@@ -271,7 +271,7 @@ export default function Landing() {
         }}
       >
         {/* Stats card — glassmorphism flutuante, dentro da seção para não vazar branco */}
-        <div className="relative z-20 flex justify-center px-4 mb-10" style={{ marginTop: "-36px" }}>
+        <div className="relative z-10 flex justify-center px-4 mb-10" style={{ marginTop: "-36px" }}>
           <div
             className="grid grid-cols-4 text-white"
             style={{
