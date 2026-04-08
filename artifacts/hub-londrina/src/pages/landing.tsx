@@ -39,7 +39,7 @@ function VitrineCard({ p }: { p: { name: string; price: string; likes: string; c
 
   return (
     <div
-      className="flex-shrink-0 md:flex-shrink relative rounded-2xl overflow-hidden cursor-pointer group w-[92vw] md:w-full vitrine-card"
+      className="flex-shrink-0 md:flex-shrink relative rounded-2xl overflow-hidden cursor-pointer group w-[82vw] md:w-full vitrine-card"
       style={{
         scrollSnapAlign: "start",
         boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)",
@@ -398,7 +398,7 @@ export default function Landing() {
                 </div>
               </div>
 
-              <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible scrollbar-hide" style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+              <div className="flex gap-4 overflow-x-auto pb-4 md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible scrollbar-hide justify-start pl-[9vw] md:pl-0" style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
                 {produtos.map((p, i) => (
                   <VitrineCard key={i} p={p} />
                 ))}

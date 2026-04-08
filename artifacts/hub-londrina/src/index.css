@@ -308,15 +308,11 @@
   }
 
   .vitrine-card {
-    height: 70svh;
-    min-height: 480px;
-    max-height: 700px;
+    height: 560px;
   }
   @media (min-width: 768px) {
     .vitrine-card {
       height: 295px;
-      min-height: unset;
-      max-height: unset;
     }
   }
 }
