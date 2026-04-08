@@ -61,6 +61,11 @@ export function Layout({ children }: LayoutProps) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <Link href="/lojista/login" className="hidden md:flex">
+              <button className="text-sm font-semibold text-[#6F4E37] hover:text-[#d97706] transition-colors px-3 py-2">
+                Área do Lojista
+              </button>
+            </Link>
             <Link href="/anuncie" className="hidden md:flex">
               <button
                 className="flex items-center justify-center text-white font-bold text-sm px-6 py-2.5 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5"
@@ -113,6 +118,11 @@ export function Layout({ children }: LayoutProps) {
                 {link.label}
               </Link>
             ))}
+            <Link href="/lojista/login" onClick={() => setMenuOpen(false)}>
+              <button className="w-full text-left text-sm font-semibold py-2 text-[#6F4E37] hover:text-[#d97706] transition-colors">
+                Área do Lojista
+              </button>
+            </Link>
             <Link href="/anuncie" onClick={() => setMenuOpen(false)}>
               <Button className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-full font-bold text-sm">
                 Anuncie Aqui
@@ -160,6 +170,7 @@ export function Layout({ children }: LayoutProps) {
                 <ul className="space-y-2">
                   <li><Link href="/anuncie" className="text-white/70 hover:text-white transition-colors">Anunciar</Link></li>
                   <li><Link href="/anuncie#planos" className="text-white/70 hover:text-white transition-colors">Planos</Link></li>
+                  <li><Link href="/lojista/login" className="text-white/70 hover:text-white transition-colors">Área do Lojista</Link></li>
                 </ul>
               </div>
               <div>
@@ -177,6 +188,9 @@ export function Layout({ children }: LayoutProps) {
             <p className="text-white/40 text-sm">
               © {new Date().getFullYear()} Hub Londrina. Todos os direitos reservados.
             </p>
+            <Link href="/admin/login" className="text-white/20 hover:text-white/40 text-xs transition-colors">
+              Admin
+            </Link>
           </div>
         </div>
       </footer>
