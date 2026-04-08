@@ -186,7 +186,7 @@ export default function Landing() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="Restaurante, salão, mecânica em Londrina..."
+                  placeholder="Restaurante, salão, mecânica..."
                   className="flex-1 text-base text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
                 />
               </div>
