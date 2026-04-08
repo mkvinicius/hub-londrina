@@ -89,8 +89,12 @@ Full-stack local business directory for Londrina, Brazil.
 Hooks: `useListBusinesses`, `useGetBusinessById`, `useListCategories`, `useSearch`, `useListReviews`
 
 **Admin API**: Direct fetch calls via `src/lib/admin-api.ts` (JWT Bearer auth)
-Routes: `POST /api/admin/login`, `GET /api/admin/stats`, `GET|PATCH|DELETE /api/admin/businesses`, `GET|POST|PATCH|DELETE /api/admin/categories`
+Routes: `POST /api/admin/login`, `GET /api/admin/stats` (comprehensive: KPIs, byPlan, byRegion, byCategory, topBusinesses, recentBusinesses, clicksByDay, estimatedRevenue),
+`GET|PATCH|DELETE /api/admin/businesses`, `GET /api/admin/businesses/:id` (detail w/ products, lojista, clickBreakdown),
+`GET|POST|PATCH|DELETE /api/admin/categories`
 Env vars: `JWT_SECRET` (auto-generated), `ADMIN_PASSWORD` (user secret)
+Admin Dashboard: 6 KPI cards, plan/region/category distributions, top 10 businesses, recent signups feed, visibility summary
+Admin Negócios: clickable rows with detail modal (all fields, products, metrics), region-based filtering from admin-scoped data
 
 **Lojista API**: Direct fetch calls via `src/lib/lojista-api.ts` (JWT Bearer auth)
 Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/lojista/upload/{logo,banner,photo}`,

@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable } from "@workspace/db/schema";
-import { eq, ilike, sql, and, desc, gte } from "drizzle-orm";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable } from "@workspace/db/schema";
+import { eq, ilike, sql, and, desc, gte, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -16,7 +16,6 @@ if (!ADMIN_PASSWORD) {
   throw new Error("ADMIN_PASSWORD env var is required for admin routes");
 }
 
-const VALID_ZONES = ["centro", "norte", "sul", "leste", "oeste"];
 const VALID_PLANS = ["free", "destaque", "premium"];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -58,24 +57,87 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     planResults,
     clicksResult,
     recentResult,
-    zoneResults,
+    regionResults,
+    categoryResults,
+    lojistasResult,
+    productsResult,
+    visibilityResult,
+    topBusinesses,
+    recentBusinesses,
+    clicksByDay,
   ] = await Promise.all([
     db.select({ count: sql<number>`count(*)::int` }).from(businessesTable),
+
     db.select({
       planType: businessesTable.planType,
       count: sql<number>`count(*)::int`,
     }).from(businessesTable).groupBy(businessesTable.planType),
+
     db.select({
       totalClicks: sql<number>`coalesce(sum(${businessesTable.clicks}), 0)::int`,
       totalWhatsappClicks: sql<number>`coalesce(sum(${businessesTable.whatsappClicks}), 0)::int`,
     }).from(businessesTable),
+
     db.select({ count: sql<number>`count(*)::int` })
       .from(businessesTable)
       .where(gte(businessesTable.createdAt, thirtyDaysAgo)),
+
     db.select({
-      zone: businessesTable.zone,
+      region: businessesTable.region,
       count: sql<number>`count(*)::int`,
-    }).from(businessesTable).groupBy(businessesTable.zone),
+    }).from(businessesTable)
+      .where(sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`)
+      .groupBy(businessesTable.region)
+      .orderBy(desc(sql`count(*)`)),
+
+    db.select({
+      name: categoriesTable.name,
+      slug: categoriesTable.slug,
+      count: sql<number>`(select count(*)::int from businesses where businesses.category_slug = ${categoriesTable.slug})`,
+    }).from(categoriesTable).orderBy(desc(sql`(select count(*)::int from businesses where businesses.category_slug = ${categoriesTable.slug})`)),
+
+    db.select({ count: sql<number>`count(*)::int` }).from(businessUsersTable),
+
+    db.select({ count: sql<number>`count(*)::int` }).from(productsTable),
+
+    db.select({
+      visible: sql<number>`count(*) filter (where ${businessesTable.isVisible} = true)::int`,
+      hidden: sql<number>`count(*) filter (where ${businessesTable.isVisible} = false)::int`,
+    }).from(businessesTable),
+
+    db.select({
+      id: businessesTable.id,
+      name: businessesTable.name,
+      region: businessesTable.region,
+      planType: businessesTable.planType,
+      clicks: businessesTable.clicks,
+      whatsappClicks: businessesTable.whatsappClicks,
+      rating: businessesTable.rating,
+      categorySlug: businessesTable.categorySlug,
+    }).from(businessesTable)
+      .orderBy(desc(businessesTable.clicks))
+      .limit(10),
+
+    db.select({
+      id: businessesTable.id,
+      name: businessesTable.name,
+      region: businessesTable.region,
+      planType: businessesTable.planType,
+      createdAt: businessesTable.createdAt,
+      isVisible: businessesTable.isVisible,
+      ownerEmail: businessesTable.ownerEmail,
+    }).from(businessesTable)
+      .orderBy(desc(businessesTable.createdAt))
+      .limit(10),
+
+    db.select({
+      day: sql<string>`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`,
+      type: businessClicksTable.type,
+      count: sql<number>`count(*)::int`,
+    }).from(businessClicksTable)
+      .where(gte(businessClicksTable.createdAt, thirtyDaysAgo))
+      .groupBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`, businessClicksTable.type)
+      .orderBy(asc(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`)),
   ]);
 
   const byPlan: Record<string, number> = { free: 0, destaque: 0, premium: 0 };
@@ -83,18 +145,35 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     byPlan[r.planType] = r.count;
   }
 
-  const byZone: Record<string, number> = {};
-  for (const r of zoneResults) {
-    byZone[r.zone] = r.count;
-  }
+  const byRegion: { name: string; count: number }[] = regionResults.map(r => ({
+    name: r.region,
+    count: r.count,
+  }));
+
+  const byCategory: { name: string; slug: string; count: number }[] = categoryResults.map(r => ({
+    name: r.name,
+    slug: r.slug,
+    count: r.count,
+  }));
+
+  const estimatedRevenue = (byPlan.destaque || 0) * 49 + (byPlan.premium || 0) * 89;
 
   res.json({
     totalBusinesses: totalResult[0]?.count ?? 0,
-    byPlan,
+    totalLojistas: lojistasResult[0]?.count ?? 0,
+    totalProducts: productsResult[0]?.count ?? 0,
     totalClicks: clicksResult[0]?.totalClicks ?? 0,
     totalWhatsappClicks: clicksResult[0]?.totalWhatsappClicks ?? 0,
     recentSignups: recentResult[0]?.count ?? 0,
-    byZone,
+    visibleCount: visibilityResult[0]?.visible ?? 0,
+    hiddenCount: visibilityResult[0]?.hidden ?? 0,
+    estimatedRevenue,
+    byPlan,
+    byRegion,
+    byCategory,
+    topBusinesses,
+    recentBusinesses,
+    clicksByDay,
   });
 });
 
@@ -103,7 +182,7 @@ router.get("/admin/businesses", async (req: Request, res: Response) => {
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const offset = (page - 1) * limit;
   const search = req.query.search as string | undefined;
-  const zone = req.query.zone as string | undefined;
+  const region = req.query.region as string | undefined;
   const planType = req.query.planType as string | undefined;
   const isVisible = req.query.isVisible as string | undefined;
 
@@ -111,8 +190,8 @@ router.get("/admin/businesses", async (req: Request, res: Response) => {
   if (search) {
     conditions.push(ilike(businessesTable.name, `%${search}%`));
   }
-  if (zone) {
-    conditions.push(eq(businessesTable.zone, zone));
+  if (region) {
+    conditions.push(eq(businessesTable.region, region));
   }
   if (planType) {
     conditions.push(eq(businessesTable.planType, planType as "free" | "destaque" | "premium"));
@@ -131,6 +210,30 @@ router.get("/admin/businesses", async (req: Request, res: Response) => {
   res.json({ data, total: countResult[0]?.count ?? 0, page, limit });
 });
 
+router.get("/admin/businesses/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, id));
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const [products, lojista, clicks] = await Promise.all([
+    db.select().from(productsTable).where(eq(productsTable.businessId, id)).orderBy(asc(productsTable.sortOrder)),
+    db.select({ id: businessUsersTable.id, email: businessUsersTable.email }).from(businessUsersTable).where(eq(businessUsersTable.businessId, id)),
+    db.select({
+      type: businessClicksTable.type,
+      count: sql<number>`count(*)::int`,
+    }).from(businessClicksTable)
+      .where(eq(businessClicksTable.businessId, id))
+      .groupBy(businessClicksTable.type),
+  ]);
+
+  res.json({ ...business, products, lojista: lojista[0] || null, clickBreakdown: clicks });
+});
+
 router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
@@ -143,11 +246,8 @@ router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
     }
     updates.planType = req.body.planType;
   }
-  if (req.body.zone !== undefined) {
-    if (!VALID_ZONES.includes(req.body.zone)) {
-      res.status(400).json({ error: "zone inválida" }); return;
-    }
-    updates.zone = req.body.zone;
+  if (req.body.region !== undefined) {
+    updates.region = req.body.region;
   }
   if (req.body.isVisible !== undefined) {
     if (typeof req.body.isVisible !== "boolean") {
@@ -161,6 +261,10 @@ router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
     }
     updates.verified = req.body.verified;
   }
+  if (req.body.name !== undefined) updates.name = req.body.name;
+  if (req.body.description !== undefined) updates.description = req.body.description;
+  if (req.body.phone !== undefined) updates.phone = req.body.phone;
+  if (req.body.whatsapp !== undefined) updates.whatsapp = req.body.whatsapp;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "Nenhum campo válido para atualizar" });

@@ -16,9 +16,9 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
-async function adminFetch(path: string, options: RequestInit = {}) {
+export async function adminFetch(path: string, options: RequestInit = {}) {
   const token = getToken();
-  const res = await fetch(`${API_BASE}/api${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -54,34 +54,34 @@ export async function login(password: string) {
 }
 
 export async function getStats() {
-  return adminFetch("/admin/stats");
+  return adminFetch("/api/admin/stats");
 }
 
 export async function getBusinesses(params: Record<string, string> = {}) {
   const qs = new URLSearchParams(params).toString();
-  return adminFetch(`/admin/businesses${qs ? `?${qs}` : ""}`);
+  return adminFetch(`/api/admin/businesses${qs ? `?${qs}` : ""}`);
 }
 
 export async function updateBusiness(id: number, data: Record<string, unknown>) {
-  return adminFetch(`/admin/businesses/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  return adminFetch(`/api/admin/businesses/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
 export async function deleteBusiness(id: number) {
-  return adminFetch(`/admin/businesses/${id}`, { method: "DELETE" });
+  return adminFetch(`/api/admin/businesses/${id}`, { method: "DELETE" });
 }
 
 export async function getCategories() {
-  return adminFetch("/admin/categories");
+  return adminFetch("/api/admin/categories");
 }
 
 export async function createCategory(data: { name: string; slug: string; icon?: string; color?: string }) {
-  return adminFetch("/admin/categories", { method: "POST", body: JSON.stringify(data) });
+  return adminFetch("/api/admin/categories", { method: "POST", body: JSON.stringify(data) });
 }
 
 export async function updateCategory(id: number, data: Record<string, unknown>) {
-  return adminFetch(`/admin/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  return adminFetch(`/api/admin/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
 export async function deleteCategory(id: number) {
-  return adminFetch(`/admin/categories/${id}`, { method: "DELETE" });
+  return adminFetch(`/api/admin/categories/${id}`, { method: "DELETE" });
 }
