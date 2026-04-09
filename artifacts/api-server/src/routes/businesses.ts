@@ -377,7 +377,7 @@ router.get("/regions", async (_req: Request, res: Response) => {
     const rows = await db
       .select({ region: businessesTable.region })
       .from(businessesTable)
-      .where(and(eq(businessesTable.isVisible, true), sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`))
+      .where(and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active"), sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`))
       .groupBy(businessesTable.region)
       .orderBy(businessesTable.region);
 
@@ -389,10 +389,12 @@ router.get("/regions", async (_req: Request, res: Response) => {
 
 router.get("/stats", async (_req: Request, res: Response) => {
   try {
+    const visibleActive = and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active"));
+
     const [businessCount] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(businessesTable)
-      .where(eq(businessesTable.isVisible, true));
+      .where(visibleActive);
 
     const [categoryCount] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -401,11 +403,12 @@ router.get("/stats", async (_req: Request, res: Response) => {
     const [regionResult] = await db
       .select({ count: sql<number>`count(distinct ${businessesTable.region})::int` })
       .from(businessesTable)
-      .where(and(eq(businessesTable.isVisible, true), sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`));
+      .where(and(visibleActive, sql`${businessesTable.region} is not null and ${businessesTable.region} != ''`));
 
     const [clickResult] = await db
       .select({ count: sql<number>`coalesce(sum(${businessesTable.clicks}), 0)::int` })
-      .from(businessesTable);
+      .from(businessesTable)
+      .where(visibleActive);
 
     const total = businessCount?.count ?? 0;
     res.json({

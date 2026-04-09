@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { categoriesTable, businessesTable } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -14,6 +14,7 @@ router.get("/categories", async (_req, res) => {
       count: sql<number>`count(*)::int`,
     })
     .from(businessesTable)
+    .where(and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active")))
     .groupBy(businessesTable.categorySlug);
 
   const countMap = new Map(counts.map((c) => [c.categorySlug, c.count]));
