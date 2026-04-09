@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, updateProfile, lookupCep, updateLocation } from "@/lib/lojista-api";
-import { Save, Search, MapPin } from "lucide-react";
+import { Save, Search, MapPin, Lock } from "lucide-react";
 
 const PAYMENT_OPTIONS = ["Dinheiro", "PIX", "Cartão de crédito", "Cartão de débito", "Vale refeição"];
 const ZONE_OPTIONS = ["centro", "norte", "sul", "leste", "oeste"];
@@ -31,6 +31,9 @@ export default function LojistaPerfil() {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
   }
 
+  const isFree = profile.planType === "free";
+  const isPremium = profile.planType === "premium";
+
   function update(key: string, value: any) {
     setProfile((p: any) => ({ ...p, [key]: value }));
   }
@@ -39,7 +42,7 @@ export default function LojistaPerfil() {
     setSaving(true);
     setMsg("");
     try {
-      const result = await updateProfile({
+      const payload: Record<string, unknown> = {
         name: profile.name,
         description: profile.description,
         phone: profile.phone,
@@ -48,13 +51,19 @@ export default function LojistaPerfil() {
         cnpj: profile.cnpj,
         ownerName: profile.ownerName,
         ownerPhone: profile.ownerPhone,
-        instagram: profile.instagram,
-        website: profile.website,
         zone: profile.zone,
         categorySlug: profile.categorySlug,
         paymentMethods: profile.paymentMethods || [],
         tags: profile.tags || [],
-      });
+      };
+      if (!isFree) {
+        payload.instagram = profile.instagram;
+        payload.website = profile.website;
+      }
+      if (isPremium) {
+        payload.videoUrl = profile.videoUrl;
+      }
+      const result = await updateProfile(payload);
       setProfile(result);
       setMsg("Perfil salvo com sucesso!");
       setTimeout(() => setMsg(""), 3000);
@@ -127,6 +136,7 @@ export default function LojistaPerfil() {
   }
 
   const inputCls = "w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent";
+  const lockedInputCls = `${inputCls} bg-gray-100 opacity-60 cursor-not-allowed`;
 
   return (
     <LojistaLayout>
@@ -287,25 +297,43 @@ export default function LojistaPerfil() {
         <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
           <h2 className="text-lg font-bold text-gray-800 mb-4">Links e Redes Sociais</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Instagram</label>
-              <input value={profile.instagram || ""} onChange={e => update("instagram", e.target.value)} placeholder="@seunegocio" className={inputCls} />
+            <div className="relative">
+              <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
+                Instagram
+                {isFree && <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Lock className="w-3 h-3" /> Destaque+</span>}
+              </label>
+              <input
+                value={profile.instagram || ""}
+                onChange={e => update("instagram", e.target.value)}
+                placeholder="@seunegocio"
+                disabled={isFree}
+                className={isFree ? lockedInputCls : inputCls}
+              />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Website</label>
-              <input value={profile.website || ""} onChange={e => update("website", e.target.value)} placeholder="https://..." className={inputCls} />
+            <div className="relative">
+              <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
+                Website
+                {isFree && <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Lock className="w-3 h-3" /> Destaque+</span>}
+              </label>
+              <input
+                value={profile.website || ""}
+                onChange={e => update("website", e.target.value)}
+                placeholder="https://..."
+                disabled={isFree}
+                className={isFree ? lockedInputCls : inputCls}
+              />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-1">
+            <div className="md:col-span-2 relative">
+              <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
                 URL do Vídeo
-                {profile.planType !== "premium" && <span className="text-xs text-gray-400 ml-2">(disponível no plano Premium)</span>}
+                {!isPremium && <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Lock className="w-3 h-3" /> Premium</span>}
               </label>
               <input
                 value={profile.videoUrl || ""}
                 onChange={e => update("videoUrl", e.target.value)}
                 placeholder="https://youtube.com/..."
-                disabled={profile.planType !== "premium"}
-                className={`${inputCls} ${profile.planType !== "premium" ? "bg-gray-100 opacity-60 cursor-not-allowed" : ""}`}
+                disabled={!isPremium}
+                className={!isPremium ? lockedInputCls : inputCls}
               />
             </div>
           </div>

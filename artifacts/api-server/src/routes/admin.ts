@@ -528,6 +528,16 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
     return;
   }
 
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, Number(businessId)));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+  if (biz.planType !== "premium") {
+    res.status(403).json({ error: "Impulsionamento disponível apenas para negócios com plano Premium" });
+    return;
+  }
+
   if (boostType === "monthly") {
     if (!monthlyBid || !VALID_BIDS.includes(Number(monthlyBid))) {
       res.status(400).json({ error: `monthlyBid deve ser um dos valores: ${VALID_BIDS.join(", ")}` });

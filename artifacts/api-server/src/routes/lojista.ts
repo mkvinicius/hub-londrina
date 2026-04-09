@@ -244,7 +244,7 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
     "cnpj", "ownerName", "ownerPhone",
     "cep", "street", "number", "neighborhood",
     "instagram", "website", "zone", "categorySlug",
-    "paymentMethods", "tags",
+    "paymentMethods", "tags", "videoUrl",
   ];
 
   const updates: Record<string, unknown> = {};
@@ -265,6 +265,18 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
     .where(eq(businessesTable.id, businessId));
   if (!business) {
     res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const plan = business.planType;
+
+  if (plan === "free" && (updates.instagram !== undefined || updates.website !== undefined)) {
+    res.status(403).json({ error: "Instagram e Website disponíveis a partir do plano Destaque", requiredPlan: "destaque", currentPlan: plan });
+    return;
+  }
+
+  if (plan !== "premium" && updates.videoUrl !== undefined) {
+    res.status(403).json({ error: "Vídeo disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: plan });
     return;
   }
 
@@ -514,6 +526,12 @@ router.patch("/lojista/products/reorder", async (req: Request, res: Response) =>
     return;
   }
 
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz || biz.planType !== "premium") {
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: biz?.planType });
+    return;
+  }
+
   await Promise.all(
     items.map((item) =>
       db
@@ -530,6 +548,12 @@ router.patch("/lojista/products/:id", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz || biz.planType !== "premium") {
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: biz?.planType });
+    return;
+  }
 
   const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder"];
   const updates: Record<string, unknown> = {};
@@ -560,6 +584,12 @@ router.delete("/lojista/products/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz || biz.planType !== "premium") {
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: biz?.planType });
+    return;
+  }
+
   const result = await db
     .delete(productsTable)
     .where(and(eq(productsTable.id, id), eq(productsTable.businessId, businessId)))
@@ -575,10 +605,18 @@ router.delete("/lojista/products/:id", async (req: Request, res: Response) => {
 router.get("/lojista/metrics", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
 
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+
+  if (biz.planType === "free") {
+    res.status(403).json({ error: "Métricas disponíveis a partir do plano Destaque", requiredPlan: "destaque", currentPlan: "free" });
+    return;
+  }
+
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [clicksByType, dailyClicks, businessStats] = await Promise.all([
+  const [clicksByType, businessStats] = await Promise.all([
     db
       .select({
         type: businessClicksTable.type,
@@ -587,21 +625,6 @@ router.get("/lojista/metrics", async (req: Request, res: Response) => {
       .from(businessClicksTable)
       .where(eq(businessClicksTable.businessId, businessId))
       .groupBy(businessClicksTable.type),
-
-    db
-      .select({
-        date: sql<string>`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`,
-        clicks: sql<number>`count(*)::int`,
-      })
-      .from(businessClicksTable)
-      .where(
-        and(
-          eq(businessClicksTable.businessId, businessId),
-          gte(businessClicksTable.createdAt, thirtyDaysAgo)
-        )
-      )
-      .groupBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`)
-      .orderBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`),
 
     db
       .select({
@@ -617,13 +640,34 @@ router.get("/lojista/metrics", async (req: Request, res: Response) => {
     byType[r.type] = r.count;
   }
 
-  res.json({
+  const base = {
     totalClicks: businessStats[0]?.clicks ?? 0,
     whatsappClicks: businessStats[0]?.whatsappClicks ?? 0,
     phoneClicks: byType["phone"] ?? 0,
     profileViews: byType["profile"] ?? 0,
-    last30Days: dailyClicks,
-  });
+    planType: biz.planType,
+  };
+
+  if (biz.planType === "premium") {
+    const dailyClicks = await db
+      .select({
+        date: sql<string>`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`,
+        clicks: sql<number>`count(*)::int`,
+      })
+      .from(businessClicksTable)
+      .where(
+        and(
+          eq(businessClicksTable.businessId, businessId),
+          gte(businessClicksTable.createdAt, thirtyDaysAgo)
+        )
+      )
+      .groupBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`);
+
+    res.json({ ...base, last30Days: dailyClicks });
+  } else {
+    res.json({ ...base, last30Days: [] });
+  }
 });
 
 router.get("/lojista/reviews", async (req: Request, res: Response) => {
@@ -637,9 +681,10 @@ router.get("/lojista/reviews", async (req: Request, res: Response) => {
 });
 
 router.post("/lojista/reviews/:reviewId/respond", async (req: Request, res: Response) => {
-  const { businessId, planType } = (req as any).lojista;
-  if (planType === "free") {
-    res.status(403).json({ error: "Resposta a avaliações disponível a partir do plano Destaque" });
+  const { businessId } = (req as any).lojista;
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz || biz.planType === "free") {
+    res.status(403).json({ error: "Resposta a avaliações disponível a partir do plano Destaque", requiredPlan: "destaque", currentPlan: biz?.planType || "free" });
     return;
   }
   const reviewId = Number(req.params.reviewId);

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { lojistaFetch } from "@/lib/lojista-api";
-import { Zap, Crown, Flame, MessageCircle, ExternalLink } from "lucide-react";
+import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle } from "lucide-react";
+import { Link } from "wouter";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 const WHATSAPP_NUMBER = "5543999999999";
@@ -22,6 +23,7 @@ export default function LojistaBoost() {
   const [boost, setBoost] = useState<BoostInfo | null>(null);
   const [positions, setPositions] = useState<PositionInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [planType, setPlanType] = useState<string>("free");
 
   useEffect(() => {
     async function load() {
@@ -32,6 +34,7 @@ export default function LojistaBoost() {
         ]);
         setBoost(profile._boost || null);
         setPositions(posData.positions || []);
+        setPlanType(profile.planType || "free");
       } catch {
       } finally {
         setLoading(false);
@@ -56,6 +59,26 @@ export default function LojistaBoost() {
         <Zap className="w-7 h-7 text-[#d97706]" />
         Impulsionamento
       </h1>
+
+      {planType !== "premium" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">Recurso exclusivo do plano Premium</p>
+            <p className="text-sm text-amber-700 mt-1">
+              O impulsionamento está disponível apenas para negócios com plano Premium.
+              Faça upgrade para impulsionar seu negócio na busca.
+            </p>
+            <Link
+              href="/lojista/plano"
+              className="inline-flex items-center gap-2 mt-3 text-sm font-bold text-[#d97706] hover:text-[#b45309] transition-colors"
+            >
+              Ver Planos
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {boost ? (
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 mb-8">
@@ -89,7 +112,7 @@ export default function LojistaBoost() {
           </a>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
+        <div className={`bg-white border border-gray-200 rounded-2xl p-6 mb-8 ${planType !== "premium" ? "opacity-60 pointer-events-none" : ""}`}>
           <h2 className="text-xl font-bold text-gray-800 mb-2">Apareça em primeiro na busca</h2>
           <p className="text-sm text-gray-600 mb-6">
             Com o impulsionamento, seu negócio aparece antes de todos quando alguém buscar pelo seu serviço em Londrina.

@@ -1,21 +1,53 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getMetrics } from "@/lib/lojista-api";
+import { getProfile, getMetrics } from "@/lib/lojista-api";
 import { Eye, MessageCircle, Phone } from "lucide-react";
+import { LockedFeature } from "@/components/LockedFeature";
 
 export default function LojistaMetricas() {
   const [metrics, setMetrics] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getMetrics().then(setMetrics).finally(() => setLoading(false));
+    async function load() {
+      try {
+        const p = await getProfile();
+        setProfile(p);
+        if (p.planType !== "free") {
+          const m = await getMetrics();
+          setMetrics(m);
+        }
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   if (loading) {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
   }
 
-  if (!metrics) return <LojistaLayout><p>Erro ao carregar métricas.</p></LojistaLayout>;
+  if (profile?.planType === "free") {
+    return (
+      <LojistaLayout>
+        <h1 className="text-2xl font-black text-gray-800 mb-6">Métricas</h1>
+        <LockedFeature planRequired="destaque" currentPlan="free" message="Métricas disponíveis no plano Destaque ou superior">
+          <div />
+        </LockedFeature>
+      </LojistaLayout>
+    );
+  }
+
+  if (error || !metrics) {
+    return <LojistaLayout><p className="text-red-500">Erro ao carregar métricas.</p></LojistaLayout>;
+  }
+
+  const isPremium = profile?.planType === "premium";
 
   const cards = [
     { label: "Visualizações do Perfil", value: metrics.totalClicks, icon: Eye, color: "bg-blue-600" },
@@ -47,29 +79,31 @@ export default function LojistaMetricas() {
         })}
       </div>
 
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Cliques nos últimos 30 dias</h2>
-        {last30.length === 0 ? (
-          <p className="text-gray-400 text-center py-8">Sem dados no período</p>
-        ) : (
-          <div className="flex items-end gap-1 h-48">
-            {last30.map((d: any, i: number) => {
-              const height = Math.max((d.clicks / maxClicks) * 100, 4);
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end group relative">
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                    {d.date}: {d.clicks} cliques
+      <LockedFeature planRequired="premium" currentPlan={profile?.planType || "destaque"} inline message="Gráfico de cliques disponível no plano Premium">
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">Cliques nos últimos 30 dias</h2>
+          {last30.length === 0 ? (
+            <p className="text-gray-400 text-center py-8">Sem dados no período</p>
+          ) : (
+            <div className="flex items-end gap-1 h-48">
+              {last30.map((d: any, i: number) => {
+                const height = Math.max((d.clicks / maxClicks) * 100, 4);
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center justify-end group relative">
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                      {d.date}: {d.clicks} cliques
+                    </div>
+                    <div
+                      className="w-full bg-[#d97706] rounded-t-sm transition-all hover:bg-[#b45309]"
+                      style={{ height: `${height}%` }}
+                    />
                   </div>
-                  <div
-                    className="w-full bg-[#d97706] rounded-t-sm transition-all hover:bg-[#b45309]"
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </LockedFeature>
     </LojistaLayout>
   );
 }

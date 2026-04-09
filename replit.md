@@ -61,9 +61,9 @@ Full-stack local business directory for Londrina, Brazil.
 - `/lojista/login` — Email+password login (JWT 7 days)
 - `/lojista` — Dashboard (metrics, profile warnings)
 - `/lojista/perfil` — Business profile editor (data, hours, location w/ CEP, tags, payments)
-- `/lojista/fotos` — Logo, banner, gallery uploads (plan limits enforced)
-- `/lojista/produtos` — Product catalog CRUD
-- `/lojista/metricas` — Click analytics + 30-day chart
+- `/lojista/fotos` — Logo, banner, gallery uploads (plan limits enforced; logo/banner locked for free)
+- `/lojista/produtos` — Product catalog CRUD (locked for non-premium)
+- `/lojista/metricas` — Click analytics (locked for free; chart locked for non-premium)
 - `/lojista/avaliacoes` — Review management (view, respond, copy review link)
 - `/lojista/boost` — Boost/impulsionamento info page (position table, avulso options, WhatsApp CTA)
 - `/lojista/plano` — Plan management
@@ -126,6 +126,11 @@ Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/
 
 **DB Seed**: 10 categories, 20 businesses (real Londrina data), 20 lojista accounts, 42 products, 10 reviews
 Default lojista password: Hub@2026 (all accounts)
+
+**Plan Enforcement**:
+- Backend: all plan checks read from DB (not JWT). Profile PATCH blocks instagram/website for free, videoUrl for non-premium. Products PATCH/DELETE/reorder require premium. Metrics blocks free, chart series only for premium. Review respond requires destaque+. Admin boosts require premium on business.
+- Frontend: `LockedFeature` component (`src/components/LockedFeature.tsx`) provides inline blur overlay or full-page lock card with plan upgrade CTA. Used in LojistaFotos (logo/banner), LojistaPerfil (instagram/website/videoUrl), LojistaProdutos (full page), LojistaMetricas (full page + chart), LojistaBoost (premium warning).
+- `checkPlan.ts` middleware available at `api-server/src/middleware/checkPlan.ts` (reusable `requirePlan` factory).
 
 **Pricing Plans**:
 - Gratuito: R$0/mês

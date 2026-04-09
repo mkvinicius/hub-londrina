@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProducts, createProduct, updateProduct, deleteProduct } from "@/lib/lojista-api";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct } from "@/lib/lojista-api";
 import { Plus, Trash2, Edit2, X, Check } from "lucide-react";
+import { LockedFeature } from "@/components/LockedFeature";
 
 interface Product {
   id: number;
@@ -17,6 +18,7 @@ interface Product {
 
 export default function LojistaProdutos() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -25,11 +27,27 @@ export default function LojistaProdutos() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    getProducts().then(r => setProducts(r.data || [])).finally(() => setLoading(false));
+    Promise.all([getProfile(), getProducts()])
+      .then(([p, r]) => {
+        setProfile(p);
+        setProducts(r.data || []);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
+  }
+
+  if (profile?.planType !== "premium") {
+    return (
+      <LojistaLayout>
+        <h1 className="text-2xl font-black text-gray-800 mb-6">Produtos</h1>
+        <LockedFeature planRequired="premium" currentPlan={profile?.planType || "free"} message="Vitrine de Produtos disponível no plano Premium">
+          <div />
+        </LockedFeature>
+      </LojistaLayout>
+    );
   }
 
   function resetForm() {
