@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { businessesTable } from "@workspace/db/schema";
-import { ilike, or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
+import { or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
 import { SearchQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -24,6 +24,55 @@ const COMPLETENESS = sql<number>`(
   CASE WHEN ${businessesTable.address} != '' THEN 1 ELSE 0 END
 )`;
 
+const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
+const PLAIN    = "aaaaaeeeeiiiioooooiuuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
+
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function generateSearchVariants(term: string): string[] {
+  const t = stripAccents(term.toLowerCase().trim());
+  const variants = new Set<string>();
+  variants.add(t);
+
+  if (t.endsWith("s")) variants.add(t.slice(0, -1));
+  else variants.add(t + "s");
+
+  if (t.endsWith("ao")) {
+    variants.add(t.slice(0, -2) + "oes");
+    variants.add(t.slice(0, -2) + "aes");
+  }
+  if (t.endsWith("oes") || t.endsWith("aes")) {
+    variants.add(t.slice(0, -3) + "ao");
+  }
+
+  if (t.endsWith("cao")) {
+    variants.add(t.slice(0, -3) + "coes");
+  }
+  if (t.endsWith("coes")) {
+    variants.add(t.slice(0, -4) + "cao");
+  }
+
+  if (t.endsWith("al")) {
+    variants.add(t.slice(0, -2) + "ais");
+  } else if (t.endsWith("ais")) {
+    variants.add(t.slice(0, -3) + "al");
+  }
+
+  if (t.endsWith("el")) {
+    variants.add(t.slice(0, -2) + "eis");
+  } else if (t.endsWith("eis")) {
+    variants.add(t.slice(0, -3) + "el");
+  }
+
+  return [...variants];
+}
+
+function unaccentLike(column: any, pattern: string) {
+  return sql`translate(lower(${column}), ${ACCENTED}, ${PLAIN}) like ${pattern}`;
+}
+
 router.get("/search", async (req, res) => {
   const parsed = SearchQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -35,18 +84,46 @@ router.get("/search", async (req, res) => {
   const conditions = [ne(businessesTable.isVisible, false)];
 
   if (q) {
-    conditions.push(
-      or(
-        ilike(businessesTable.name, `%${q}%`),
-        ilike(businessesTable.description, `%${q}%`),
-        sql`${businessesTable.tags}::text ilike ${"%" + q + "%"}`,
-      )!,
-    );
+    const words = q.trim().split(/\s+/).filter(Boolean);
+    const wordConditions: any[] = [];
+
+    for (const word of words) {
+      const variants = generateSearchVariants(word);
+      const variantConditions: any[] = [];
+
+      for (const v of variants) {
+        const pattern = `%${v}%`;
+        variantConditions.push(
+          unaccentLike(businessesTable.name, pattern),
+          unaccentLike(businessesTable.description, pattern),
+          unaccentLike(businessesTable.categorySlug, pattern),
+          unaccentLike(businessesTable.address, pattern),
+          unaccentLike(businessesTable.region, pattern),
+          sql`translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+        );
+      }
+
+      wordConditions.push(or(...variantConditions));
+    }
+
+    conditions.push(and(...wordConditions)!);
   }
+
   if (region) conditions.push(eq(businessesTable.region, region));
   if (category) conditions.push(eq(businessesTable.categorySlug, category));
 
   const where = and(...conditions);
+
+  let relevanceScore = sql<number>`0`;
+  if (q) {
+    const qNorm = stripAccents(q.toLowerCase());
+    relevanceScore = sql<number>`(
+      CASE WHEN translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 10 ELSE 0 END +
+      CASE WHEN translate(lower(${businessesTable.categorySlug}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 8 ELSE 0 END +
+      CASE WHEN translate(lower(${businessesTable.description}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 5 ELSE 0 END +
+      CASE WHEN translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 6 ELSE 0 END
+    )`;
+  }
 
   const [data, countResult] = await Promise.all([
     db
@@ -55,6 +132,7 @@ router.get("/search", async (req, res) => {
       .where(where)
       .orderBy(
         asc(BOOST_ORDER),
+        desc(relevanceScore),
         asc(PLAN_ORDER),
         desc(businessesTable.rating),
         desc(COMPLETENESS),

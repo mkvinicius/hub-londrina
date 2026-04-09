@@ -50,13 +50,28 @@ router.get("/businesses", async (req: Request, res: Response) => {
   if (category) conditions.push(eq(businessesTable.categorySlug, category));
   if (region) conditions.push(eq(businessesTable.region, region));
   if (q) {
-    conditions.push(
-      or(
-        ilike(businessesTable.name, `%${q}%`),
-        ilike(businessesTable.description, `%${q}%`),
-        sql`${businessesTable.tags}::text ilike ${"%" + q + "%"}`,
-      )!,
-    );
+    const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
+    const PLAIN    = "aaaaaeeeeiiiioooooiuuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
+    const qNorm = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const variants = [qNorm];
+    if (qNorm.endsWith("s")) variants.push(qNorm.slice(0, -1));
+    else variants.push(qNorm + "s");
+    if (qNorm.endsWith("ao")) { variants.push(qNorm.slice(0, -2) + "oes"); variants.push(qNorm.slice(0, -2) + "aes"); }
+    if (qNorm.endsWith("oes") || qNorm.endsWith("aes")) variants.push(qNorm.slice(0, -3) + "ao");
+
+    const variantConditions: any[] = [];
+    for (const v of variants) {
+      const pattern = `%${v}%`;
+      variantConditions.push(
+        sql`translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+        sql`translate(lower(${businessesTable.description}), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+        sql`translate(lower(${businessesTable.categorySlug}), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+        sql`translate(lower(${businessesTable.address}), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+        sql`translate(lower(${businessesTable.region}), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+        sql`translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
+      );
+    }
+    conditions.push(or(...variantConditions)!);
   }
 
   const where = and(...conditions);
