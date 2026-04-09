@@ -1,0 +1,85 @@
+Preciso de uma auditoria completa do projeto Hub Londrina.
+
+Não implemente nada. Não corrija nada. Só analise e reporte.
+
+## O que quero saber:
+
+### 1. INVENTÁRIO COMPLETO
+Liste TUDO que está implementado:
+- Todas as rotas públicas (GET, POST, etc)
+- Todas as rotas do lojista (/api/lojista/*)
+- Todas as rotas do admin (/api/admin/*)
+- Todas as páginas do frontend (rotas do Wouter)
+- Todas as tabelas do banco com seus campos
+- Todas as variáveis de ambiente em uso
+
+### 2. STATUS DE CADA FUNCIONALIDADE
+Para cada item abaixo, diga: IMPLEMENTADO / PARCIAL / NÃO IMPLEMENTADO
+E se PARCIAL ou com bug conhecido, descreva o problema.
+
+Funcionalidades a verificar:
+- SSR na home
+- SSR em /negocio/:id
+- SSR nas páginas de zona (/norte, /sul, /leste, /oeste, /centro)
+- Cadastro público (/cadastro) com validação CNPJ
+- Login do lojista
+- Painel do lojista — perfil completo
+- Painel do lojista — upload de foto/logo/banner
+- Painel do lojista — vitrine de produtos
+- Painel do lojista — métricas
+- Painel do lojista — avaliações
+- Painel do lojista — plano e pagamento (Stripe)
+- Painel do lojista — boost/impulsionamento
+- Enforcement das regras de plano no backend
+- Sistema de avaliações com verificação por visita
+- Busca por proximidade (Perto de mim / Haversine)
+- Busca por texto com sinônimos e ILIKE
+- Sistema de boost (mensal, avulso, direto)
+- Banners da home (carrossel)
+- Selos automáticos (Bem Avaliado, Mais Avaliado, Sem Reclamações, Patrocinado)
+- Painel admin — dashboard com stats
+- Painel admin — gestão de negócios
+- Painel admin — gestão de categorias
+- Painel admin — boost/impulsionamento
+- Painel admin — banners da home
+- Painel admin — cadastros pendentes
+- Painel admin — assinaturas/stripe
+- Stripe checkout e webhooks
+- Downgrade automático por inadimplência
+- Páginas de zona com identidade visual
+- Dropdown de região com zonas coloridas
+- Filtro de negócios similares (só para Free)
+- WhatsApp contextual nos produtos da vitrine
+- Botão Instagram no perfil público
+- Ordenação hierárquica na busca (boost > premium > destaque > free)
+
+### 3. BUGS E INSTABILIDADES CONHECIDOS
+Liste tudo que você sabe que está com comportamento incorreto,
+intermitente, ou que não foi testado adequadamente.
+
+### 4. O QUE VOCÊ (AGENTE) ACHA QUE FALTA
+Na sua opinião técnica, o que está faltando para o produto
+estar mais completo, estável e profissional?
+Seja honesto — liste tudo, mesmo que não tenha sido pedido antes.
+Priorize por impacto.
+
+### 5. DÍVIDA TÉCNICA
+O que foi feito de forma provisória ou que vai dar problema
+quando o número de usuários crescer?
+(performance, segurança, escalabilidade)
+
+### 6. TESTES RÁPIDOS
+Execute esses comandos e reporte os resultados:
+
+curl http://localhost:PORT/api/stats
+curl http://localhost:PORT/api/businesses?limit=3
+curl http://localhost:PORT/api/zones/norte/stats
+curl http://localhost:PORT/api/zones/centro/stats
+curl http://localhost:PORT/api/categories
+
+Substitua PORT pela porta real do servidor.
+
+## Formato da resposta
+Quero uma resposta estruturada, direta e honesta.
+Não minimize problemas. Se algo está quebrado, diga que está quebrado.
+Se algo está faltando, diga que está faltando.
