@@ -33,6 +33,7 @@ export function requirePlan(minPlan: PlanType) {
       };
       res.status(403).json({
         error: `Recurso disponível a partir do plano ${labels[minPlan]}`,
+        code: "PLAN_REQUIRED",
         requiredPlan: minPlan,
         currentPlan: current,
       });

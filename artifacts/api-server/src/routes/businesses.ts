@@ -129,6 +129,8 @@ router.get("/businesses", async (req: Request, res: Response) => {
   const destaque: any[] = [];
   const free: any[] = [];
 
+  const isDev = process.env.NODE_ENV !== "production";
+
   for (const biz of data) {
     const boost = boostMap.get(biz.id);
     if (boost) {
@@ -137,6 +139,7 @@ router.get("/businesses", async (req: Request, res: Response) => {
         _boostType: boost.boostType,
         _boostPosition: boost.position,
         _boostBadge: "Patrocinado",
+        boostPosition: boost.position,
         boostInfo: { isActive: true, type: boost.boostType, position: boost.position },
       };
       if (boost.boostType === "monthly" && boost.position) {
@@ -145,11 +148,11 @@ router.get("/businesses", async (req: Request, res: Response) => {
         avulsoBoosted.push(enriched);
       }
     } else if (biz.planType === "premium") {
-      premium.push({ ...biz, boostInfo: null });
+      premium.push({ ...biz, boostPosition: null, boostInfo: null });
     } else if (biz.planType === "destaque") {
-      destaque.push({ ...biz, boostInfo: null });
+      destaque.push({ ...biz, boostPosition: null, boostInfo: null });
     } else {
-      free.push({ ...biz, boostInfo: null });
+      free.push({ ...biz, boostPosition: null, boostInfo: null });
     }
   }
 
@@ -159,7 +162,26 @@ router.get("/businesses", async (req: Request, res: Response) => {
   destaque.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   free.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 
-  res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 });
+  const buckets = [
+    { items: monthlyBoosted, prefix: "boost_monthly" },
+    { items: avulsoBoosted, prefix: "boost_avulso" },
+    { items: premium, prefix: "premium" },
+    { items: destaque, prefix: "destaque" },
+    { items: free, prefix: "free" },
+  ];
+
+  const ordered: any[] = [];
+  for (const bucket of buckets) {
+    for (let i = 0; i < bucket.items.length; i++) {
+      const item = bucket.items[i];
+      if (isDev) {
+        item._debug_order = `${bucket.prefix}_${i + 1}`;
+      }
+      ordered.push(item);
+    }
+  }
+
+  res.json({ data: ordered, total: countResult[0]?.count ?? 0 });
 });
 
 router.get("/businesses/nearby", async (req: Request, res: Response) => {

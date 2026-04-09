@@ -271,12 +271,12 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
   const plan = business.planType;
 
   if (plan === "free" && (updates.instagram !== undefined || updates.website !== undefined)) {
-    res.status(403).json({ error: "Instagram e Website disponíveis a partir do plano Destaque", requiredPlan: "destaque", currentPlan: plan });
+    res.status(403).json({ error: "Instagram e Website disponíveis a partir do plano Destaque", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: plan });
     return;
   }
 
   if (plan !== "premium" && updates.videoUrl !== undefined) {
-    res.status(403).json({ error: "Vídeo disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: plan });
+    res.status(403).json({ error: "Vídeo disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: plan });
     return;
   }
 
@@ -306,7 +306,7 @@ router.post("/lojista/upload/logo", uploadLogo.single("file"), async (req: Reque
   const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!business || business.planType === "free") {
     fs.unlinkSync(req.file.path);
-    res.status(403).json({ error: "Logo disponível apenas nos planos Destaque e Premium" });
+    res.status(403).json({ error: "Logo disponível apenas nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: business?.planType || "free" });
     return;
   }
   const logoUrl = `/uploads/logos/${req.file.filename}`;
@@ -323,7 +323,7 @@ router.post("/lojista/upload/banner", uploadBanner.single("file"), async (req: R
   const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!business || business.planType === "free") {
     fs.unlinkSync(req.file.path);
-    res.status(403).json({ error: "Banner disponível apenas nos planos Destaque e Premium" });
+    res.status(403).json({ error: "Banner disponível apenas nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: business?.planType || "free" });
     return;
   }
   const bannerUrl = `/uploads/banners/${req.file.filename}`;
@@ -497,7 +497,7 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium" });
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType || "free" });
     return;
   }
 
@@ -528,7 +528,7 @@ router.patch("/lojista/products/reorder", async (req: Request, res: Response) =>
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: biz?.planType });
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType });
     return;
   }
 
@@ -551,7 +551,7 @@ router.patch("/lojista/products/:id", async (req: Request, res: Response) => {
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: biz?.planType });
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType });
     return;
   }
 
@@ -586,7 +586,7 @@ router.delete("/lojista/products/:id", async (req: Request, res: Response) => {
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", requiredPlan: "premium", currentPlan: biz?.planType });
+    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType });
     return;
   }
 
@@ -609,7 +609,7 @@ router.get("/lojista/metrics", async (req: Request, res: Response) => {
   if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
 
   if (biz.planType === "free") {
-    res.status(403).json({ error: "Métricas disponíveis a partir do plano Destaque", requiredPlan: "destaque", currentPlan: "free" });
+    res.status(403).json({ error: "Métricas disponíveis a partir do plano Destaque", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: "free" });
     return;
   }
 
@@ -684,7 +684,7 @@ router.post("/lojista/reviews/:reviewId/respond", async (req: Request, res: Resp
   const { businessId } = (req as any).lojista;
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType === "free") {
-    res.status(403).json({ error: "Resposta a avaliações disponível a partir do plano Destaque", requiredPlan: "destaque", currentPlan: biz?.planType || "free" });
+    res.status(403).json({ error: "Resposta a avaliações disponível a partir do plano Destaque", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType || "free" });
     return;
   }
   const reviewId = Number(req.params.reviewId);
