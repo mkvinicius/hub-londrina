@@ -124,27 +124,35 @@ export default function Busca() {
     <Layout>
       <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors">
         {/* Search Bar */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-4 px-4 transition-colors">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex flex-col sm:flex-row bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden gap-0">
-              <div className="flex-1 relative flex items-center">
-                <Search className="absolute left-4 h-5 w-5 text-gray-400" />
-                <Input
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-5 px-4 transition-colors">
+          <div className="max-w-3xl mx-auto">
+            <div
+              className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5"
+              style={{
+                background: "rgba(255,255,255,0.97)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
+                border: "1px solid rgba(0,0,0,0.06)",
+              }}
+            >
+              <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
+                <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
+                <input
+                  type="text"
                   value={localQuery}
                   onChange={(e) => setLocalQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="Buscar negócios, serviços..."
-                  className="w-full pl-12 pr-4 h-12 bg-transparent border-0 focus-visible:ring-0 text-base text-[#3a2512] font-medium shadow-none"
+                  placeholder="Restaurante, salão, mecânica..."
+                  className="flex-1 text-base text-gray-700 dark:text-gray-100 placeholder:text-gray-400 outline-none bg-transparent font-medium"
                 />
               </div>
-              <div className="hidden sm:block w-px h-8 bg-gray-200 self-center"></div>
-              <div className="w-full sm:w-52">
+
+              <div className="relative flex-shrink-0">
                 <Select value={region} onValueChange={setRegion}>
-                  <SelectTrigger className="w-full h-12 px-4 bg-transparent border-0 focus:ring-0 text-sm text-[#3a2512] font-medium shadow-none">
-                    <MapPin className="h-4 w-4 mr-2 text-[#d97706]" />
-                    <SelectValue placeholder="Qualquer região" />
+                  <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-100 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full border-0 shadow-none focus:ring-0">
+                    <SelectValue placeholder="Selecione a Região" />
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-0 shadow-xl">
+                  <SelectContent className="rounded-xl border-0 shadow-xl" style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
                     <SelectItem value="todas">Todas as regiões</SelectItem>
                     {dynamicRegions.map(r => (
                       <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -152,10 +160,32 @@ export default function Busca() {
                   </SelectContent>
                 </Select>
               </div>
+
               <button
+                type="button"
                 onClick={handleSearch}
-                className="w-full sm:w-auto bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-8 h-12 text-sm transition-colors"
+                className="flex items-center justify-center gap-2 text-white font-bold text-base px-7 py-3 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5 flex-shrink-0"
+                style={{
+                  borderRadius: "999px",
+                  background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
+                  boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  transform: "translateY(-1px)",
+                }}
+                onMouseEnter={(e) => {
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.style.background = "linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%)";
+                  btn.style.boxShadow = "0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2)";
+                  btn.style.transform = "translateY(-3px)";
+                }}
+                onMouseLeave={(e) => {
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.style.background = "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)";
+                  btn.style.boxShadow = "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)";
+                  btn.style.transform = "translateY(-1px)";
+                }}
               >
+                <Search className="h-4 w-4" />
                 Buscar
               </button>
             </div>
