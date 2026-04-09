@@ -96,7 +96,7 @@ GET /categorias          → Lista de categorias
 GET /busca               → Busca com filtros + GPS + sidebar collapsível
 GET /negocio/:id         → Perfil do negócio (SSR) + avaliações
 GET /anuncie             → Página de planos
-GET /api/businesses      → Lista de negócios (filtros, sinônimos, boost shuffle)
+GET /api/businesses      → Lista de negócios (filtros, sinônimos, ordenação hierárquica por boost)
 GET /api/businesses/:id  → Negócio individual (incrementa clicks)
 GET /api/businesses/nearby → Busca por proximidade (Haversine + raio)
 GET /api/categories      → Lista de categorias

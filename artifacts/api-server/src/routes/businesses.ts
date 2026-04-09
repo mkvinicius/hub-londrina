@@ -123,27 +123,37 @@ router.get("/businesses", async (req: Request, res: Response) => {
     getActiveBoosts(),
   ]);
 
-  const monthly: any[] = [];
-  const avulso: any[] = [];
-  const rest: any[] = [];
+  const monthlyBoosted: any[] = [];
+  const avulsoBoosted: any[] = [];
+  const premium: any[] = [];
+  const destaque: any[] = [];
+  const free: any[] = [];
 
   for (const biz of data) {
     const boost = boostMap.get(biz.id);
     if (boost) {
       const enriched = { ...biz, _boostType: boost.boostType, _boostPosition: boost.position, _boostBadge: "Patrocinado" };
       if (boost.boostType === "monthly" && boost.position) {
-        monthly.push(enriched);
+        monthlyBoosted.push(enriched);
       } else {
-        avulso.push(enriched);
+        avulsoBoosted.push(enriched);
       }
+    } else if (biz.planType === "premium") {
+      premium.push(biz);
+    } else if (biz.planType === "destaque") {
+      destaque.push(biz);
     } else {
-      rest.push(biz);
+      free.push(biz);
     }
   }
 
-  monthly.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
+  monthlyBoosted.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
+  avulsoBoosted.sort((a: any, b: any) => (b.rating ?? 0) - (a.rating ?? 0));
+  premium.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  destaque.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  free.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 
-  res.json({ data: [...monthly, ...avulso, ...rest], total: countResult[0]?.count ?? 0 });
+  res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 });
 });
 
 router.get("/businesses/nearby", async (req: Request, res: Response) => {
