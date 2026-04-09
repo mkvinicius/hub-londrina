@@ -129,7 +129,7 @@ export default function Landing() {
 
   const BASE = import.meta.env.VITE_API_URL || "";
 
-  const { data: platformStats } = useQuery<{ businesses: number; categories: number; regions: number; totalClicks: number }>({
+  const { data: platformStats } = useQuery<{ businesses: number; categories: number; regions: number; totalClicks: number; totalUsers: number }>({
     queryKey: ["/api/stats"],
     queryFn: () => fetch(`${BASE}/api/stats`).then(r => r.json()),
     staleTime: 60_000,
@@ -397,7 +397,7 @@ export default function Landing() {
           >
             {[
               { value: platformStats ? `+${platformStats.businesses}` : "…", label: "Negócios" },
-              { value: platformStats ? `+${platformStats.totalClicks.toLocaleString("pt-BR")}` : "…", label: "Usuários" },
+              { value: platformStats ? `+${platformStats.totalUsers}` : "…", label: "Lojistas" },
               { value: platformStats ? String(platformStats.categories) : "…", label: "Categorias" },
               { value: platformStats ? String(platformStats.regions) : "…", label: "Regiões" },
             ].map((stat, i, arr) => (
