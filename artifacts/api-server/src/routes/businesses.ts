@@ -132,18 +132,24 @@ router.get("/businesses", async (req: Request, res: Response) => {
   for (const biz of data) {
     const boost = boostMap.get(biz.id);
     if (boost) {
-      const enriched = { ...biz, _boostType: boost.boostType, _boostPosition: boost.position, _boostBadge: "Patrocinado" };
+      const enriched = {
+        ...biz,
+        _boostType: boost.boostType,
+        _boostPosition: boost.position,
+        _boostBadge: "Patrocinado",
+        boostInfo: { isActive: true, type: boost.boostType, position: boost.position },
+      };
       if (boost.boostType === "monthly" && boost.position) {
         monthlyBoosted.push(enriched);
       } else {
         avulsoBoosted.push(enriched);
       }
     } else if (biz.planType === "premium") {
-      premium.push(biz);
+      premium.push({ ...biz, boostInfo: null });
     } else if (biz.planType === "destaque") {
-      destaque.push(biz);
+      destaque.push({ ...biz, boostInfo: null });
     } else {
-      free.push(biz);
+      free.push({ ...biz, boostInfo: null });
     }
   }
 
@@ -224,10 +230,16 @@ router.get("/businesses/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  const [category, reviews] = await Promise.all([
+  const [category, reviews, boostMap] = await Promise.all([
     db.select().from(categoriesTable).where(eq(categoriesTable.slug, business.categorySlug)).then(rows => rows[0]),
     db.select().from(reviewsTable).where(eq(reviewsTable.businessId, id)).orderBy(desc(reviewsTable.createdAt)),
+    getActiveBoosts(),
   ]);
+
+  const boost = boostMap.get(id);
+  const boostInfo = boost
+    ? { isActive: true, type: boost.boostType, position: boost.position }
+    : null;
 
   db.update(businessesTable)
     .set({ clicks: sql`${businessesTable.clicks} + 1` })
@@ -240,7 +252,7 @@ router.get("/businesses/:id", async (req: Request, res: Response) => {
     .execute()
     .catch(() => {});
 
-  res.json({ ...business, category, reviews });
+  res.json({ ...business, category, reviews, boostInfo });
 });
 
 router.get("/businesses/:id/reviews", async (req: Request, res: Response) => {

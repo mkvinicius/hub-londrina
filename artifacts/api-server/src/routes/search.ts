@@ -178,18 +178,24 @@ router.get("/search", async (req, res) => {
   for (const biz of data) {
     const boost = boostMap.get(biz.id);
     if (boost) {
-      const enriched = { ...biz, _boostType: boost.boostType, _boostPosition: boost.position, _boostBadge: "Patrocinado" };
+      const enriched = {
+        ...biz,
+        _boostType: boost.boostType,
+        _boostPosition: boost.position,
+        _boostBadge: "Patrocinado",
+        boostInfo: { isActive: true, type: boost.boostType, position: boost.position },
+      };
       if (boost.boostType === "monthly" && boost.position) {
         monthlyBoosted.push(enriched);
       } else {
         avulsoBoosted.push(enriched);
       }
     } else if (biz.planType === "premium") {
-      premium.push(biz);
+      premium.push({ ...biz, boostInfo: null });
     } else if (biz.planType === "destaque") {
-      destaque.push(biz);
+      destaque.push({ ...biz, boostInfo: null });
     } else {
-      free.push(biz);
+      free.push({ ...biz, boostInfo: null });
     }
   }
 
