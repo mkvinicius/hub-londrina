@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Search, ArrowRight, Quote,
   CheckCircle2, ChevronDown, Heart, MessageCircle
@@ -117,7 +118,6 @@ export default function Landing() {
   const [regionOpen, setRegionOpen] = useState(false);
   const [, navigate] = useLocation();
 
-  const [platformStats, setPlatformStats] = useState<{ businesses: number; categories: number; regions: number; totalClicks: number } | null>(null);
   const [homeBanners, setHomeBanners] = useState<{ id: number; title: string; imageUrl: string; linkUrl: string | null }[]>([]);
   const [bannerIdx, setBannerIdx] = useState(0);
 
@@ -127,14 +127,17 @@ export default function Landing() {
   const categories = categoriesData?.data ?? [];
   const featuredBusinesses = (featuredData?.data ?? []).slice(0, 4);
 
+  const BASE = import.meta.env.VITE_API_URL || "";
+
+  const { data: platformStats } = useQuery<{ businesses: number; categories: number; regions: number; totalClicks: number }>({
+    queryKey: ["/api/stats"],
+    queryFn: () => fetch(`${BASE}/api/stats`).then(r => r.json()),
+    staleTime: 60_000,
+  });
+
   const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
 
   useEffect(() => {
-    const BASE = import.meta.env.VITE_API_URL || "";
-    fetch(`${BASE}/api/stats`)
-      .then(r => r.json())
-      .then(d => setPlatformStats(d))
-      .catch(() => {});
     fetch(`${BASE}/api/regions`)
       .then(r => r.json())
       .then(d => setDynamicRegions(d.data || []))
@@ -143,7 +146,7 @@ export default function Landing() {
       .then(r => r.json())
       .then(d => setHomeBanners(d.data || []))
       .catch(() => {});
-  }, []);
+  }, [BASE]);
 
   useEffect(() => {
     if (homeBanners.length <= 1) return;
@@ -534,7 +537,7 @@ export default function Landing() {
                       Popular
                     </div>
                     <h3 className="font-bold text-white mb-1">Destaque</h3>
-                    <div className="text-3xl font-black text-white mb-4">R$49<span className="text-sm font-normal text-white/70">/mês</span></div>
+                    <div className="text-3xl font-black text-white mb-4">R$59,90<span className="text-sm font-normal text-white/70">/mês</span></div>
                     <ul className="space-y-2 flex-grow mb-6">
                       {["Perfil verificado", "10 fotos", "Prioridade busca", "Avaliações"].map((f) => (
                         <li key={f} className="flex items-center gap-2 text-sm text-white/90">
@@ -554,7 +557,7 @@ export default function Landing() {
                   {/* Premium */}
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col">
                     <h3 className="font-bold text-white mb-1">Premium</h3>
-                    <div className="text-3xl font-black text-white mb-4">R$89<span className="text-sm font-normal text-white/50">/mês</span></div>
+                    <div className="text-3xl font-black text-white mb-4">R$89,90<span className="text-sm font-normal text-white/50">/mês</span></div>
                     <ul className="space-y-2 flex-grow mb-6">
                       {["Tudo do Destaque", "Fotos ilimitadas", "Banner inicial", "Suporte VIP"].map((f) => (
                         <li key={f} className="flex items-center gap-2 text-sm text-white/70">
@@ -564,10 +567,10 @@ export default function Landing() {
                       ))}
                     </ul>
                     <button
-                      onClick={() => navigate("/anuncie")}
+                      onClick={() => navigate("/lojista/plano")}
                       className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl py-2 text-sm font-bold transition-colors"
                     >
-                      Consultor
+                      Assinar Premium
                     </button>
                   </div>
                 </div>

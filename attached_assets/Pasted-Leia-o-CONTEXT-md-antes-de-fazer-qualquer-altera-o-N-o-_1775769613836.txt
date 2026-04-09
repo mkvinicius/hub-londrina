@@ -1,0 +1,106 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+5 correções no estado atual da plataforma.
+
+### CORREÇÃO 1 — Stats com "…" na home
+
+Os 4 contadores (Negócios, Usuários, Categorias, Regiões)
+mostram "…" porque são calculados no cliente.
+Incluir no SSR via __SSR_QUERIES__:
+
+No server.mjs, adicionar query de stats:
+GET /api/stats → retorna:
+{
+  totalBusinesses: COUNT de businesses ativos,
+  totalCategories: COUNT de categories,
+  totalZones: 5 (fixo),
+  totalUsers: totalBusinesses (usar como proxy por ora)
+}
+
+Injetar no __SSR_QUERIES__ junto com categories e businesses.
+No componente da home, consumir esses dados do cache
+em vez de calcular no cliente.
+
+### CORREÇÃO 2 — Preços desatualizados
+
+Na seção de planos da home E na página /anuncie:
+- Destaque: R$49 → R$59,90
+- Premium: R$89 → R$89,90 (adicionar centavos para consistência)
+
+Verificar TODOS os lugares onde esses valores aparecem
+e corrigir uniformemente.
+
+### CORREÇÃO 3 — Botão "Consultor" no Premium
+
+Na seção de planos da home e em /anuncie:
+- Botão "Consultor" do Premium → mudar para "Assinar Premium"
+- Link: deve ir para /lojista/plano (para quem já é lojista)
+  ou /cadastro (para quem ainda não tem conta)
+- Usar o mesmo padrão do botão "Assinar" do Destaque
+
+### CORREÇÃO 4 — Zonas dos negócios seed
+
+Todos os 20 negócios estão com zone='centro'.
+Atualizar via SQL/Drizzle para refletir as regiões reais:
+
+- Negócios com region='Zona Norte' → zone='norte'
+- Negócios com region='Zona Sul' → zone='sul'
+- Negócios com region='Zona Leste' → zone='leste'
+- Negócios com region='Zona Oeste' → zone='oeste'
+- Negócios com region='Centro' → zone='centro'
+- Negócios com region='Gleba Palhano' → zone='sul'
+- Negócios com region='Jardim Quebec' → zone='norte'
+
+Executar UPDATE businesses SET zone = CASE
+  WHEN region = 'Zona Norte' THEN 'norte'
+  WHEN region = 'Zona Sul' THEN 'sul'
+  WHEN region = 'Zona Leste' THEN 'leste'
+  WHEN region = 'Zona Oeste' THEN 'oeste'
+  WHEN region = 'Gleba Palhano' THEN 'sul'
+  WHEN region = 'Jardim Quebec' THEN 'norte'
+  ELSE 'centro'
+END;
+
+### CORREÇÃO 5 — Coordenadas e dados faltantes no seed
+
+Os 20 negócios têm lat=null e lng=null.
+A busca por proximidade não funciona para nenhum deles.
+
+Para cada negócio que tem address preenchido,
+chamar a API do Nominatim para geocodificar:
+GET https://nominatim.openstreetmap.org/search?
+  q={address},Londrina,PR,Brasil&format=json&limit=1
+
+Salvar lat e lng retornados no banco.
+
+Fazer isso de forma sequencial com delay de 1 segundo
+entre cada chamada (respeitar rate limit do Nominatim).
+
+Criar script temporário seed-geocode.ts que:
+1. Busca todos os negócios com lat=null
+2. Para cada um, chama Nominatim
+3. Salva lat/lng no banco
+4. Imprime: "✓ [nome] → lat: X, lng: Y"
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. curl https://www.hublondrina.com.br/ | grep -o '"totalBusinesses":[0-9]*'
+   → Esperado: retorna o número real (não "…")
+
+3. curl https://www.hublondrina.com.br/ | grep "R\$59,90"
+   → Esperado: encontra o preço correto
+
+4. SELECT zone, COUNT(*) FROM businesses GROUP BY zone;
+   → Esperado: distribuição entre norte/sul/leste/oeste/centro
+   → NÃO deve ter todos em 'centro'
+
+5. SELECT COUNT(*) FROM businesses WHERE lat IS NOT NULL;
+   → Esperado: próximo de 20
+
+Confirmar todos os 5 testes antes de finalizar.

@@ -235,7 +235,7 @@ export default function Anuncie() {
               </div>
               <h3 className="font-serif text-2xl font-black text-[#6F4E37] mb-2">Destaque</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-black text-[#6F4E37]">R$49</span>
+                <span className="text-5xl font-black text-[#6F4E37]">R$59,90</span>
                 <span className="text-gray-500 font-medium">/mês</span>
               </div>
               <ul className="space-y-4 mb-10 min-h-[200px]">
@@ -264,7 +264,7 @@ export default function Anuncie() {
             <div className="bg-[#6F4E37] rounded-[2rem] p-10 shadow-xl border border-[#6F4E37]">
               <h3 className="font-serif text-2xl font-black text-white mb-2">Premium</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-black text-white">R$89</span>
+                <span className="text-5xl font-black text-white">R$89,90</span>
                 <span className="text-white/70 font-medium">/mês</span>
               </div>
               <ul className="space-y-4 mb-10 min-h-[200px]">
@@ -283,8 +283,8 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0">
-                Falar com Consultor
+              <Button onClick={() => navigate("/lojista/plano")} className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0">
+                Assinar Premium
               </Button>
             </div>
           </div>

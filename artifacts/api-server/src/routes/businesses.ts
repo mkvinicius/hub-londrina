@@ -401,8 +401,13 @@ router.get("/stats", async (_req: Request, res: Response) => {
       .select({ count: sql<number>`coalesce(sum(${businessesTable.clicks}), 0)::int` })
       .from(businessesTable);
 
+    const total = businessCount?.count ?? 0;
     res.json({
-      businesses: businessCount?.count ?? 0,
+      totalBusinesses: total,
+      totalCategories: categoryCount?.count ?? 0,
+      totalZones: 5,
+      totalUsers: total,
+      businesses: total,
       categories: categoryCount?.count ?? 0,
       regions: regionResult?.count ?? 0,
       totalClicks: clickResult?.count ?? 0,

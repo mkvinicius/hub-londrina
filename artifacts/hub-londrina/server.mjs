@@ -138,14 +138,16 @@ async function handler(req, res) {
   // ── SSR: home page and other app routes ────────────────────────
   try {
     const render = await getRender();
-    const [categories, businesses] = await Promise.all([
+    const [categories, businesses, stats] = await Promise.all([
       safeFetch(`${API_BASE}/api/categories`),
       safeFetch(`${API_BASE}/api/businesses?sort=rating`),
+      safeFetch(`${API_BASE}/api/stats`),
     ]);
 
     const extraQueries = [];
     if (categories) extraQueries.push({ key: ["/api/categories"], data: categories });
     if (businesses) extraQueries.push({ key: ["/api/businesses", { sort: "rating" }], data: businesses });
+    if (stats) extraQueries.push({ key: ["/api/stats"], data: stats });
 
     const appHtml = render(pathname || "/", undefined, extraQueries);
 
