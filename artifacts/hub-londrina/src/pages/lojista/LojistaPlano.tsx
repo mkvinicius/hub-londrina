@@ -1,95 +1,159 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile } from "@/lib/lojista-api";
-import { Check, X, Lock, Zap, Crown, Star } from "lucide-react";
+import {
+  getProfile, getStripeConfig, getSubscription,
+  createCheckoutSession, createPortalSession,
+} from "@/lib/lojista-api";
+import { Check, X, Lock, Zap, Crown, Star, AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 
-interface Profile {
-  planType: string;
-  name: string;
+interface Profile { planType: string; name: string }
+interface Subscription {
+  plan: string;
+  status: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  stripePriceId: string | null;
+}
+interface StripeConfig {
+  prices: {
+    base_monthly: string;
+    base_annual: string;
+    premium_monthly: string;
+    premium_annual: string;
+  };
 }
 
-const PLANS = [
-  {
-    key: "free",
-    label: "Gratuito",
-    price: "R$0",
-    period: "/mês",
-    color: "border-gray-200",
-    badge: "bg-gray-100 text-gray-600",
-    icon: Lock,
-    cta: null,
-    features: [
-      { label: "Perfil na plataforma", ok: true },
-      { label: "Botão WhatsApp", ok: true },
-      { label: "Endereço no mapa", ok: true },
-      { label: "1 foto na galeria", ok: true },
-      { label: "Logo e banner", ok: false },
-      { label: "Selos verificado", ok: false },
-      { label: "Avaliações de clientes", ok: false },
-      { label: "Instagram / Website", ok: false },
-      { label: "Métricas de cliques", ok: false },
-      { label: "Vitrine de produtos", ok: false },
-      { label: "Relatório PDF", ok: false },
-      { label: "Prioridade na busca", ok: false },
-    ],
-  },
-  {
-    key: "destaque",
-    label: "Destaque",
-    price: "R$49",
-    period: "/mês",
-    color: "border-[#d97706]",
-    badge: "bg-amber-100 text-amber-700",
-    icon: Zap,
-    cta: "Fazer upgrade para Destaque",
-    features: [
-      { label: "Tudo do Gratuito", ok: true },
-      { label: "Até 10 fotos", ok: true },
-      { label: "Logo e banner", ok: true },
-      { label: "Selo Destaque", ok: true },
-      { label: "Avaliações de clientes", ok: true },
-      { label: "Instagram / Website", ok: true },
-      { label: "Métricas básicas (7/30/90d)", ok: true },
-      { label: "Prioridade na busca", ok: true },
-      { label: "Suporte por email", ok: true },
-      { label: "Vitrine de produtos", ok: false },
-      { label: "Relatório PDF", ok: false },
-      { label: "Topo garantido na busca", ok: false },
-    ],
-  },
-  {
-    key: "premium",
-    label: "Premium",
-    price: "R$89",
-    period: "/mês",
-    color: "border-emerald-500",
-    badge: "bg-emerald-100 text-emerald-700",
-    icon: Crown,
-    cta: "Fazer upgrade para Premium",
-    features: [
-      { label: "Tudo do Destaque", ok: true },
-      { label: "Fotos ilimitadas", ok: true },
-      { label: "Vitrine de produtos", ok: true },
-      { label: "Vídeo de apresentação", ok: true },
-      { label: "Destaque na home", ok: true },
-      { label: "Métricas avançadas", ok: true },
-      { label: "Comparativo com categoria", ok: true },
-      { label: "Relatório mensal PDF", ok: true },
-      { label: "Topo garantido na busca", ok: true },
-      { label: "Impulsionamento disponível", ok: true },
-      { label: "Suporte WhatsApp VIP", ok: true },
-      { label: "Selo Premium", ok: true },
-    ],
-  },
-];
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+}
 
 export default function LojistaPlano() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sub, setSub] = useState<Subscription | null>(null);
+  const [config, setConfig] = useState<StripeConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [location] = useLocation();
+
+  const isSuccess = location.includes("success=1");
+  const isCancelled = location.includes("cancelled=1");
 
   useEffect(() => {
-    getProfile().then(setProfile).finally(() => setLoading(false));
+    Promise.all([
+      getProfile(),
+      getSubscription().catch(() => null),
+      getStripeConfig().catch(() => null),
+    ]).then(([p, s, c]) => {
+      setProfile(p);
+      setSub(s);
+      setConfig(c);
+    }).finally(() => setLoading(false));
   }, []);
+
+  const currentPlan = profile?.planType || "free";
+  const planOrder = ["free", "destaque", "premium"];
+  const currentIndex = planOrder.indexOf(currentPlan);
+
+  const prices = config?.prices;
+
+  const PLANS = [
+    {
+      key: "free",
+      label: "Gratuito",
+      monthlyPrice: "R$0",
+      annualPrice: "R$0",
+      annualNote: "",
+      color: "border-gray-200",
+      badge: "bg-gray-100 text-gray-600",
+      icon: Lock,
+      priceIdMonthly: null,
+      priceIdAnnual: null,
+      features: [
+        { label: "Perfil na plataforma", ok: true },
+        { label: "Botão WhatsApp", ok: true },
+        { label: "Endereço no mapa", ok: true },
+        { label: "1 foto na galeria", ok: true },
+        { label: "Logo e banner", ok: false },
+        { label: "Instagram / Website", ok: false },
+        { label: "Métricas de cliques", ok: false },
+        { label: "Vitrine de produtos", ok: false },
+        { label: "Prioridade na busca", ok: false },
+      ],
+    },
+    {
+      key: "destaque",
+      label: "Base",
+      monthlyPrice: "R$59,90",
+      annualPrice: "R$49,90",
+      annualNote: "R$598,80/ano",
+      color: "border-[#d97706]",
+      badge: "bg-amber-100 text-amber-700",
+      icon: Zap,
+      priceIdMonthly: prices?.base_monthly ?? null,
+      priceIdAnnual: prices?.base_annual ?? null,
+      features: [
+        { label: "Tudo do Gratuito", ok: true },
+        { label: "Até 10 fotos", ok: true },
+        { label: "Logo e banner", ok: true },
+        { label: "Selo Destaque", ok: true },
+        { label: "Instagram / Website", ok: true },
+        { label: "Métricas básicas", ok: true },
+        { label: "Prioridade na busca", ok: true },
+        { label: "Suporte por email", ok: true },
+        { label: "Vitrine de produtos", ok: false },
+      ],
+    },
+    {
+      key: "premium",
+      label: "Premium",
+      monthlyPrice: "R$89,90",
+      annualPrice: "R$79,90",
+      annualNote: "R$958,80/ano",
+      color: "border-emerald-500",
+      badge: "bg-emerald-100 text-emerald-700",
+      icon: Crown,
+      priceIdMonthly: prices?.premium_monthly ?? null,
+      priceIdAnnual: prices?.premium_annual ?? null,
+      features: [
+        { label: "Tudo do Base", ok: true },
+        { label: "Vitrine de produtos", ok: true },
+        { label: "Vídeo de apresentação", ok: true },
+        { label: "Destaque na home", ok: true },
+        { label: "Métricas avançadas", ok: true },
+        { label: "Impulsionamento disponível", ok: true },
+        { label: "Suporte WhatsApp VIP", ok: true },
+        { label: "Selo Premium", ok: true },
+        { label: "Topo garantido na busca", ok: true },
+      ],
+    },
+  ];
+
+  async function handleCheckout(plan: typeof PLANS[0]) {
+    const priceId = cycle === "annual" ? plan.priceIdAnnual : plan.priceIdMonthly;
+    if (!priceId) return;
+    setCheckingOut(plan.key);
+    try {
+      const { url } = await createCheckoutSession(priceId);
+      window.location.href = url;
+    } catch (err: any) {
+      alert(err.message || "Erro ao iniciar pagamento");
+      setCheckingOut(null);
+    }
+  }
+
+  async function handlePortal() {
+    setOpeningPortal(true);
+    try {
+      const { url } = await createPortalSession();
+      window.location.href = url;
+    } catch (err: any) {
+      alert(err.message || "Erro ao abrir portal");
+      setOpeningPortal(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -99,9 +163,8 @@ export default function LojistaPlano() {
     );
   }
 
-  const currentPlan = profile?.planType || "free";
-  const planOrder = ["free", "destaque", "premium"];
-  const currentIndex = planOrder.indexOf(currentPlan);
+  const isSubscribed = sub && (sub.status === "active" || sub.status === "trialing");
+  const isPastDue = sub?.status === "past_due";
 
   return (
     <LojistaLayout>
@@ -109,22 +172,83 @@ export default function LojistaPlano() {
         <h1 className="text-2xl font-black text-gray-800">Plano & Assinatura</h1>
         <p className="text-sm text-gray-500 mt-1">
           Você está no plano{" "}
-          <span className="font-bold text-[#d97706] capitalize">{currentPlan}</span>
+          <span className="font-bold text-[#d97706] capitalize">{currentPlan === "destaque" ? "Base" : currentPlan}</span>
           {currentPlan === "free" && " — faça upgrade para desbloquear mais recursos"}
         </p>
       </div>
 
-      {currentPlan !== "free" && (
-        <div className="bg-gradient-to-r from-[#d97706] to-amber-600 rounded-2xl p-5 mb-6 text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Star className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="font-bold text-lg capitalize">Plano {currentPlan} ativo</div>
-              <div className="text-white/80 text-sm">Integração de pagamento em breve</div>
-            </div>
+      {isSuccess && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+          <div>
+            <p className="font-bold text-emerald-800">Pagamento confirmado!</p>
+            <p className="text-sm text-emerald-700">Seu plano foi ativado. Pode levar alguns segundos para atualizar.</p>
           </div>
+        </div>
+      )}
+
+      {isCancelled && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <p className="text-sm text-amber-800">Pagamento cancelado. Seu plano atual segue ativo.</p>
+        </div>
+      )}
+
+      {isPastDue && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+          <div>
+            <p className="font-bold text-red-800">Pagamento pendente</p>
+            <p className="text-sm text-red-700">Há um problema com seu pagamento. Clique em "Gerenciar assinatura" para resolver.</p>
+          </div>
+        </div>
+      )}
+
+      {isSubscribed && sub && (
+        <div className="bg-gradient-to-r from-[#d97706] to-amber-600 rounded-2xl p-5 mb-6 text-white">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <Star className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-lg capitalize">
+                  Plano {sub.plan === "destaque" ? "Base" : sub.plan} ativo
+                </div>
+                {sub.currentPeriodEnd && (
+                  <div className="text-white/80 text-sm">
+                    {sub.cancelAtPeriodEnd
+                      ? `Cancela em ${formatDate(sub.currentPeriodEnd)}`
+                      : `Renova em ${formatDate(sub.currentPeriodEnd)}`}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handlePortal}
+              disabled={openingPortal}
+              className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {openingPortal ? "Abrindo..." : "Gerenciar assinatura"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isSubscribed && currentPlan === "free" && (
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <span className={`text-sm font-bold ${cycle === "monthly" ? "text-gray-800" : "text-gray-400"}`}>Mensal</span>
+          <button
+            onClick={() => setCycle(c => c === "monthly" ? "annual" : "monthly")}
+            className={`relative w-12 h-6 rounded-full transition-colors ${cycle === "annual" ? "bg-[#d97706]" : "bg-gray-300"}`}
+          >
+            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${cycle === "annual" ? "translate-x-7" : "translate-x-1"}`} />
+          </button>
+          <span className={`text-sm font-bold ${cycle === "annual" ? "text-gray-800" : "text-gray-400"}`}>
+            Anual
+            <span className="ml-1.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">−17%</span>
+          </span>
         </div>
       )}
 
@@ -133,6 +257,7 @@ export default function LojistaPlano() {
           const Icon = plan.icon;
           const isCurrent = plan.key === currentPlan;
           const isUpgrade = i > currentIndex;
+          const displayPrice = cycle === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
 
           return (
             <div
@@ -147,6 +272,14 @@ export default function LojistaPlano() {
                 </div>
               )}
 
+              {plan.key === "destaque" && (
+                <div className="absolute -top-3 right-4">
+                  <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                    MAIS POPULAR
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 mb-3 mt-1">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${plan.badge}`}>
                   <Icon className="w-4 h-4" />
@@ -156,10 +289,14 @@ export default function LojistaPlano() {
                 </span>
               </div>
 
-              <div className="mb-4">
-                <span className="text-3xl font-black text-gray-800">{plan.price}</span>
-                <span className="text-gray-400 text-sm">{plan.period}</span>
+              <div className="mb-1">
+                <span className="text-3xl font-black text-gray-800">{displayPrice}</span>
+                <span className="text-gray-400 text-sm">/mês</span>
               </div>
+              {cycle === "annual" && plan.annualNote && (
+                <p className="text-xs text-gray-400 mb-4">{plan.annualNote} cobrado anualmente</p>
+              )}
+              {(!plan.annualNote || cycle === "monthly") && <div className="mb-4" />}
 
               <ul className="space-y-2 mb-6">
                 {plan.features.map(f => (
@@ -174,23 +311,38 @@ export default function LojistaPlano() {
                 ))}
               </ul>
 
-              {isUpgrade && plan.cta && (
+              {isUpgrade && !isSubscribed && (
                 <button
-                  onClick={() => alert("Integração de pagamento em breve! Em caso de interesse, entre em contato pelo WhatsApp.")}
-                  className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${
+                  onClick={() => handleCheckout(plan)}
+                  disabled={checkingOut === plan.key || !config}
+                  className={`w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 ${
                     plan.key === "premium"
                       ? "bg-emerald-500 hover:bg-emerald-600 text-white"
                       : "bg-[#d97706] hover:bg-[#b45309] text-white"
                   }`}
                 >
-                  {plan.cta}
+                  {checkingOut === plan.key
+                    ? "Redirecionando..."
+                    : `Assinar plano ${plan.label}`}
                 </button>
               )}
+
+              {isUpgrade && isSubscribed && sub?.plan !== plan.key && (
+                <button
+                  onClick={handlePortal}
+                  disabled={openingPortal}
+                  className="w-full py-3 rounded-xl font-bold text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                >
+                  Alterar para {plan.label}
+                </button>
+              )}
+
               {isCurrent && (
                 <div className="w-full py-3 rounded-xl font-bold text-sm text-center bg-gray-100 text-gray-500">
-                  Plano ativo
+                  Plano atual
                 </div>
               )}
+
               {!isUpgrade && !isCurrent && (
                 <div className="w-full py-3 rounded-xl font-bold text-sm text-center bg-gray-50 text-gray-400">
                   Plano inferior
@@ -202,7 +354,10 @@ export default function LojistaPlano() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="font-bold text-gray-800 mb-4">⚡ Regra de degradação</h3>
+        <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-500" />
+          Regra de degradação
+        </h3>
         <p className="text-sm text-gray-600 leading-relaxed">
           Se o pagamento não for renovado, o plano volta automaticamente para <strong>Gratuito</strong>.
           Seu perfil continua ativo na plataforma — você não some do Hub Londrina — mas perde os

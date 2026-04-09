@@ -145,3 +145,23 @@ export async function changePassword(currentPassword: string, newPassword: strin
     body: JSON.stringify({ currentPassword, newPassword }),
   });
 }
+
+export async function getStripeConfig() {
+  const res = await fetch(`${API_BASE}/api/stripe/config`);
+  return res.json();
+}
+
+export async function createCheckoutSession(priceId: string): Promise<{ url: string }> {
+  return lojistaFetch("/stripe/checkout", {
+    method: "POST",
+    body: JSON.stringify({ priceId }),
+  });
+}
+
+export async function createPortalSession(): Promise<{ url: string }> {
+  return lojistaFetch("/stripe/portal", { method: "POST" });
+}
+
+export async function getSubscription() {
+  return lojistaFetch("/stripe/subscription");
+}

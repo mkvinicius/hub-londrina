@@ -7,6 +7,7 @@ import searchRouter from "./search";
 import adminRouter from "./admin";
 import lojistaRouter from "./lojista";
 import authRouter from "./auth";
+import stripeRouter from "./stripe";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(searchRouter);
 router.use(adminRouter);
 router.use(lojistaRouter);
 router.use(authRouter);
+router.use(stripeRouter);
 
 export default router;

@@ -134,5 +134,19 @@ Default lojista password: Hub@2026 (all accounts)
 
 **Pricing Plans**:
 - Gratuito: R$0/mês
-- Destaque: R$49/mês
-- Premium: R$89/mês
+- Base (Destaque): R$59,90/mês ou R$598,80/ano (R$49,90/mês)
+- Premium: R$89,90/mês ou R$958,80/ano (R$79,90/mês)
+
+**Stripe Integration**:
+- Subscriptions table: `lib/db/src/schema/subscriptions.ts` (businessId, stripeCustomerId, stripeSubscriptionId, stripePriceId, plan, status, currentPeriodEnd, cancelAtPeriodEnd)
+- Routes: `artifacts/api-server/src/routes/stripe.ts`
+  - `GET /api/stripe/config` — returns publishableKey + 4 price IDs (public)
+  - `POST /api/stripe/checkout` — creates Stripe Checkout session (lojista auth)
+  - `POST /api/stripe/portal` — creates Stripe Billing Portal session (lojista auth)
+  - `GET /api/stripe/subscription` — returns current subscription info (lojista auth)
+  - `POST /api/stripe/webhook` — handles Stripe events (raw body, signature verified)
+- Webhook events: checkout.session.completed, invoice.payment_succeeded, invoice.payment_failed, customer.subscription.updated, customer.subscription.deleted
+- On payment success: sets business.planType to "destaque" or "premium"
+- On cancellation/failure: reverts business.planType to "free"
+- Frontend: LojistaPlano.tsx fully integrated — mensal/anual toggle, real checkout buttons, Billing Portal access, subscription status card
+- Required secrets: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_BASE_PRICE_ID, STRIPE_BASE_ANNUAL_PRICE_ID, STRIPE_PREMIUM_PRICE_ID, STRIPE_PREMIUM_ANNUAL_PRICE_ID, STRIPE_WEBHOOK_SECRET
