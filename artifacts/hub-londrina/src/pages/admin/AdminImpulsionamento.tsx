@@ -1,26 +1,49 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Pencil } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Pencil, Clock } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
-interface Boost {
+interface BoostBusiness {
   id: number;
-  businessId: number;
-  monthlyBid: string;
-  position: number | null;
-  boostType: string;
-  status: string;
-  startsAt: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  businessName: string;
-  businessRegion: string;
-  businessCategory: string;
+  name: string;
+  planType: string;
+  region: string;
+  category: string;
 }
 
-interface Business {
+interface MonthlyBoost {
+  id: number;
+  position: number | null;
+  business: BoostBusiness;
+  monthlyBid: number;
+  status: string;
+  expiresAt: string | null;
+  startsAt: string | null;
+  createdAt: string;
+}
+
+interface AvulsoBoost {
+  id: number;
+  business: BoostBusiness;
+  monthlyBid: number;
+  status: string;
+  expiresAt: string | null;
+  startsAt: string | null;
+  createdAt: string;
+}
+
+interface WaitlistBoost {
+  id: number;
+  business: BoostBusiness;
+  monthlyBid: number;
+  boostType: string;
+  status: string;
+  createdAt: string;
+}
+
+interface ListBusiness {
   id: number;
   name: string;
   region: string;
@@ -39,8 +62,11 @@ function formatDate(d: string | null): string {
 }
 
 export default function AdminImpulsionamento() {
-  const [boosts, setBoosts] = useState<Boost[]>([]);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [monthly, setMonthly] = useState<MonthlyBoost[]>([]);
+  const [avulso, setAvulso] = useState<AvulsoBoost[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistBoost[]>([]);
+  const [availablePositions, setAvailablePositions] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [businesses, setBusinesses] = useState<ListBusiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [addType, setAddType] = useState<"monthly" | "avulso">("monthly");
@@ -58,7 +84,10 @@ export default function AdminImpulsionamento() {
         adminFetch("/api/admin/search-boosts"),
         adminFetch("/api/admin/businesses?limit=200"),
       ]);
-      setBoosts(boostRes.data || []);
+      setMonthly(boostRes.monthly || []);
+      setAvulso(boostRes.avulso || []);
+      setWaitlist(boostRes.waitlist || []);
+      setAvailablePositions(boostRes.availablePositions || []);
       setBusinesses(bizRes.data || []);
     } finally {
       setLoading(false);
@@ -67,11 +96,11 @@ export default function AdminImpulsionamento() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const monthly = boosts
-    .filter(b => b.boostType === "monthly" && b.status === "active")
-    .sort((a, b) => (a.position || 99) - (b.position || 99));
-  const avulso = boosts.filter(b => b.boostType === "avulso" && b.status === "active");
-  const boostedIds = new Set(boosts.map(b => b.businessId));
+  const boostedIds = new Set([
+    ...monthly.map(b => b.business.id),
+    ...avulso.map(b => b.business.id),
+    ...waitlist.map(b => b.business.id),
+  ]);
 
   const availableBusinesses = businesses.filter(
     b => !boostedIds.has(b.id) &&
@@ -164,7 +193,7 @@ export default function AdminImpulsionamento() {
       <div className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
           <Crown className="w-5 h-5 text-[#d97706]" />
-          Vagas Mensais ({monthly.length}/5 ocupadas)
+          Vagas Mensais ({monthly.length}/5 — {availablePositions.length > 0 ? `posições ${availablePositions.join(", ")} livres` : "lotado"})
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
           {[1, 2, 3, 4, 5].map(pos => {
@@ -174,8 +203,9 @@ export default function AdminImpulsionamento() {
                 <div className="text-xs font-bold text-gray-500 mb-2">#{pos}</div>
                 {boost ? (
                   <>
-                    <p className="font-bold text-sm text-gray-800 truncate">{boost.businessName}</p>
-                    <p className="text-[10px] text-gray-500 mt-1">{boost.businessRegion} · {boost.businessCategory}</p>
+                    <p className="font-bold text-sm text-gray-800 truncate">{boost.business.name}</p>
+                    <p className="text-[10px] text-gray-500 mt-1">{boost.business.region} · {boost.business.category}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{boost.business.planType}</p>
                     {editingBid?.id === boost.id ? (
                       <div className="mt-2 flex items-center gap-1">
                         <span className="text-xs text-gray-500">R$</span>
@@ -197,9 +227,9 @@ export default function AdminImpulsionamento() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 mt-2">
-                        <p className="text-xs text-amber-700 font-semibold">R${Number(boost.monthlyBid).toFixed(0)}/mês</p>
+                        <p className="text-xs text-amber-700 font-semibold">R${boost.monthlyBid}/mês</p>
                         <button
-                          onClick={() => setEditingBid({ id: boost.id, value: String(Number(boost.monthlyBid).toFixed(0)) })}
+                          onClick={() => setEditingBid({ id: boost.id, value: String(boost.monthlyBid) })}
                           className="p-0.5 rounded hover:bg-amber-100"
                           title="Editar lance"
                         >
@@ -223,7 +253,7 @@ export default function AdminImpulsionamento() {
         </div>
       </div>
 
-      <div>
+      <div className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
           <Flame className="w-5 h-5 text-orange-500" />
           Boosts Avulsos
@@ -233,7 +263,7 @@ export default function AdminImpulsionamento() {
             <thead>
               <tr className="bg-gray-50 text-left">
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Região</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Região / Categoria</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Início</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Expira</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ação</th>
@@ -247,8 +277,8 @@ export default function AdminImpulsionamento() {
               ) : (
                 avulso.map(b => (
                   <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-700">{b.businessName}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{b.businessRegion} · {b.businessCategory}</td>
+                    <td className="px-4 py-3 font-medium text-gray-700">{b.business.name}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{b.business.region} · {b.business.category}</td>
                     <td className="px-4 py-3 text-xs text-gray-500">{formatDate(b.startsAt)}</td>
                     <td className="px-4 py-3 text-xs text-gray-500">{formatDate(b.expiresAt)}</td>
                     <td className="px-4 py-3">
@@ -267,6 +297,44 @@ export default function AdminImpulsionamento() {
         </div>
       </div>
 
+      {waitlist.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-gray-400" />
+            Fila de Espera
+          </h2>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Lance</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {waitlist.map(b => (
+                  <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50/50">
+                    <td className="px-4 py-3 font-medium text-gray-700">{b.business.name}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{b.boostType === "monthly" ? "Mensal" : "Avulso"}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">R${b.monthlyBid}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleDelete(b.id)}
+                        className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                      >
+                        <Trash2 className="w-3 h-3 inline mr-1" />Remover
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
@@ -283,12 +351,12 @@ export default function AdminImpulsionamento() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setAddType("monthly")}
-                    disabled={monthly.length >= 5}
+                    disabled={availablePositions.length === 0}
                     className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-colors ${
                       addType === "monthly" ? "bg-[#d97706] text-white border-[#d97706]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                     } disabled:opacity-40 disabled:cursor-not-allowed ${BTN_ELEVATION}`}
                   >
-                    <Crown className="w-4 h-4 inline mr-1" />Mensal {monthly.length >= 5 ? "(lotado)" : ""}
+                    <Crown className="w-4 h-4 inline mr-1" />Mensal {availablePositions.length === 0 ? "(lotado)" : ""}
                   </button>
                   <button
                     onClick={() => setAddType("avulso")}

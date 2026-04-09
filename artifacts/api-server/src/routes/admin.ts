@@ -450,12 +450,53 @@ router.get("/admin/search-boosts", async (_req: Request, res: Response) => {
       businessName: businessesTable.name,
       businessRegion: businessesTable.region,
       businessCategory: businessesTable.categorySlug,
+      businessPlanType: businessesTable.planType,
     })
     .from(searchBoostsTable)
     .innerJoin(businessesTable, eq(searchBoostsTable.businessId, businessesTable.id))
     .orderBy(asc(searchBoostsTable.position), desc(searchBoostsTable.createdAt));
 
-  res.json({ data: boosts });
+  const monthly = boosts
+    .filter(b => b.boostType === "monthly" && b.status === "active")
+    .sort((a, b) => (a.position || 99) - (b.position || 99))
+    .map(b => ({
+      position: b.position,
+      business: { id: b.businessId, name: b.businessName, planType: b.businessPlanType, region: b.businessRegion, category: b.businessCategory },
+      monthlyBid: Number(b.monthlyBid),
+      status: b.status,
+      expiresAt: b.expiresAt,
+      id: b.id,
+      startsAt: b.startsAt,
+      createdAt: b.createdAt,
+    }));
+
+  const avulso = boosts
+    .filter(b => b.boostType === "avulso" && b.status === "active")
+    .map(b => ({
+      business: { id: b.businessId, name: b.businessName, planType: b.businessPlanType, region: b.businessRegion, category: b.businessCategory },
+      monthlyBid: Number(b.monthlyBid),
+      status: b.status,
+      expiresAt: b.expiresAt,
+      startsAt: b.startsAt,
+      id: b.id,
+      createdAt: b.createdAt,
+    }));
+
+  const waitlist = boosts
+    .filter(b => b.status === "waitlist")
+    .map(b => ({
+      business: { id: b.businessId, name: b.businessName, planType: b.businessPlanType, region: b.businessRegion, category: b.businessCategory },
+      monthlyBid: Number(b.monthlyBid),
+      boostType: b.boostType,
+      status: b.status,
+      id: b.id,
+      createdAt: b.createdAt,
+    }));
+
+  const occupiedPositions = new Set(monthly.map(m => m.position));
+  const availablePositions = [1, 2, 3, 4, 5].filter(p => !occupiedPositions.has(p));
+
+  res.json({ monthly, avulso, waitlist, availablePositions });
 });
 
 router.post("/admin/search-boosts", async (req: Request, res: Response) => {
