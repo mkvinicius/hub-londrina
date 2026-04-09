@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Pencil, Clock } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -83,7 +83,6 @@ export default function AdminImpulsionamento() {
   const [addDays, setAddDays] = useState(7);
   const [bizSearch, setBizSearch] = useState("");
   const [saving, setSaving] = useState(false);
-  const [editingBid, setEditingBid] = useState<{ id: number; value: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -152,22 +151,6 @@ export default function AdminImpulsionamento() {
     }
   }
 
-  async function handleUpdateBid(id: number, newBid: string) {
-    if (!newBid || Number(newBid) <= 0) {
-      alert("Lance deve ser maior que zero");
-      return;
-    }
-    try {
-      await adminFetch(`/api/admin/boosts/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ monthlyBid: newBid }),
-      });
-      setEditingBid(null);
-      fetchData();
-    } catch (e: any) {
-      alert(e.message || "Erro ao atualizar lance");
-    }
-  }
 
   return (
     <AdminLayout>
@@ -216,39 +199,7 @@ export default function AdminImpulsionamento() {
                     <p className="font-bold text-sm text-gray-800 truncate">{boost.business.name}</p>
                     <p className="text-[10px] text-gray-500 mt-1">{boost.business.region} · {boost.business.category}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{boost.business.planType}</p>
-                    {editingBid?.id === boost.id ? (
-                      <div className="mt-2 flex items-center gap-1">
-                        <select
-                          value={editingBid.value}
-                          onChange={e => setEditingBid({ id: boost.id, value: e.target.value })}
-                          className="w-24 px-1 py-0.5 text-xs border border-gray-300 rounded bg-white"
-                          autoFocus
-                        >
-                          {MONTHLY_BID_OPTIONS.map(o => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => handleUpdateBid(boost.id, editingBid.value)}
-                          className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded hover:bg-green-100"
-                        >OK</button>
-                        <button
-                          onClick={() => setEditingBid(null)}
-                          className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded hover:bg-gray-200"
-                        >X</button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 mt-2">
-                        <p className="text-xs text-amber-700 font-semibold">R${boost.monthlyBid}/mês</p>
-                        <button
-                          onClick={() => setEditingBid({ id: boost.id, value: String(boost.monthlyBid) })}
-                          className="p-0.5 rounded hover:bg-amber-100"
-                          title="Editar lance"
-                        >
-                          <Pencil className="w-3 h-3 text-amber-600" />
-                        </button>
-                      </div>
-                    )}
+                    <p className="text-xs text-amber-700 font-semibold mt-2">R${boost.monthlyBid}/mês</p>
                     <button
                       onClick={() => handleDelete(boost.id)}
                       className={`mt-3 w-full px-2 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}

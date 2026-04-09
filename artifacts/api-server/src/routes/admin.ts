@@ -401,6 +401,9 @@ router.delete("/admin/categories/:id", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+const BID_TO_POSITION: Record<number, number> = { 149: 1, 119: 2, 99: 3, 79: 4, 59: 5 };
+const VALID_BIDS = [149, 119, 99, 79, 59];
+
 async function calculateBoostPositions(): Promise<void> {
   const activeMonthly = await db
     .select()
@@ -412,25 +415,32 @@ async function calculateBoostPositions(): Promise<void> {
       )
     );
 
-  if (activeMonthly.length > 5) {
-    throw new Error("Mais de 5 boosts mensais ativos — situação inválida");
-  }
-
-  activeMonthly.sort((a, b) => {
-    const diff = Number(b.monthlyBid) - Number(a.monthlyBid);
-    if (diff !== 0) return diff;
-    const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return aDate - bDate;
-  });
-
-  for (let i = 0; i < activeMonthly.length; i++) {
-    const newPosition = i + 1;
-    if (activeMonthly[i].position !== newPosition) {
+  for (const boost of activeMonthly) {
+    const correctPos = BID_TO_POSITION[Number(boost.monthlyBid)] || null;
+    if (boost.position !== correctPos) {
       await db
         .update(searchBoostsTable)
-        .set({ position: newPosition })
-        .where(eq(searchBoostsTable.id, activeMonthly[i].id));
+        .set({ position: correctPos })
+        .where(eq(searchBoostsTable.id, boost.id));
+    }
+  }
+
+  const occupiedBids = new Set(activeMonthly.map(b => Number(b.monthlyBid)));
+
+  const waitlistBoosts = await db
+    .select()
+    .from(searchBoostsTable)
+    .where(and(eq(searchBoostsTable.status, "waitlist"), eq(searchBoostsTable.boostType, "monthly")))
+    .orderBy(asc(searchBoostsTable.createdAt));
+
+  for (const wl of waitlistBoosts) {
+    const wlBid = Number(wl.monthlyBid);
+    if (!occupiedBids.has(wlBid)) {
+      await db
+        .update(searchBoostsTable)
+        .set({ status: "active", position: BID_TO_POSITION[wlBid], startsAt: new Date() })
+        .where(eq(searchBoostsTable.id, wl.id));
+      occupiedBids.add(wlBid);
     }
   }
 }
@@ -511,19 +521,22 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
   }
 
   if (boostType === "monthly") {
-    const VALID_BIDS = [59, 79, 99, 119, 149];
     if (!monthlyBid || !VALID_BIDS.includes(Number(monthlyBid))) {
       res.status(400).json({ error: `monthlyBid deve ser um dos valores: ${VALID_BIDS.join(", ")}` });
       return;
     }
-    const activeCount = await db
-      .select({ count: sql<number>`count(*)::int` })
+    const targetPosition = BID_TO_POSITION[Number(monthlyBid)];
+    const occupant = await db
+      .select()
       .from(searchBoostsTable)
-      .where(and(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.boostType, "monthly")));
-    if ((activeCount[0]?.count ?? 0) >= 5) {
-      res.status(400).json({ error: "Todas as 5 vagas mensais estão ocupadas" });
-      return;
-    }
+      .where(
+        and(
+          eq(searchBoostsTable.position, targetPosition),
+          eq(searchBoostsTable.status, "active"),
+          eq(searchBoostsTable.boostType, "monthly")
+        )
+      );
+    var assignStatus: "active" | "waitlist" = occupant.length > 0 ? "waitlist" : "active";
   }
 
   if (boostType === "avulso") {
@@ -533,9 +546,17 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
     }
   }
 
-  const existing = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.businessId, Number(businessId)));
+  const existing = await db
+    .select()
+    .from(searchBoostsTable)
+    .where(
+      and(
+        eq(searchBoostsTable.businessId, Number(businessId)),
+        sql`${searchBoostsTable.status} != 'expired'`
+      )
+    );
   if (existing.length > 0) {
-    res.status(400).json({ error: "Este negócio já possui um boost ativo" });
+    res.status(400).json({ error: "Este negócio já possui um boost ativo ou em fila" });
     return;
   }
 
@@ -545,16 +566,18 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
     expiresAt = new Date(Date.now() + Number(durationDays) * 24 * 60 * 60 * 1000);
   }
 
+  const status = boostType === "monthly" ? assignStatus! : "active";
+
   try {
     const [boost] = await db.insert(searchBoostsTable).values({
       businessId: Number(businessId),
       monthlyBid: String(boostType === "monthly" ? monthlyBid : "0"),
-      position: null,
+      position: status === "active" && boostType === "monthly" ? BID_TO_POSITION[Number(monthlyBid)] : null,
       boostType,
-      status: "active",
+      status,
       durationDays: boostType === "avulso" ? Number(durationDays) : null,
       price: price != null ? String(price) : null,
-      startsAt,
+      startsAt: status === "active" ? startsAt : null,
       expiresAt,
     }).returning();
 
@@ -579,22 +602,35 @@ router.patch("/admin/boosts/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
-  const { monthlyBid, status } = req.body;
-  const VALID_BIDS = [59, 79, 99, 119, 149];
+  const [existing] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Boost não encontrado" }); return; }
+
+  const { status, expiresAt } = req.body;
   const updates: Record<string, unknown> = {};
-  if (monthlyBid !== undefined) {
-    if (!VALID_BIDS.includes(Number(monthlyBid))) {
-      res.status(400).json({ error: `monthlyBid deve ser um dos valores: ${VALID_BIDS.join(", ")}` });
+
+  if (status !== undefined) {
+    if (!["active", "expired", "waitlist"].includes(status)) {
+      res.status(400).json({ error: "status deve ser 'active', 'expired' ou 'waitlist'" });
       return;
     }
-    updates.monthlyBid = String(monthlyBid);
+    updates.status = status;
+    if (status === "expired") {
+      updates.position = null;
+    }
   }
-  if (status !== undefined) updates.status = status;
 
-  const [boost] = await db.update(searchBoostsTable).set(updates).where(eq(searchBoostsTable.id, id)).returning();
-  if (!boost) { res.status(404).json({ error: "Boost não encontrado" }); return; }
+  if (expiresAt !== undefined) {
+    updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  }
 
-  if (boost.boostType === "monthly") {
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nenhum campo para atualizar" });
+    return;
+  }
+
+  await db.update(searchBoostsTable).set(updates).where(eq(searchBoostsTable.id, id));
+
+  if (existing.boostType === "monthly") {
     await calculateBoostPositions();
   }
 
@@ -605,9 +641,14 @@ router.patch("/admin/boosts/:id", async (req: Request, res: Response) => {
 router.delete("/admin/boosts/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const [toDelete] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
-  await db.delete(searchBoostsTable).where(eq(searchBoostsTable.id, id));
+  if (!toDelete) { res.status(404).json({ error: "Boost não encontrado" }); return; }
 
-  if (toDelete?.boostType === "monthly") {
+  await db
+    .update(searchBoostsTable)
+    .set({ status: "expired", position: null })
+    .where(eq(searchBoostsTable.id, id));
+
+  if (toDelete.boostType === "monthly") {
     await calculateBoostPositions();
   }
 

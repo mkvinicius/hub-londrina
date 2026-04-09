@@ -260,7 +260,11 @@ Regras implementadas:
 - boostedUntil mantido no businesses (legado) mas NÃO usado na ordenação
 - Admin CRUD: GET/POST/PATCH/DELETE /api/admin/boosts
 - POST body: { businessId, boostType, monthlyBid (59|79|99|119|149), durationDays (7|15|30), price }
-- PATCH valida monthlyBid contra mesmos 5 valores fixos
+- Posição fixa por lance: R$149→#1, R$119→#2, R$99→#3, R$79→#4, R$59→#5
+- Se posição ocupada: cria com status='waitlist'
+- PATCH aceita apenas { status?, expiresAt? } — usado para cancelar (expired) ou renovar
+- DELETE faz soft delete (status='expired', position=null), não remove do banco
+- calculateBoostPositions() promove waitlist→active quando posição libera
 - Tabela search_boosts inclui campos durationDays e price
 - Lojista profile retorna _boost com boostType/position/expiresAt
 - Admin panel AdminImpulsionamento.tsx com grid de 5 vagas + tabela avulso
