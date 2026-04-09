@@ -258,7 +258,10 @@ Regras implementadas:
 - Badge "Patrocinado" exibido no card (_boostBadge no JSON)
 - Boost se aplica à busca geral (search.ts e businesses.ts)
 - boostedUntil mantido no businesses (legado) mas NÃO usado na ordenação
-- Admin CRUD: GET/POST/PATCH/DELETE /api/admin/search-boosts
+- Admin CRUD: GET/POST/PATCH/DELETE /api/admin/boosts
+- POST body: { businessId, boostType, monthlyBid (59|79|99|119|149), durationDays (7|15|30), price }
+- PATCH valida monthlyBid contra mesmos 5 valores fixos
+- Tabela search_boosts inclui campos durationDays e price
 - Lojista profile retorna _boost com boostType/position/expiresAt
 - Admin panel AdminImpulsionamento.tsx com grid de 5 vagas + tabela avulso
 - Admin não escolhe posição manualmente — apenas informa o lance

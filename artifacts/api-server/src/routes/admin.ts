@@ -435,7 +435,7 @@ async function calculateBoostPositions(): Promise<void> {
   }
 }
 
-router.get("/admin/search-boosts", async (_req: Request, res: Response) => {
+router.get("/admin/boosts", async (_req: Request, res: Response) => {
   const boosts = await db
     .select({
       id: searchBoostsTable.id,
@@ -499,8 +499,8 @@ router.get("/admin/search-boosts", async (_req: Request, res: Response) => {
   res.json({ monthly, avulso, waitlist, availablePositions });
 });
 
-router.post("/admin/search-boosts", async (req: Request, res: Response) => {
-  const { businessId, monthlyBid, boostType, days } = req.body;
+router.post("/admin/boosts", async (req: Request, res: Response) => {
+  const { businessId, boostType, monthlyBid, durationDays, price } = req.body;
   if (!businessId || !boostType) {
     res.status(400).json({ error: "businessId e boostType são obrigatórios" });
     return;
@@ -511,8 +511,9 @@ router.post("/admin/search-boosts", async (req: Request, res: Response) => {
   }
 
   if (boostType === "monthly") {
-    if (!monthlyBid || Number(monthlyBid) <= 0) {
-      res.status(400).json({ error: "Lance mensal obrigatório e maior que zero" });
+    const VALID_BIDS = [59, 79, 99, 119, 149];
+    if (!monthlyBid || !VALID_BIDS.includes(Number(monthlyBid))) {
+      res.status(400).json({ error: `monthlyBid deve ser um dos valores: ${VALID_BIDS.join(", ")}` });
       return;
     }
     const activeCount = await db
@@ -525,6 +526,13 @@ router.post("/admin/search-boosts", async (req: Request, res: Response) => {
     }
   }
 
+  if (boostType === "avulso") {
+    if (!durationDays || ![7, 15, 30].includes(Number(durationDays))) {
+      res.status(400).json({ error: "durationDays deve ser 7, 15 ou 30" });
+      return;
+    }
+  }
+
   const existing = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.businessId, Number(businessId)));
   if (existing.length > 0) {
     res.status(400).json({ error: "Este negócio já possui um boost ativo" });
@@ -533,17 +541,19 @@ router.post("/admin/search-boosts", async (req: Request, res: Response) => {
 
   const startsAt = new Date();
   let expiresAt: Date | null = null;
-  if (boostType === "avulso" && days) {
-    expiresAt = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
+  if (boostType === "avulso" && durationDays) {
+    expiresAt = new Date(Date.now() + Number(durationDays) * 24 * 60 * 60 * 1000);
   }
 
   try {
     const [boost] = await db.insert(searchBoostsTable).values({
       businessId: Number(businessId),
-      monthlyBid: String(monthlyBid || "0"),
+      monthlyBid: String(boostType === "monthly" ? monthlyBid : "0"),
       position: null,
       boostType,
       status: "active",
+      durationDays: boostType === "avulso" ? Number(durationDays) : null,
+      price: price != null ? String(price) : null,
       startsAt,
       expiresAt,
     }).returning();
@@ -565,13 +575,20 @@ router.post("/admin/search-boosts", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/admin/search-boosts/:id", async (req: Request, res: Response) => {
+router.patch("/admin/boosts/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
   const { monthlyBid, status } = req.body;
+  const VALID_BIDS = [59, 79, 99, 119, 149];
   const updates: Record<string, unknown> = {};
-  if (monthlyBid !== undefined) updates.monthlyBid = String(monthlyBid);
+  if (monthlyBid !== undefined) {
+    if (!VALID_BIDS.includes(Number(monthlyBid))) {
+      res.status(400).json({ error: `monthlyBid deve ser um dos valores: ${VALID_BIDS.join(", ")}` });
+      return;
+    }
+    updates.monthlyBid = String(monthlyBid);
+  }
   if (status !== undefined) updates.status = status;
 
   const [boost] = await db.update(searchBoostsTable).set(updates).where(eq(searchBoostsTable.id, id)).returning();
@@ -585,7 +602,7 @@ router.patch("/admin/search-boosts/:id", async (req: Request, res: Response) => 
   res.json({ boost: updated });
 });
 
-router.delete("/admin/search-boosts/:id", async (req: Request, res: Response) => {
+router.delete("/admin/boosts/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const [toDelete] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
   await db.delete(searchBoostsTable).where(eq(searchBoostsTable.id, id));

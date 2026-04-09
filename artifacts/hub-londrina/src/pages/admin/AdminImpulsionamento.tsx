@@ -50,6 +50,14 @@ interface ListBusiness {
   categorySlug: string;
 }
 
+const MONTHLY_BID_OPTIONS = [
+  { value: 59, label: "R$59/mês" },
+  { value: 79, label: "R$79/mês" },
+  { value: 99, label: "R$99/mês" },
+  { value: 119, label: "R$119/mês" },
+  { value: 149, label: "R$149/mês" },
+];
+
 const AVULSO_OPTIONS = [
   { days: 7, label: "7 dias", price: "R$29" },
   { days: 15, label: "15 dias", price: "R$49" },
@@ -81,7 +89,7 @@ export default function AdminImpulsionamento() {
     setLoading(true);
     try {
       const [boostRes, bizRes] = await Promise.all([
-        adminFetch("/api/admin/search-boosts"),
+        adminFetch("/api/admin/boosts"),
         adminFetch("/api/admin/businesses?limit=200"),
       ]);
       setMonthly(boostRes.monthly || []);
@@ -111,13 +119,15 @@ export default function AdminImpulsionamento() {
     if (!addBusinessId) return;
     setSaving(true);
     try {
-      await adminFetch("/api/admin/search-boosts", {
+      const AVULSO_PRICES: Record<number, number> = { 7: 29, 15: 49, 30: 79 };
+      await adminFetch("/api/admin/boosts", {
         method: "POST",
         body: JSON.stringify({
           businessId: addBusinessId,
           boostType: addType,
-          monthlyBid: addType === "monthly" ? addBid : "0",
-          days: addType === "avulso" ? addDays : undefined,
+          monthlyBid: addType === "monthly" ? Number(addBid) : null,
+          durationDays: addType === "avulso" ? addDays : null,
+          price: addType === "monthly" ? Number(addBid) : AVULSO_PRICES[addDays] || 29,
         }),
       });
       setShowAdd(false);
@@ -135,7 +145,7 @@ export default function AdminImpulsionamento() {
   async function handleDelete(id: number) {
     if (!confirm("Remover boost? As posições serão recalculadas.")) return;
     try {
-      await adminFetch(`/api/admin/search-boosts/${id}`, { method: "DELETE" });
+      await adminFetch(`/api/admin/boosts/${id}`, { method: "DELETE" });
       fetchData();
     } catch (e: any) {
       alert(e.message || "Erro ao remover");
@@ -148,7 +158,7 @@ export default function AdminImpulsionamento() {
       return;
     }
     try {
-      await adminFetch(`/api/admin/search-boosts/${id}`, {
+      await adminFetch(`/api/admin/boosts/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ monthlyBid: newBid }),
       });
@@ -208,14 +218,16 @@ export default function AdminImpulsionamento() {
                     <p className="text-[10px] text-gray-400 mt-0.5">{boost.business.planType}</p>
                     {editingBid?.id === boost.id ? (
                       <div className="mt-2 flex items-center gap-1">
-                        <span className="text-xs text-gray-500">R$</span>
-                        <input
-                          type="number"
+                        <select
                           value={editingBid.value}
                           onChange={e => setEditingBid({ id: boost.id, value: e.target.value })}
-                          className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded"
+                          className="w-24 px-1 py-0.5 text-xs border border-gray-300 rounded bg-white"
                           autoFocus
-                        />
+                        >
+                          {MONTHLY_BID_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
                         <button
                           onClick={() => handleUpdateBid(boost.id, editingBid.value)}
                           className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded hover:bg-green-100"
@@ -392,14 +404,17 @@ export default function AdminImpulsionamento() {
 
               {addType === "monthly" && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Lance mensal (R$)</label>
-                  <input
-                    type="number"
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Lance mensal</label>
+                  <select
                     value={addBid}
                     onChange={e => setAddBid(e.target.value)}
-                    placeholder="Ex: 150"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
-                  />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                  >
+                    <option value="">Selecionar valor...</option>
+                    {MONTHLY_BID_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                   <p className="text-[10px] text-gray-400 mt-1">A posição será calculada automaticamente pelo valor do lance (maior lance = #1)</p>
                 </div>
               )}

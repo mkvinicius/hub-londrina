@@ -18,6 +18,8 @@ export const searchBoostsTable = pgTable("search_boosts", {
   position: integer("position"),
   boostType: text("boost_type").notNull(),
   status: text("status").notNull().default("active"),
+  durationDays: integer("duration_days"),
+  price: numeric("price"),
   startsAt: timestamp("starts_at").defaultNow(),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
