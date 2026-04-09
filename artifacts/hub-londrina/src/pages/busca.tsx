@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   Search, MapPin, SlidersHorizontal,
-  ChevronDown, X, ChevronLeft, ChevronRight
+  ChevronDown, X, ChevronLeft, ChevronRight, Navigation, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
 import { BusinessCard } from "@/components/BusinessCard";
 
 const PAGE_SIZE = 8;
+const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
 
 export default function Busca() {
   const [, navigate] = useLocation();
@@ -26,12 +27,46 @@ export default function Busca() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [localQuery, setLocalQuery] = useState(query);
   const [page, setPage] = useState(1);
+  const [nearbyMode, setNearbyMode] = useState(false);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyResults, setNearbyResults] = useState<Business[] | null>(null);
+  const [nearbyError, setNearbyError] = useState("");
 
   const { data: searchData, isLoading } = useSearch({
     q: query || undefined,
     region: region || undefined,
     category: categoria || undefined,
   });
+
+  async function handleNearby() {
+    if (nearbyMode) {
+      setNearbyMode(false);
+      setNearbyResults(null);
+      setNearbyError("");
+      return;
+    }
+    setNearbyLoading(true);
+    setNearbyError("");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          const res = await fetch(`${API_BASE}/api/businesses/nearby?lat=${lat}&lng=${lng}&radius=5`);
+          const data = await res.json();
+          setNearbyResults(data.data || []);
+          setNearbyMode(true);
+        } catch {
+          setNearbyError("Erro ao buscar negócios próximos.");
+        } finally {
+          setNearbyLoading(false);
+        }
+      },
+      () => {
+        setNearbyError("Permissão de localização negada.");
+        setNearbyLoading(false);
+      }
+    );
+  }
 
   const { data: categoriesData } = useListCategories();
   const categories = categoriesData?.data ?? [];
@@ -45,8 +80,13 @@ export default function Busca() {
       .catch(() => {});
   }, []);
 
-  const results: Business[] = searchData?.data ?? [];
+  const results: Business[] = nearbyMode && nearbyResults !== null
+    ? nearbyResults
+    : searchData?.data ?? [];
   const sorted = [...results].sort((a, b) => {
+    if (nearbyMode && a.distanceKm !== undefined && b.distanceKm !== undefined) {
+      return a.distanceKm - b.distanceKm;
+    }
     if (sort === "rating") return b.rating - a.rating;
     if (sort === "reviews") return b.reviewsCount - a.reviewsCount;
     return 0;
@@ -140,6 +180,18 @@ export default function Busca() {
 
             <div className="flex items-center gap-3">
               <button
+                onClick={handleNearby}
+                disabled={nearbyLoading}
+                className={`flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl border transition-colors ${nearbyMode ? "bg-[#4CAF50] text-white border-[#4CAF50]" : "bg-white dark:bg-gray-800 text-[#3a2512] dark:text-gray-100 border-gray-200 dark:border-gray-700 hover:border-[#4CAF50] hover:text-[#4CAF50]"}`}
+              >
+                {nearbyLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Navigation className="h-4 w-4" />
+                )}
+                {nearbyMode ? "Ver todos" : "Perto de mim"}
+              </button>
+              <button
                 className="md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 bg-white dark:bg-gray-800"
                 onClick={() => setMobileFiltersOpen(true)}
               >
@@ -165,6 +217,20 @@ export default function Busca() {
               </div>
             </div>
           </div>
+
+          {nearbyError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 flex items-center gap-2">
+              <Navigation className="h-4 w-4 flex-shrink-0" />
+              {nearbyError}
+            </div>
+          )}
+
+          {nearbyMode && (
+            <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+              <Navigation className="h-4 w-4 flex-shrink-0" />
+              Mostrando negócios em até 5 km de você, ordenados por distância.
+            </div>
+          )}
 
           <div className="flex gap-6 items-start">
             {/* Sidebar Filters */}

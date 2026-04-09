@@ -5,7 +5,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { db } from "@workspace/db";
-import { businessesTable, businessUsersTable, productsTable, businessClicksTable } from "@workspace/db/schema";
+import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, desc, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -583,6 +583,46 @@ router.get("/lojista/metrics", async (req: Request, res: Response) => {
     profileViews: byType["profile"] ?? 0,
     last30Days: dailyClicks,
   });
+});
+
+router.get("/lojista/reviews", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const reviews = await db
+    .select()
+    .from(reviewsTable)
+    .where(eq(reviewsTable.businessId, businessId))
+    .orderBy(desc(reviewsTable.createdAt));
+  res.json({ data: reviews });
+});
+
+router.post("/lojista/reviews/:reviewId/respond", async (req: Request, res: Response) => {
+  const { businessId, planType } = (req as any).lojista;
+  if (planType === "free") {
+    res.status(403).json({ error: "Resposta a avaliações disponível a partir do plano Destaque" });
+    return;
+  }
+  const reviewId = Number(req.params.reviewId);
+  if (!reviewId) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const [review] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, reviewId));
+  if (!review || review.businessId !== businessId) {
+    res.status(404).json({ error: "Avaliação não encontrada" });
+    return;
+  }
+  const { response } = req.body;
+  if (!response?.trim()) { res.status(400).json({ error: "Resposta não pode ser vazia" }); return; }
+
+  const [updated] = await db.update(reviewsTable).set({ ownerResponse: response.trim() }).where(eq(reviewsTable.id, reviewId)).returning();
+  res.json({ review: updated });
+});
+
+router.delete("/lojista/reviews/:reviewId/respond", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const reviewId = Number(req.params.reviewId);
+  const [review] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, reviewId));
+  if (!review || review.businessId !== businessId) { res.status(404).json({ error: "Avaliação não encontrada" }); return; }
+  await db.update(reviewsTable).set({ ownerResponse: null }).where(eq(reviewsTable.id, reviewId));
+  res.json({ success: true });
 });
 
 router.patch("/lojista/password", async (req: Request, res: Response) => {

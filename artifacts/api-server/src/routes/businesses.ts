@@ -1,15 +1,43 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable, businessClicksTable } from "@workspace/db/schema";
-import { eq, ilike, or, and, desc, asc, sql, ne } from "drizzle-orm";
+import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte } from "drizzle-orm";
 import {
   ListBusinessesQueryParams,
   GetBusinessByIdParams,
 } from "@workspace/api-zod";
+import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
-router.get("/businesses", async (req, res) => {
+const PLAN_ORDER = sql<number>`CASE ${businessesTable.planType}
+  WHEN 'premium' THEN 1
+  WHEN 'destaque' THEN 2
+  ELSE 3
+END`;
+
+const BOOST_ORDER = sql<number>`CASE
+  WHEN ${businessesTable.boostedUntil} IS NOT NULL AND ${businessesTable.boostedUntil} > NOW() THEN 0
+  ELSE 1
+END`;
+
+const COMPLETENESS = sql<number>`(
+  CASE WHEN ${businessesTable.logoUrl} IS NOT NULL THEN 1 ELSE 0 END +
+  CASE WHEN array_length(${businessesTable.photos}, 1) > 0 THEN 1 ELSE 0 END +
+  CASE WHEN ${businessesTable.description} != '' THEN 1 ELSE 0 END +
+  CASE WHEN ${businessesTable.address} != '' THEN 1 ELSE 0 END
+)`;
+
+function getVisitorId(req: Request, res: Response): string {
+  let vid = req.cookies?.hub_visitor;
+  if (!vid) {
+    vid = randomUUID();
+    res.cookie("hub_visitor", vid, { maxAge: 365 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: "lax" });
+  }
+  return vid;
+}
+
+router.get("/businesses", async (req: Request, res: Response) => {
   const parsed = ListBusinessesQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: "Parâmetros inválidos" });
@@ -17,26 +45,21 @@ router.get("/businesses", async (req, res) => {
   }
   const { category, region, q, sort } = parsed.data;
 
-  const conditions = [];
+  const conditions = [ne(businessesTable.isVisible, false)];
 
-  if (category) {
-    conditions.push(eq(businessesTable.categorySlug, category));
-  }
-  if (region) {
-    conditions.push(eq(businessesTable.region, region));
-  }
+  if (category) conditions.push(eq(businessesTable.categorySlug, category));
+  if (region) conditions.push(eq(businessesTable.region, region));
   if (q) {
     conditions.push(
       or(
         ilike(businessesTable.name, `%${q}%`),
         ilike(businessesTable.description, `%${q}%`),
-      ),
+        sql`${businessesTable.tags}::text ilike ${"%" + q + "%"}`,
+      )!,
     );
   }
 
-  conditions.push(ne(businessesTable.isVisible, false));
-
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   let orderBy;
   if (sort === "rating") {
@@ -44,25 +67,58 @@ router.get("/businesses", async (req, res) => {
   } else if (sort === "name") {
     orderBy = asc(businessesTable.name);
   } else {
-    orderBy = desc(businessesTable.createdAt);
+    orderBy = [asc(BOOST_ORDER), asc(PLAN_ORDER), desc(businessesTable.rating), desc(COMPLETENESS), desc(businessesTable.clicks)];
   }
 
   const [data, countResult] = await Promise.all([
-    db
-      .select()
-      .from(businessesTable)
-      .where(where)
-      .orderBy(orderBy),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(businessesTable)
-      .where(where),
+    db.select().from(businessesTable).where(where).orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy])),
+    db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(where),
   ]);
 
   res.json({ data, total: countResult[0]?.count ?? 0 });
 });
 
-router.get("/businesses/:id", async (req, res) => {
+router.get("/businesses/nearby", async (req: Request, res: Response) => {
+  const lat = parseFloat(req.query.lat as string);
+  const lng = parseFloat(req.query.lng as string);
+  const category = req.query.category as string | undefined;
+  const region = req.query.region as string | undefined;
+
+  if (isNaN(lat) || isNaN(lng)) {
+    res.status(400).json({ error: "lat e lng são obrigatórios" });
+    return;
+  }
+
+  const conditions = [ne(businessesTable.isVisible, false), isNotNull(businessesTable.lat), isNotNull(businessesTable.lng)];
+  if (category) conditions.push(eq(businessesTable.categorySlug, category));
+  if (region) conditions.push(eq(businessesTable.region, region));
+
+  const haversine = sql<number>`(
+    6371 * acos(
+      cos(radians(${lat})) *
+      cos(radians(${businessesTable.lat}::float)) *
+      cos(radians(${businessesTable.lng}::float) - radians(${lng})) +
+      sin(radians(${lat})) *
+      sin(radians(${businessesTable.lat}::float))
+    )
+  )`;
+
+  const data = await db
+    .select({ business: businessesTable, distanceKm: haversine })
+    .from(businessesTable)
+    .where(and(...conditions))
+    .orderBy(asc(BOOST_ORDER), asc(PLAN_ORDER), asc(haversine));
+
+  res.json({
+    data: data.map(r => ({
+      ...r.business,
+      distanceKm: Math.round((r.distanceKm ?? 0) * 10) / 10,
+    })),
+    total: data.length,
+  });
+});
+
+router.get("/businesses/:id", async (req: Request, res: Response) => {
   const parsed = GetBusinessByIdParams.safeParse(req.params);
   if (!parsed.success) {
     res.status(400).json({ error: "ID inválido" });
@@ -70,10 +126,7 @@ router.get("/businesses/:id", async (req, res) => {
   }
   const { id } = parsed.data;
 
-  const [business] = await db
-    .select()
-    .from(businessesTable)
-    .where(eq(businessesTable.id, id));
+  const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, id));
 
   if (!business) {
     res.status(404).json({ error: "Negócio não encontrado" });
@@ -81,16 +134,8 @@ router.get("/businesses/:id", async (req, res) => {
   }
 
   const [category, reviews] = await Promise.all([
-    db
-      .select()
-      .from(categoriesTable)
-      .where(eq(categoriesTable.slug, business.categorySlug))
-      .then((rows) => rows[0]),
-    db
-      .select()
-      .from(reviewsTable)
-      .where(eq(reviewsTable.businessId, id))
-      .orderBy(desc(reviewsTable.createdAt)),
+    db.select().from(categoriesTable).where(eq(categoriesTable.slug, business.categorySlug)).then(rows => rows[0]),
+    db.select().from(reviewsTable).where(eq(reviewsTable.businessId, id)).orderBy(desc(reviewsTable.createdAt)),
   ]);
 
   db.update(businessesTable)
@@ -107,23 +152,96 @@ router.get("/businesses/:id", async (req, res) => {
   res.json({ ...business, category, reviews });
 });
 
-router.post("/businesses/:id/click-whatsapp", async (req, res) => {
+router.get("/businesses/:id/reviews", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const reviews = await db
+    .select()
+    .from(reviewsTable)
+    .where(eq(reviewsTable.businessId, id))
+    .orderBy(desc(reviewsTable.createdAt));
+
+  res.json({ data: reviews });
+});
+
+router.post("/businesses/:id/review", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const { author, rating, text } = req.body;
+  if (!author || !rating || rating < 1 || rating > 5) {
+    res.status(400).json({ error: "Dados inválidos: author e rating (1-5) são obrigatórios" });
+    return;
+  }
+
+  const [business] = await db.select({ id: businessesTable.id }).from(businessesTable).where(eq(businessesTable.id, id));
+  if (!business) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+
+  const visitorId = getVisitorId(req, res);
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [recentClick] = await db
+    .select({ id: businessClicksTable.id })
+    .from(businessClicksTable)
+    .where(
+      and(
+        eq(businessClicksTable.businessId, id),
+        eq(businessClicksTable.type, "whatsapp"),
+        eq(businessClicksTable.visitorId, visitorId),
+        gte(businessClicksTable.createdAt, thirtyDaysAgo),
+      ),
+    )
+    .limit(1);
+
+  const verified = Boolean(recentClick);
+
+  const [review] = await db.insert(reviewsTable).values({
+    businessId: id,
+    author: author.trim(),
+    rating: Number(rating),
+    text: (text || "").trim(),
+    visitorId,
+    verified,
+  }).returning();
+
+  const [stats] = await db
+    .select({
+      avg: sql<number>`avg(rating)::float`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.businessId, id));
+
+  await db.update(businessesTable)
+    .set({
+      rating: Math.round((stats?.avg ?? 0) * 10) / 10,
+      reviewsCount: stats?.count ?? 0,
+    })
+    .where(eq(businessesTable.id, id));
+
+  res.status(201).json({ review });
+});
+
+router.post("/businesses/:id/click-whatsapp", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const visitorId = getVisitorId(req, res);
 
   await db.update(businessesTable)
     .set({ whatsappClicks: sql`${businessesTable.whatsappClicks} + 1` })
     .where(eq(businessesTable.id, id));
 
   db.insert(businessClicksTable)
-    .values({ businessId: id, type: "whatsapp" })
+    .values({ businessId: id, type: "whatsapp", visitorId })
     .execute()
     .catch(() => {});
 
-  res.json({ success: true });
+  res.json({ success: true, visitorId });
 });
 
-router.get("/regions", async (_req, res) => {
+router.get("/regions", async (_req: Request, res: Response) => {
   try {
     const rows = await db
       .select({ region: businessesTable.region })
@@ -132,14 +250,13 @@ router.get("/regions", async (_req, res) => {
       .groupBy(businessesTable.region)
       .orderBy(businessesTable.region);
 
-    const regions = rows.map(r => r.region).filter(Boolean) as string[];
-    res.json({ data: regions });
-  } catch (err) {
+    res.json({ data: rows.map(r => r.region).filter(Boolean) });
+  } catch {
     res.status(500).json({ error: "Erro ao buscar regiões" });
   }
 });
 
-router.get("/stats", async (_req, res) => {
+router.get("/stats", async (_req: Request, res: Response) => {
   try {
     const [businessCount] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -165,9 +282,28 @@ router.get("/stats", async (_req, res) => {
       regions: regionResult?.count ?? 0,
       totalClicks: clickResult?.count ?? 0,
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Erro ao buscar estatísticas" });
   }
+});
+
+router.get("/home-banners", async (_req: Request, res: Response) => {
+  const { homeBannersTable } = await import("@workspace/db/schema");
+  const now = new Date();
+  const banners = await db
+    .select()
+    .from(homeBannersTable)
+    .where(
+      and(
+        eq(homeBannersTable.active, true),
+        or(
+          sql`${homeBannersTable.endsAt} IS NULL`,
+          gte(homeBannersTable.endsAt, now),
+        )!,
+      ),
+    )
+    .limit(2);
+  res.json({ data: banners });
 });
 
 export default router;

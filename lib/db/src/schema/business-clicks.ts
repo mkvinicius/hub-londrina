@@ -16,6 +16,7 @@ export const businessClicksTable = pgTable(
       .notNull()
       .references(() => businessesTable.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
+    visitorId: text("visitor_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

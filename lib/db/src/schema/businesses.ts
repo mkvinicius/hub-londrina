@@ -58,6 +58,8 @@ export const businessesTable = pgTable(
     paymentMethods: text("payment_methods").array().default([]),
     tags: text("tags").array().default([]),
     videoUrl: text("video_url"),
+    boostedUntil: timestamp("boosted_until"),
+    homeFeatured: boolean("home_featured").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

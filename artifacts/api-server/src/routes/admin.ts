@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable } from "@workspace/db/schema";
-import { eq, ilike, sql, and, desc, gte, asc } from "drizzle-orm";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable } from "@workspace/db/schema";
+import { eq, ilike, sql, and, desc, gte, asc, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -398,6 +398,97 @@ router.delete("/admin/categories/:id", async (req: Request, res: Response) => {
   }
 
   await db.delete(categoriesTable).where(eq(categoriesTable.id, id));
+  res.json({ success: true });
+});
+
+router.post("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const { days } = req.body;
+  if (!days || ![7, 15, 30].includes(Number(days))) {
+    res.status(400).json({ error: "days deve ser 7, 15 ou 30" });
+    return;
+  }
+
+  const boostedUntil = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
+  const result = await db
+    .update(businessesTable)
+    .set({ boostedUntil })
+    .where(eq(businessesTable.id, id))
+    .returning({ id: businessesTable.id, boostedUntil: businessesTable.boostedUntil });
+
+  if (result.length === 0) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+  res.json({ success: true, boostedUntil });
+});
+
+router.delete("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  await db.update(businessesTable).set({ boostedUntil: null }).where(eq(businessesTable.id, id));
+  res.json({ success: true });
+});
+
+router.patch("/admin/businesses/:id/home-featured", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { homeFeatured } = req.body;
+  await db.update(businessesTable).set({ homeFeatured: Boolean(homeFeatured) }).where(eq(businessesTable.id, id));
+  res.json({ success: true });
+});
+
+router.get("/admin/home-banners", async (_req: Request, res: Response) => {
+  const banners = await db.select().from(homeBannersTable).orderBy(desc(homeBannersTable.createdAt));
+  res.json({ data: banners });
+});
+
+router.post("/admin/home-banners", async (req: Request, res: Response) => {
+  const { title, imageUrl, linkUrl, active, endsAt, businessId } = req.body;
+  if (!title || !imageUrl) {
+    res.status(400).json({ error: "title e imageUrl são obrigatórios" });
+    return;
+  }
+
+  const active3 = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(homeBannersTable)
+    .where(eq(homeBannersTable.active, true));
+  if ((active3[0]?.count ?? 0) >= 2) {
+    res.status(400).json({ error: "Máximo 2 banners ativos simultâneos" });
+    return;
+  }
+
+  const [banner] = await db.insert(homeBannersTable).values({
+    title,
+    imageUrl,
+    linkUrl: linkUrl || null,
+    active: active !== false,
+    endsAt: endsAt ? new Date(endsAt) : null,
+    businessId: businessId ? Number(businessId) : null,
+  }).returning();
+
+  res.status(201).json({ banner });
+});
+
+router.patch("/admin/home-banners/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const { title, imageUrl, linkUrl, active, endsAt } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (title !== undefined) updates.title = title;
+  if (imageUrl !== undefined) updates.imageUrl = imageUrl;
+  if (linkUrl !== undefined) updates.linkUrl = linkUrl;
+  if (active !== undefined) updates.active = Boolean(active);
+  if (endsAt !== undefined) updates.endsAt = endsAt ? new Date(endsAt) : null;
+
+  const [banner] = await db.update(homeBannersTable).set(updates).where(eq(homeBannersTable.id, id)).returning();
+  if (!banner) { res.status(404).json({ error: "Banner não encontrado" }); return; }
+  res.json({ banner });
+});
+
+router.delete("/admin/home-banners/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  await db.delete(homeBannersTable).where(eq(homeBannersTable.id, id));
   res.json({ success: true });
 });
 

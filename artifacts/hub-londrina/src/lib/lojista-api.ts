@@ -16,7 +16,7 @@ export function isLojistaAuthenticated(): boolean {
   return !!getToken();
 }
 
-async function lojistaFetch(path: string, options: RequestInit = {}) {
+export async function lojistaFetch(path: string, options: RequestInit = {}) {
   const token = getToken();
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

@@ -23,6 +23,7 @@ export interface Business {
   name: string;
   categorySlug: string;
   region: string;
+  zone?: string;
   description: string;
   address: string;
   phone?: string | null;
@@ -33,6 +34,21 @@ export interface Business {
   verified: boolean;
   photoUrl?: string | null;
   hours?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  photos?: string[];
+  instagram?: string | null;
+  website?: string | null;
+  tags?: string[];
+  lat?: string | null;
+  lng?: string | null;
+  clicks?: number;
+  whatsappClicks?: number;
+  isVisible?: boolean;
+  boostedUntil?: string | null;
+  homeFeatured?: boolean;
+  distanceKm?: number;
+  createdAt?: string;
 }
 
 export interface Category {
@@ -51,6 +67,9 @@ export interface Review {
   author: string;
   rating: number;
   text: string;
+  visitorId?: string | null;
+  verified?: boolean;
+  ownerResponse?: string | null;
   createdAt: string;
 }
 

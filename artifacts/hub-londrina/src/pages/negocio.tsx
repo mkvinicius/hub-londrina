@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
-  MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink
+  MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,18 +50,123 @@ function formatDate(dateStr: string) {
   return `Há ${Math.floor(diff / 30)} ${Math.floor(diff / 30) > 1 ? "meses" : "mês"}`;
 }
 
+const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
+
+async function submitReview(businessId: number, data: { author: string; rating: number; text: string }) {
+  const res = await fetch(`${API_BASE}/api/businesses/${businessId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Erro ao enviar avaliação");
+  }
+  return res.json();
+}
+
+function ReviewForm({ businessId, onSuccess }: { businessId: number; onSuccess: () => void }) {
+  const [rating, setRating] = useState(0);
+  const [hovered, setHovered] = useState(0);
+  const [author, setAuthor] = useState("");
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rating) { setError("Selecione uma nota"); return; }
+    if (!author.trim()) { setError("Informe seu nome"); return; }
+    setError("");
+    setLoading(true);
+    try {
+      await submitReview(businessId, { author: author.trim(), rating, text: text.trim() });
+      setSuccess(true);
+      setTimeout(onSuccess, 2000);
+    } catch (err: any) {
+      setError(err.message || "Erro ao enviar avaliação");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (success) {
+    return (
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
+        <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-3" />
+        <p className="font-bold text-emerald-700">Avaliação enviada! Obrigado.</p>
+        <p className="text-xs text-emerald-600 mt-1">Sua avaliação já aparece na lista.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 mt-6">
+      <h3 className="font-bold text-[#3a2512] dark:text-gray-100 mb-4">Deixar avaliação</h3>
+      <div className="mb-4">
+        <p className="text-sm text-gray-500 mb-2">Sua nota</p>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setRating(s)}
+              onMouseEnter={() => setHovered(s)}
+              onMouseLeave={() => setHovered(0)}
+              className="transition-transform hover:scale-110"
+            >
+              <Star className={`h-8 w-8 ${(hovered || rating) >= s ? "fill-[#d97706] text-[#d97706]" : "fill-gray-200 text-gray-200"}`} />
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mb-3">
+        <input
+          type="text"
+          value={author}
+          onChange={e => setAuthor(e.target.value)}
+          placeholder="Seu nome"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+          required
+        />
+      </div>
+      <div className="mb-4">
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Comentário (opcional)"
+          rows={3}
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] resize-none dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+        />
+      </div>
+      {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+      <button
+        type="submit"
+        disabled={loading || !rating || !author.trim()}
+        className="flex items-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors disabled:opacity-50"
+      >
+        <Send className="h-4 w-4" />
+        {loading ? "Enviando..." : "Publicar avaliação"}
+      </button>
+    </form>
+  );
+}
+
 export default function Negocio() {
   const [, params] = useRoute("/negocio/:id");
   const [, navigate] = useLocation();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [reviewKey, setReviewKey] = useState(0);
   const id = params?.id ? parseInt(params.id) : 0;
 
-  const { data: business, isLoading, isError } = useGetBusinessById(id);
+  const { data: business, isLoading, isError, refetch } = useGetBusinessById(id);
   const { data: similarData } = useListBusinesses({
     category: business?.categorySlug,
   });
 
-  const reviews: Review[] = business?.reviews ?? [];
+  const reviews: Review[] = (business?.reviews ?? []).filter((_r: Review, idx: number) => idx >= 0) as Review[];
   const ratingDist = getRatingDistribution(reviews);
   const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 2);
 
@@ -377,18 +482,39 @@ export default function Negocio() {
                                     <AvatarFallback className={`font-bold text-sm ${color}`}>{initials}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <div className="font-bold text-[#3a2512] dark:text-gray-100 text-sm">{review.author}</div>
+                                    <div className="font-bold text-[#3a2512] dark:text-gray-100 text-sm flex items-center gap-2">
+                                      {review.author}
+                                      {review.verified && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Verificado
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-gray-400">{formatDate(review.createdAt)}</div>
                                   </div>
                                 </div>
                                 <StarRating rating={review.rating} />
                               </div>
-                              <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{review.text}</p>
+                              {review.text && (
+                                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{review.text}</p>
+                              )}
+                              {review.ownerResponse && (
+                                <div className="mt-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl p-3">
+                                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">Resposta do estabelecimento:</p>
+                                  <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">{review.ownerResponse}</p>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     )}
+
+                    <ReviewForm
+                      businessId={id}
+                      onSuccess={() => { setReviewKey(k => k + 1); refetch(); }}
+                    />
                   </div>
                 </TabsContent>
               </Tabs>

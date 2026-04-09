@@ -118,6 +118,8 @@ export default function Landing() {
   const [, navigate] = useLocation();
 
   const [platformStats, setPlatformStats] = useState<{ businesses: number; categories: number; regions: number; totalClicks: number } | null>(null);
+  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string; imageUrl: string; linkUrl: string | null }[]>([]);
+  const [bannerIdx, setBannerIdx] = useState(0);
 
   const { data: categoriesData } = useListCategories();
   const { data: featuredData } = useListBusinesses({ sort: "rating" });
@@ -137,7 +139,17 @@ export default function Landing() {
       .then(r => r.json())
       .then(d => setDynamicRegions(d.data || []))
       .catch(() => {});
+    fetch(`${BASE}/api/home-banners`)
+      .then(r => r.json())
+      .then(d => setHomeBanners(d.data || []))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (homeBanners.length <= 1) return;
+    const t = setInterval(() => setBannerIdx(i => (i + 1) % homeBanners.length), 5000);
+    return () => clearInterval(t);
+  }, [homeBanners.length]);
 
   const regions = ["Todas as regiões", ...dynamicRegions];
 
@@ -268,6 +280,42 @@ export default function Landing() {
           </div>
         </div>
       </div>
+
+      {/* ===== HOME BANNERS ===== */}
+      {homeBanners.length > 0 && (
+        <div className="bg-gray-50 py-4 px-4">
+          <div className="max-w-5xl mx-auto relative overflow-hidden rounded-2xl shadow-md">
+            {homeBanners.map((banner, idx) => (
+              <div
+                key={banner.id}
+                className={`transition-opacity duration-700 ${idx === bannerIdx ? "opacity-100" : "opacity-0 absolute inset-0"}`}
+              >
+                {banner.linkUrl ? (
+                  <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer">
+                    <img src={banner.imageUrl} alt={banner.title} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
+                  </a>
+                ) : (
+                  <img src={banner.imageUrl} alt={banner.title} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
+                )}
+              </div>
+            ))}
+            {homeBanners.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {homeBanners.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setBannerIdx(idx)}
+                    className={`w-2 h-2 rounded-full transition-all ${idx === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="absolute top-2 right-3 text-[10px] text-white/70 font-medium bg-black/30 px-2 py-0.5 rounded-full">
+              Parceiro
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== CATEGORIES SECTION ===== */}
       <section
