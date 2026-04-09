@@ -401,6 +401,40 @@ router.delete("/admin/categories/:id", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+async function calculateBoostPositions(): Promise<void> {
+  const activeMonthly = await db
+    .select()
+    .from(searchBoostsTable)
+    .where(
+      and(
+        eq(searchBoostsTable.status, "active"),
+        eq(searchBoostsTable.boostType, "monthly")
+      )
+    );
+
+  if (activeMonthly.length > 5) {
+    throw new Error("Mais de 5 boosts mensais ativos — situação inválida");
+  }
+
+  activeMonthly.sort((a, b) => {
+    const diff = Number(b.monthlyBid) - Number(a.monthlyBid);
+    if (diff !== 0) return diff;
+    const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return aDate - bDate;
+  });
+
+  for (let i = 0; i < activeMonthly.length; i++) {
+    const newPosition = i + 1;
+    if (activeMonthly[i].position !== newPosition) {
+      await db
+        .update(searchBoostsTable)
+        .set({ position: newPosition })
+        .where(eq(searchBoostsTable.id, activeMonthly[i].id));
+    }
+  }
+}
+
 router.get("/admin/search-boosts", async (_req: Request, res: Response) => {
   const boosts = await db
     .select({
@@ -425,7 +459,7 @@ router.get("/admin/search-boosts", async (_req: Request, res: Response) => {
 });
 
 router.post("/admin/search-boosts", async (req: Request, res: Response) => {
-  const { businessId, monthlyBid, position, boostType, days } = req.body;
+  const { businessId, monthlyBid, boostType, days } = req.body;
   if (!businessId || !boostType) {
     res.status(400).json({ error: "businessId e boostType são obrigatórios" });
     return;
@@ -436,19 +470,16 @@ router.post("/admin/search-boosts", async (req: Request, res: Response) => {
   }
 
   if (boostType === "monthly") {
-    if (!position || position < 1 || position > 5) {
-      res.status(400).json({ error: "Posição mensal deve ser 1-5" });
+    if (!monthlyBid || Number(monthlyBid) <= 0) {
+      res.status(400).json({ error: "Lance mensal obrigatório e maior que zero" });
       return;
     }
-    const existing = await db.select().from(searchBoostsTable).where(
-      and(
-        eq(searchBoostsTable.position, position),
-        eq(searchBoostsTable.boostType, "monthly"),
-        eq(searchBoostsTable.status, "active")
-      )
-    );
-    if (existing.length > 0) {
-      res.status(400).json({ error: `Posição ${position} já ocupada` });
+    const activeCount = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(searchBoostsTable)
+      .where(and(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.boostType, "monthly")));
+    if ((activeCount[0]?.count ?? 0) >= 5) {
+      res.status(400).json({ error: "Todas as 5 vagas mensais estão ocupadas" });
       return;
     }
   }
@@ -469,14 +500,19 @@ router.post("/admin/search-boosts", async (req: Request, res: Response) => {
     const [boost] = await db.insert(searchBoostsTable).values({
       businessId: Number(businessId),
       monthlyBid: String(monthlyBid || "0"),
-      position: boostType === "monthly" ? Number(position) : null,
+      position: null,
       boostType,
       status: "active",
       startsAt,
       expiresAt,
     }).returning();
 
-    res.status(201).json({ boost });
+    if (boostType === "monthly") {
+      await calculateBoostPositions();
+    }
+
+    const [updated] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, boost.id));
+    res.status(201).json({ boost: updated });
   } catch (err: any) {
     if (err.message?.includes("foreign key")) {
       res.status(400).json({ error: "Negócio não encontrado" });
@@ -492,20 +528,31 @@ router.patch("/admin/search-boosts/:id", async (req: Request, res: Response) => 
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
-  const { monthlyBid, position, status } = req.body;
+  const { monthlyBid, status } = req.body;
   const updates: Record<string, unknown> = {};
   if (monthlyBid !== undefined) updates.monthlyBid = String(monthlyBid);
-  if (position !== undefined) updates.position = Number(position);
   if (status !== undefined) updates.status = status;
 
   const [boost] = await db.update(searchBoostsTable).set(updates).where(eq(searchBoostsTable.id, id)).returning();
   if (!boost) { res.status(404).json({ error: "Boost não encontrado" }); return; }
-  res.json({ boost });
+
+  if (boost.boostType === "monthly") {
+    await calculateBoostPositions();
+  }
+
+  const [updated] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
+  res.json({ boost: updated });
 });
 
 router.delete("/admin/search-boosts/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
+  const [toDelete] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
   await db.delete(searchBoostsTable).where(eq(searchBoostsTable.id, id));
+
+  if (toDelete?.boostType === "monthly") {
+    await calculateBoostPositions();
+  }
+
   res.json({ success: true });
 });
 

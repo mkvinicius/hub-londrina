@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { Zap, Search, RefreshCw, Crown, Flame, Trash2, Plus, X } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Pencil } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -45,11 +45,11 @@ export default function AdminImpulsionamento() {
   const [showAdd, setShowAdd] = useState(false);
   const [addType, setAddType] = useState<"monthly" | "avulso">("monthly");
   const [addBusinessId, setAddBusinessId] = useState<number | "">("");
-  const [addPosition, setAddPosition] = useState<number>(1);
   const [addBid, setAddBid] = useState("");
   const [addDays, setAddDays] = useState(7);
   const [bizSearch, setBizSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingBid, setEditingBid] = useState<{ id: number; value: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -67,9 +67,10 @@ export default function AdminImpulsionamento() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const monthly = boosts.filter(b => b.boostType === "monthly" && b.status === "active");
+  const monthly = boosts
+    .filter(b => b.boostType === "monthly" && b.status === "active")
+    .sort((a, b) => (a.position || 99) - (b.position || 99));
   const avulso = boosts.filter(b => b.boostType === "avulso" && b.status === "active");
-  const occupied = new Set(monthly.map(b => b.position));
   const boostedIds = new Set(boosts.map(b => b.businessId));
 
   const availableBusinesses = businesses.filter(
@@ -87,7 +88,6 @@ export default function AdminImpulsionamento() {
           businessId: addBusinessId,
           boostType: addType,
           monthlyBid: addType === "monthly" ? addBid : "0",
-          position: addType === "monthly" ? addPosition : undefined,
           days: addType === "avulso" ? addDays : undefined,
         }),
       });
@@ -104,12 +104,29 @@ export default function AdminImpulsionamento() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Remover boost?")) return;
+    if (!confirm("Remover boost? As posições serão recalculadas.")) return;
     try {
       await adminFetch(`/api/admin/search-boosts/${id}`, { method: "DELETE" });
       fetchData();
     } catch (e: any) {
       alert(e.message || "Erro ao remover");
+    }
+  }
+
+  async function handleUpdateBid(id: number, newBid: string) {
+    if (!newBid || Number(newBid) <= 0) {
+      alert("Lance deve ser maior que zero");
+      return;
+    }
+    try {
+      await adminFetch(`/api/admin/search-boosts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ monthlyBid: newBid }),
+      });
+      setEditingBid(null);
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao atualizar lance");
     }
   }
 
@@ -139,7 +156,7 @@ export default function AdminImpulsionamento() {
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
         <p className="text-sm font-bold text-amber-800 mb-1">Como funciona:</p>
         <ul className="text-xs text-amber-700 space-y-1">
-          <li><Crown className="w-3 h-3 inline mr-1" /><strong>Mensal (posições 1-5):</strong> Vagas fixas no topo da busca por lance mensal. Badge "Patrocinado".</li>
+          <li><Crown className="w-3 h-3 inline mr-1" /><strong>Mensal (posições 1-5):</strong> Posições calculadas automaticamente pelo lance. Maior lance = posição #1.</li>
           <li><Flame className="w-3 h-3 inline mr-1" /><strong>Avulso (7/15/30 dias):</strong> Aparecem após os mensais. R$29/R$49/R$79.</li>
         </ul>
       </div>
@@ -147,19 +164,49 @@ export default function AdminImpulsionamento() {
       <div className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
           <Crown className="w-5 h-5 text-[#d97706]" />
-          Vagas Mensais (5 posições)
+          Vagas Mensais ({monthly.length}/5 ocupadas)
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
           {[1, 2, 3, 4, 5].map(pos => {
             const boost = monthly.find(b => b.position === pos);
             return (
               <div key={pos} className={`rounded-2xl border p-4 ${boost ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-dashed border-gray-300"}`}>
-                <div className="text-xs font-bold text-gray-500 mb-2">Posição #{pos}</div>
+                <div className="text-xs font-bold text-gray-500 mb-2">#{pos}</div>
                 {boost ? (
                   <>
                     <p className="font-bold text-sm text-gray-800 truncate">{boost.businessName}</p>
                     <p className="text-[10px] text-gray-500 mt-1">{boost.businessRegion} · {boost.businessCategory}</p>
-                    <p className="text-xs text-amber-700 font-semibold mt-2">R${Number(boost.monthlyBid).toFixed(0)}/mês</p>
+                    {editingBid?.id === boost.id ? (
+                      <div className="mt-2 flex items-center gap-1">
+                        <span className="text-xs text-gray-500">R$</span>
+                        <input
+                          type="number"
+                          value={editingBid.value}
+                          onChange={e => setEditingBid({ id: boost.id, value: e.target.value })}
+                          className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleUpdateBid(boost.id, editingBid.value)}
+                          className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded hover:bg-green-100"
+                        >OK</button>
+                        <button
+                          onClick={() => setEditingBid(null)}
+                          className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded hover:bg-gray-200"
+                        >X</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 mt-2">
+                        <p className="text-xs text-amber-700 font-semibold">R${Number(boost.monthlyBid).toFixed(0)}/mês</p>
+                        <button
+                          onClick={() => setEditingBid({ id: boost.id, value: String(Number(boost.monthlyBid).toFixed(0)) })}
+                          className="p-0.5 rounded hover:bg-amber-100"
+                          title="Editar lance"
+                        >
+                          <Pencil className="w-3 h-3 text-amber-600" />
+                        </button>
+                      </div>
+                    )}
                     <button
                       onClick={() => handleDelete(boost.id)}
                       className={`mt-3 w-full px-2 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
@@ -236,11 +283,12 @@ export default function AdminImpulsionamento() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setAddType("monthly")}
+                    disabled={monthly.length >= 5}
                     className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-colors ${
                       addType === "monthly" ? "bg-[#d97706] text-white border-[#d97706]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                    } ${BTN_ELEVATION}`}
+                    } disabled:opacity-40 disabled:cursor-not-allowed ${BTN_ELEVATION}`}
                   >
-                    <Crown className="w-4 h-4 inline mr-1" />Mensal
+                    <Crown className="w-4 h-4 inline mr-1" />Mensal {monthly.length >= 5 ? "(lotado)" : ""}
                   </button>
                   <button
                     onClick={() => setAddType("avulso")}
@@ -275,32 +323,17 @@ export default function AdminImpulsionamento() {
               </div>
 
               {addType === "monthly" && (
-                <>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Posição (1-5)</label>
-                    <select
-                      value={addPosition}
-                      onChange={e => setAddPosition(Number(e.target.value))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
-                    >
-                      {[1, 2, 3, 4, 5].map(p => (
-                        <option key={p} value={p} disabled={occupied.has(p)}>
-                          Posição #{p} {occupied.has(p) ? "(ocupada)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Lance mensal (R$)</label>
-                    <input
-                      type="number"
-                      value={addBid}
-                      onChange={e => setAddBid(e.target.value)}
-                      placeholder="Ex: 150"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
-                    />
-                  </div>
-                </>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Lance mensal (R$)</label>
+                  <input
+                    type="number"
+                    value={addBid}
+                    onChange={e => setAddBid(e.target.value)}
+                    placeholder="Ex: 150"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">A posição será calculada automaticamente pelo valor do lance (maior lance = #1)</p>
+                </div>
               )}
 
               {addType === "avulso" && (
@@ -320,7 +353,7 @@ export default function AdminImpulsionamento() {
 
               <button
                 onClick={handleAdd}
-                disabled={saving || !addBusinessId}
+                disabled={saving || !addBusinessId || (addType === "monthly" && (!addBid || Number(addBid) <= 0))}
                 className={`w-full py-2.5 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
               >
                 {saving ? "Salvando..." : "Criar Boost"}

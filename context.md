@@ -251,6 +251,8 @@ Vagas mensais: 5 posições fixas por lance
 Tabela: search_boosts (id, businessId UNIQUE FK, monthlyBid, position 1-5, boostType 'monthly'|'avulso', status 'active'|'waitlist'|'expired', startsAt, expiresAt, createdAt)
 
 Regras implementadas:
+- calculateBoostPositions() recalcula posições 1-5 por lance DESC automaticamente
+  Chamada em: criação, deleção e alteração de lance de boost mensal
 - Posição é fixa enquanto estiver pagando (não rota entre buscas)
 - Avulso entra APÓS os 5 mensais na ordenação
 - Badge "Patrocinado" exibido no card (_boostBadge no JSON)
@@ -259,6 +261,7 @@ Regras implementadas:
 - Admin CRUD: GET/POST/PATCH/DELETE /api/admin/search-boosts
 - Lojista profile retorna _boost com boostType/position/expiresAt
 - Admin panel AdminImpulsionamento.tsx com grid de 5 vagas + tabela avulso
+- Admin não escolhe posição manualmente — apenas informa o lance
 ```
 
 ### 5.6 Zoneamento
