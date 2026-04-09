@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
-  MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send
+  MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send,
+  Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -168,7 +169,7 @@ export default function Negocio() {
 
   const reviews: Review[] = (business?.reviews ?? []).filter((_r: Review, idx: number) => idx >= 0) as Review[];
   const ratingDist = getRatingDistribution(reviews);
-  const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 2);
+  const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 4);
 
   useEffect(() => {
     const tryPlay = () => {
@@ -284,6 +285,23 @@ export default function Negocio() {
                   <Button variant="outline" className="border-gray-200 text-[#3a2512] hover:bg-gray-50 rounded-xl px-4 h-10 font-semibold flex items-center gap-2 shadow-none text-sm">
                     <Phone className="h-4 w-4" />
                     Ligar
+                  </Button>
+                </a>
+              )}
+              {business.instagram && (
+                <a
+                  href={(() => {
+                    const ig = business.instagram.trim();
+                    if (ig.startsWith("http")) return ig;
+                    return `https://instagram.com/${ig.replace(/^@/, "")}`;
+                  })()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0"
+                >
+                  <Button variant="outline" className="border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl px-4 h-10 font-semibold flex items-center gap-2 shadow-none text-sm">
+                    <Instagram className="h-4 w-4" style={{ color: "#E1306C" }} />
+                    Ver no Instagram
                   </Button>
                 </a>
               )}
@@ -424,7 +442,7 @@ export default function Negocio() {
                                 <p className="text-white font-black text-sm leading-tight">{item.name}</p>
                                 <p className="text-white font-bold text-base leading-tight">{item.price}</p>
                                 <a
-                                  href={`${waBase}?text=${encodeURIComponent(`Olá! Quero pedir: ${item.name} (${item.price})`)}`}
+                                  href={`${waBase}?text=${encodeURIComponent(`Olá! Vi o produto *${item.name}* no Hub Londrina e tenho interesse. Pode me passar mais informações?`)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1dbd59] text-white font-bold text-[11px] rounded-full py-1.5 transition-colors"
@@ -604,25 +622,11 @@ export default function Negocio() {
                 </div>
               </div>
 
-              {/* CTA for business owners */}
-              <div className="bg-[#4a2c0e] rounded-2xl p-5 text-white">
-                <h3 className="font-black text-base mb-2">É o dono deste negócio?</h3>
-                <p className="text-white/70 text-xs mb-4 leading-relaxed">
-                  Reivindique para atualizar informações e atrair mais clientes.
-                </p>
-                <button
-                  onClick={() => navigate("/cadastro")}
-                  className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl py-2.5 text-sm font-bold transition-colors"
-                >
-                  Reivindicar Página
-                </button>
-              </div>
-
-              {/* Similar Businesses */}
-              {similar.length > 0 && (
+              {/* Similar Businesses — only for free plan */}
+              {business.planType === 'free' && similar.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-black text-base text-[#3a2512]">Similares na Região</h3>
+                    <h3 className="font-black text-base text-[#3a2512]">Veja também</h3>
                     <button
                       onClick={() => navigate(`/busca?categoria=${business.categorySlug}`)}
                       className="text-xs text-[#d97706] font-bold hover:text-[#b45309] transition-colors"

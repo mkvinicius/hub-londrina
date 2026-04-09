@@ -1,0 +1,113 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+4 ajustes no produto. Nenhum deles mexe em banco de dados
+ou autenticação — são mudanças de comportamento e UI.
+
+---
+
+### AJUSTE 1 — WhatsApp com mensagem pré-preenchida
+
+No perfil público do negócio (/negocio/:id),
+o botão WhatsApp já existe. Melhorar para passar contexto:
+
+Botão geral do negócio — manter o link atual:
+https://wa.me/{whatsapp}
+
+Botão WhatsApp de cada produto na vitrine:
+Mudar para link com mensagem pré-preenchida:
+https://wa.me/{whatsapp}?text=Olá!%20Vi%20o%20produto%20*{nome_do_produto}*%20no%20Hub%20Londrina%20e%20tenho%20interesse.%20Pode%20me%20passar%20mais%20informações?
+
+O nome do produto deve ser codificado para URL
+(encodeURIComponent).
+
+Nos cards da vitrine na home (showcase):
+https://wa.me/{whatsapp}?text=Olá!%20Vi%20o%20*{nome_do_produto}*%20da%20*{nome_do_negocio}*%20no%20Hub%20Londrina%20e%20tenho%20interesse!
+
+---
+
+### AJUSTE 2 — Instagram no perfil público
+
+No perfil público do negócio, se o campo instagram
+estiver preenchido, exibir botão:
+
+[ícone Instagram] Ver no Instagram
+
+Link: se o valor começar com @ → remover o @ e usar
+https://instagram.com/{handle}
+Se já for URL completa → usar direto.
+
+Posicionamento: na seção de contatos do perfil,
+ao lado do botão de telefone.
+
+Estilo: botão outline com gradiente do Instagram
+(roxo/rosa) apenas no ícone — fundo branco, texto cinza.
+
+Disponível para: Base e Premium (campo instagram
+já está bloqueado para Free pelo enforcement).
+
+---
+
+### AJUSTE 3 — Remover "Reivindicar essa página"
+
+No perfil público (/negocio/:id), remover completamente
+o CTA "Reivindicar essa página" ou "Essa é sua empresa?".
+
+Não substituir por nada — simplesmente remover o elemento.
+
+---
+
+### AJUSTE 4 — Negócios similares só para Free
+
+Na página de perfil público (/negocio/:id),
+a seção de negócios similares/relacionados deve seguir
+esta regra:
+
+Se business.planType === 'free':
+  → Mostrar seção normalmente (até 4 negócios similares)
+  → Título: "Veja também"
+
+Se business.planType === 'destaque' ou 'premium':
+  → NÃO renderizar a seção de similares
+  → Não deixar espaço vazio — a seção some completamente
+
+Implementar verificação no frontend:
+{business.planType === 'free' && (
+  <SimilarBusinesses businessId={business.id}
+    categorySlug={business.categorySlug} />
+)}
+
+---
+
+## RESTRIÇÕES
+- Não alterar SSR da home e /negocio/:id
+- Não alterar autenticação admin ou lojista
+- Não remover campos do banco
+- Não alterar copy da landing page
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. Abrir perfil de negócio Free no browser
+   → Seção "Veja também" aparece
+
+3. Abrir perfil de negócio Premium no browser
+   → Seção "Veja também" NÃO aparece
+
+4. Abrir perfil com vitrine de produtos
+   → Clicar no botão WhatsApp de um produto
+   → Link deve abrir WhatsApp com mensagem pré-preenchida
+     contendo o nome do produto
+
+5. Abrir perfil com Instagram preenchido
+   → Botão "Ver no Instagram" aparece
+   → Clicar abre instagram.com/handle corretamente
+
+6. Confirmar que "Reivindicar essa página" não existe
+   em nenhum perfil público
+
+Confirmar todos os 6 testes antes de finalizar.

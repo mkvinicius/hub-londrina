@@ -68,7 +68,7 @@ function VitrineCard({ p }: { p: { name: string; price: string; likes: string; c
           <p className="text-white font-bold text-base leading-tight">{p.price}</p>
         </div>
         <a
-          href={`https://wa.me/${p.whatsapp}`}
+          href={`https://wa.me/${p.whatsapp}?text=${encodeURIComponent(`Olá! Vi o *${p.name}* da *${p.business}* no Hub Londrina e tenho interesse!`)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white"
