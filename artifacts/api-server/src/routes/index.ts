@@ -6,6 +6,7 @@ import reviewsRouter from "./reviews";
 import searchRouter from "./search";
 import adminRouter from "./admin";
 import lojistaRouter from "./lojista";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(reviewsRouter);
 router.use(searchRouter);
 router.use(adminRouter);
 router.use(lojistaRouter);
+router.use(authRouter);
 
 export default router;

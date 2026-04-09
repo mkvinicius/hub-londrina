@@ -1,0 +1,257 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+Criar o cadastro público de lojistas em /cadastro.
+Qualquer empresário deve conseguir se cadastrar sozinho,
+sem depender do admin para criar a conta manualmente.
+
+---
+
+## 1. BACKEND — POST /api/auth/register
+
+Body:
+{
+  name: string,           -- nome do responsável
+  email: string,          -- email de login
+  password: string,       -- mínimo 8 caracteres
+  businessName: string,   -- nome do negócio
+  cnpj: string,           -- formato XX.XXX.XXX/XXXX-XX
+  phone: string,          -- telefone com DDD
+  categorySlug: string,   -- slug da categoria
+  zone: string,           -- norte | sul | leste | oeste | centro
+  cep: string             -- CEP do negócio
+}
+
+Validações em ordem — parar na primeira falha:
+
+1. Email único:
+   SELECT * FROM business_users WHERE email = ?
+   Se encontrar → 400 { error: 'Email já cadastrado', code: 'EMAIL_DUPLICATE' }
+
+2. CNPJ único:
+   SELECT * FROM businesses WHERE cnpj = ?
+   Se encontrar → 400 { error: 'CNPJ já cadastrado', code: 'CNPJ_DUPLICATE' }
+
+3. Telefone único:
+   SELECT * FROM businesses WHERE phone = ?
+   Se encontrar → 400 { error: 'Telefone já cadastrado', code: 'PHONE_DUPLICATE' }
+
+4. Validação CNPJ via ReceitaWS:
+   GET https://receitaws.com.br/v1/cnpj/{cnpj_sem_mascara}
+   Se status === 'ERROR' ou situacao !== 'ATIVA':
+   → 400 { error: 'CNPJ inválido ou empresa inativa', code: 'CNPJ_INVALID' }
+   Se a API falhar (timeout/erro): continuar sem bloquear
+   (não punir o lojista por instabilidade da API externa)
+
+5. Senha mínimo 8 caracteres:
+   → 400 { error: 'Senha deve ter mínimo 8 caracteres' }
+
+Se todas as validações passarem:
+
+a) Criar registro em businesses:
+   - name: businessName
+   - cnpj, phone, zone, categorySlug
+   - ownerName: name
+   - ownerEmail: email
+   - planType: 'free'
+   - isVisible: false  ← INVISÍVEL até admin aprovar
+   - status: 'pending' ← novo campo, adicionar via migration
+   - city: 'Londrina', state: 'PR'
+   - cep: cep
+
+b) Buscar endereço do CEP via ViaCEP:
+   GET https://viacep.com.br/ws/{cep}/json/
+   Se retornar dados: salvar street, neighborhood
+
+c) Criar registro em business_users:
+   - businessId: id do negócio criado
+   - email: email
+   - passwordHash: bcrypt.hash(password, 10)
+
+d) Retornar:
+   201 {
+     message: 'Cadastro recebido! Nossa equipe vai revisar em até 24h.',
+     businessId: id
+   }
+
+---
+
+## 2. CAMPO NOVO NO BANCO
+
+Adicionar via Drizzle migration em businesses:
+- status: text default 'active'
+  Valores possíveis: 'pending' | 'active' | 'rejected'
+
+Negócios com status='pending':
+- NÃO aparecem nas buscas públicas
+- NÃO aparecem em listagens públicas
+- SÃO visíveis no painel admin para aprovação
+
+Negócios existentes: manter status='active' (não quebrar os 20 atuais)
+
+---
+
+## 3. FRONTEND — PÁGINA /cadastro
+
+Formulário de 4 passos com barra de progresso no topo.
+
+### Passo 1 — Sua conta
+- Nome completo (obrigatório)
+- Email (obrigatório, validar formato)
+- Senha (obrigatório, mínimo 8 caracteres, mostrar força)
+- Confirmar senha (deve ser igual)
+
+### Passo 2 — Seu negócio
+- Nome do negócio (obrigatório)
+- CNPJ (obrigatório, máscara XX.XXX.XXX/XXXX-XX)
+  → ao sair do campo: chamar GET /api/auth/validate-cnpj?cnpj=X
+  → mostrar feedback: spinner → "CNPJ válido ✓" (verde) ou "CNPJ inválido ✗" (vermelho)
+- Telefone com DDD (obrigatório, máscara (XX) XXXXX-XXXX)
+- Categoria (select com as categorias do banco)
+- Zona (select estilizado com cores por zona:
+    Norte #3d7a28, Sul #2563eb, Leste #d97706,
+    Oeste #7c3aed, Centro #dc2626)
+
+### Passo 3 — Endereço
+- CEP (máscara XXXXX-XXX)
+  → ao sair do campo: chamar GET /api/lojista/cep/:cep (já existe)
+  → preencher automaticamente: rua, bairro
+  → mostrar feedback: "Endereço encontrado ✓"
+- Rua (preenchido automaticamente, editável)
+- Número (obrigatório)
+- Bairro (preenchido automaticamente, editável)
+- Cidade: "Londrina" (fixo, não editável)
+- Estado: "PR" (fixo, não editável)
+
+### Passo 4 — Confirmação
+- Resumo dos dados:
+  Nome do negócio, CNPJ, Categoria, Zona, Endereço
+- Checkbox obrigatório: "Li e aceito os Termos de Uso"
+- Botão: "Cadastrar meu negócio" (laranja, estilo padrão da plataforma)
+- Estado de loading durante o envio
+
+### Após sucesso:
+Tela de confirmação (sem redirecionar para /lojista ainda):
+- Ícone de check verde grande
+- Título: "Cadastro recebido!"
+- Texto: "Nossa equipe vai analisar seu cadastro em até 24h.
+  Você receberá uma confirmação no email [email informado]."
+- Link: "Voltar para a página inicial"
+
+### Tratamento de erros:
+- EMAIL_DUPLICATE → "Este email já possui uma conta. Faça login."
+- CNPJ_DUPLICATE → "Este CNPJ já está cadastrado na plataforma."
+- PHONE_DUPLICATE → "Este telefone já está cadastrado."
+- CNPJ_INVALID → "CNPJ inválido ou empresa inativa na Receita Federal."
+- Erro genérico → "Erro ao processar cadastro. Tente novamente."
+
+---
+
+## 4. ROTA DE VALIDAÇÃO DE CNPJ
+
+GET /api/auth/validate-cnpj?cnpj=12345678000190
+→ Chama ReceitaWS
+→ Retorna { valid: true, name: 'Nome da Empresa' }
+   ou { valid: false, reason: 'CNPJ inválido' }
+→ Se ReceitaWS falhar: retornar { valid: true, reason: 'api_unavailable' }
+  (não bloquear o usuário por falha da API externa)
+
+---
+
+## 5. PAINEL ADMIN — APROVAÇÃO DE CADASTROS
+
+Adicionar na sidebar do admin: "Cadastros Pendentes"
+com badge vermelho mostrando a contagem de pendentes.
+
+Página /admin/cadastros:
+
+Tabela com colunas:
+Nome do negócio | CNPJ | Zona | Categoria | Data | Ações
+
+Filtros no topo: todos | pendentes | aprovados | rejeitados
+
+Ações por linha:
+- Botão "Aprovar" (verde):
+  → PATCH /api/admin/businesses/:id
+  → { status: 'active', isVisible: true }
+  → Negócio começa a aparecer na plataforma
+
+- Botão "Rejeitar" (vermelho):
+  → Abre modal pedindo motivo da rejeição
+  → PATCH /api/admin/businesses/:id { status: 'rejected' }
+  → Salva o motivo em um campo rejectionReason (adicionar ao banco)
+
+Adicionar rejectionReason: text nullable em businesses via migration.
+
+---
+
+## 6. LINKS PARA /cadastro
+
+Garantir que os seguintes CTAs da landing page e da
+página /anuncie apontam para /cadastro:
+- Botão "Cadastrar meu negócio — é grátis"
+- Qualquer outro botão de cadastro que existir
+
+Não alterar o visual dos botões — apenas o href/link.
+
+---
+
+## 7. FILTRO NAS ROTAS PÚBLICAS
+
+Atualizar GET /api/businesses e GET /api/search para
+adicionar filtro automático:
+WHERE status = 'active' AND isVisible = true
+
+Negócios pendentes ou rejeitados não devem aparecer
+em nenhuma listagem pública.
+
+---
+
+## RESTRIÇÕES
+- Não alterar SSR da home e /negocio/:id
+- Não alterar autenticação do admin ou lojista existente
+- Não remover campos existentes do banco
+- Não alterar copy da landing page
+- Os 20 negócios seed devem continuar com status='active'
+  e aparecer normalmente
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. curl https://www.hublondrina.com.br/api/businesses
+   → Esperado: 20 negócios (os seed continuam aparecendo)
+
+3. curl -X POST https://www.hublondrina.com.br/api/auth/register \
+   -H "Content-Type: application/json" \
+   -d '{
+     "name":"João Teste",
+     "email":"joao@teste.com.br",
+     "password":"Teste@123",
+     "businessName":"Padaria do João",
+     "cnpj":"11.222.333/0001-44",
+     "phone":"(43) 99999-0001",
+     "categorySlug":"padarias",
+     "zone":"norte",
+     "cep":"86010-010"
+   }'
+   → Esperado: 201 com mensagem de sucesso
+
+4. curl https://www.hublondrina.com.br/api/businesses
+   → "Padaria do João" NÃO deve aparecer (status pending)
+
+5. Abrir /admin/cadastros no browser
+   → "Padaria do João" aparece como pendente
+
+6. Aprovar o cadastro pelo admin
+   → curl https://www.hublondrina.com.br/api/businesses
+   → "Padaria do João" AGORA aparece
+
+7. Abrir /cadastro no browser → formulário de 4 passos carrega
+
+8. /admin/login e /lojista/login continuam funcionando
+
+Confirmar todos os 8 testes antes de finalizar.

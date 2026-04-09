@@ -611,7 +611,7 @@ export default function Negocio() {
                   Reivindique para atualizar informações e atrair mais clientes.
                 </p>
                 <button
-                  onClick={() => navigate("/anuncie")}
+                  onClick={() => navigate("/cadastro")}
                   className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl py-2.5 text-sm font-bold transition-colors"
                 >
                   Reivindicar Página

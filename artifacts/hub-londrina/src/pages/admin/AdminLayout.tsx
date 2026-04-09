@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X } from "lucide-react";
 import { clearToken } from "@/lib/admin-api";
 import { useState } from "react";
 
@@ -7,12 +7,18 @@ const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/negocios", label: "Negócios", icon: Store },
   { href: "/admin/lojistas", label: "Lojistas", icon: Users },
+  { href: "/admin/cadastros", label: "Cadastros Pendentes", icon: ClipboardList, hasBadge: true },
   { href: "/admin/impulsionamento", label: "Impulsionamento", icon: Zap },
   { href: "/admin/home-banners", label: "Banners Home", icon: ImageIcon },
   { href: "/admin/categorias", label: "Categorias", icon: Tag },
 ];
 
-export function AdminLayout({ children }: { children: React.ReactNode }) {
+interface AdminLayoutProps {
+  children: React.ReactNode;
+  pendingCadastros?: number;
+}
+
+export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
   const [location, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -48,6 +54,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               >
                 <Icon className="w-5 h-5" />
                 {link.label}
+                {link.hasBadge && pendingCadastros !== undefined && pendingCadastros > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {pendingCadastros}
+                  </span>
+                )}
               </Link>
             );
           })}

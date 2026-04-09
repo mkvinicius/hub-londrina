@@ -1,0 +1,181 @@
+import { Router, type IRouter, type Request, type Response } from "express";
+import bcrypt from "bcryptjs";
+import { db } from "@workspace/db";
+import { businessesTable, businessUsersTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+
+const router: IRouter = Router();
+
+function stripCnpj(cnpj: string): string {
+  return cnpj.replace(/\D/g, "");
+}
+
+router.get("/auth/validate-cnpj", async (req: Request, res: Response) => {
+  const cnpj = req.query.cnpj as string;
+  if (!cnpj) {
+    res.status(400).json({ valid: false, reason: "CNPJ não informado" });
+    return;
+  }
+
+  const digits = stripCnpj(cnpj);
+  if (digits.length !== 14) {
+    res.json({ valid: false, reason: "CNPJ deve ter 14 dígitos" });
+    return;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(`https://receitaws.com.br/v1/cnpj/${digits}`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      res.json({ valid: true, reason: "api_unavailable" });
+      return;
+    }
+
+    const data = await resp.json();
+    if (data.status === "ERROR") {
+      res.json({ valid: false, reason: "CNPJ inválido" });
+      return;
+    }
+    if (data.situacao && data.situacao !== "ATIVA") {
+      res.json({ valid: false, reason: `Empresa ${data.situacao.toLowerCase()}` });
+      return;
+    }
+
+    res.json({ valid: true, name: data.nome || data.fantasia || "" });
+  } catch {
+    res.json({ valid: true, reason: "api_unavailable" });
+  }
+});
+
+router.post("/auth/register", async (req: Request, res: Response) => {
+  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep } = req.body;
+
+  if (!name || !email || !password || !businessName || !cnpj || !phone || !categorySlug || !zone || !cep) {
+    res.status(400).json({ error: "Todos os campos são obrigatórios" });
+    return;
+  }
+
+  if (password.length < 8) {
+    res.status(400).json({ error: "Senha deve ter mínimo 8 caracteres" });
+    return;
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const [existingEmail] = await db
+    .select({ id: businessUsersTable.id })
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.email, normalizedEmail));
+  if (existingEmail) {
+    res.status(400).json({ error: "Email já cadastrado", code: "EMAIL_DUPLICATE" });
+    return;
+  }
+
+  const cleanCnpj = cnpj.trim();
+  const [existingCnpj] = await db
+    .select({ id: businessesTable.id })
+    .from(businessesTable)
+    .where(eq(businessesTable.cnpj, cleanCnpj));
+  if (existingCnpj) {
+    res.status(400).json({ error: "CNPJ já cadastrado", code: "CNPJ_DUPLICATE" });
+    return;
+  }
+
+  const cleanPhone = phone.trim();
+  const [existingPhone] = await db
+    .select({ id: businessesTable.id })
+    .from(businessesTable)
+    .where(eq(businessesTable.phone, cleanPhone));
+  if (existingPhone) {
+    res.status(400).json({ error: "Telefone já cadastrado", code: "PHONE_DUPLICATE" });
+    return;
+  }
+
+  const digits = stripCnpj(cnpj);
+  if (digits.length === 14) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const resp = await fetch(`https://receitaws.com.br/v1/cnpj/${digits}`, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      clearTimeout(timeout);
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === "ERROR" || (data.situacao && data.situacao !== "ATIVA")) {
+          res.status(400).json({ error: "CNPJ inválido ou empresa inativa", code: "CNPJ_INVALID" });
+          return;
+        }
+      }
+    } catch {
+    }
+  }
+
+  const validZones = ["centro", "norte", "sul", "leste", "oeste"];
+  const selectedZone = validZones.includes(zone) ? zone : "centro";
+
+  let street = "";
+  let neighborhood = "";
+  try {
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length === 8) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const cepResp = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (cepResp.ok) {
+        const cepData = await cepResp.json();
+        if (!cepData.erro) {
+          street = cepData.logradouro || "";
+          neighborhood = cepData.bairro || "";
+        }
+      }
+    }
+  } catch {
+  }
+
+  const [business] = await db.insert(businessesTable).values({
+    name: businessName.trim(),
+    categorySlug,
+    zone: selectedZone,
+    region: selectedZone,
+    ownerName: name.trim(),
+    ownerEmail: normalizedEmail,
+    phone: cleanPhone,
+    cnpj: cleanCnpj,
+    cep: cep.trim(),
+    street,
+    neighborhood,
+    city: "Londrina",
+    state: "PR",
+    planType: "free",
+    isVisible: false,
+    status: "pending",
+    description: "",
+    address: street ? `${street}, ${neighborhood}` : "",
+  }).returning();
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await db.insert(businessUsersTable).values({
+    email: normalizedEmail,
+    passwordHash,
+    businessId: business.id,
+  });
+
+  res.status(201).json({
+    message: "Cadastro recebido! Nossa equipe vai revisar em até 24h.",
+    businessId: business.id,
+  });
+});
+
+export default router;

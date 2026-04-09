@@ -109,7 +109,7 @@ router.get("/search", async (req, res) => {
   }
   const { q, region, category } = parsed.data;
 
-  const conditions = [ne(businessesTable.isVisible, false)];
+  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active")];
 
   if (q) {
     const words = q.trim().split(/\s+/).filter(Boolean);

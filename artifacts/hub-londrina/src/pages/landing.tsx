@@ -501,7 +501,7 @@ export default function Landing() {
                   Seu perfil aparece pra londrinenses que já estão procurando o que você oferece. Comece grátis — sem cartão, sem contrato.
                 </p>
                 <Button
-                  onClick={() => navigate("/anuncie")}
+                  onClick={() => navigate("/cadastro")}
                   className="w-full sm:w-auto bg-[#d97706] hover:bg-[#b45309] text-white rounded-full px-8 h-12 font-bold text-sm shadow-none border-0 self-start"
                 >
                   Cadastrar meu negócio — é grátis
@@ -637,7 +637,7 @@ export default function Landing() {
           </h2>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
-              onClick={() => navigate("/anuncie")}
+              onClick={() => navigate("/cadastro")}
               className="bg-white hover:bg-gray-100 text-[#d97706] font-black text-base px-10 py-3.5 rounded-full shadow-lg transition-colors"
             >
               Cadastrar meu negócio — é grátis

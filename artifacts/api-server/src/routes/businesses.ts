@@ -57,7 +57,7 @@ router.get("/businesses", async (req: Request, res: Response) => {
   }
   const { category, region, q, sort } = parsed.data;
 
-  const conditions = [ne(businessesTable.isVisible, false)];
+  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active")];
 
   if (category) conditions.push(eq(businessesTable.categorySlug, category));
   if (region) conditions.push(eq(businessesTable.region, region));
@@ -174,7 +174,7 @@ router.get("/businesses/nearby", async (req: Request, res: Response) => {
     return;
   }
 
-  const conditions = [ne(businessesTable.isVisible, false), isNotNull(businessesTable.lat), isNotNull(businessesTable.lng)];
+  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active"), isNotNull(businessesTable.lat), isNotNull(businessesTable.lng)];
   if (category) conditions.push(eq(businessesTable.categorySlug, category));
   if (region) conditions.push(eq(businessesTable.region, region));
 

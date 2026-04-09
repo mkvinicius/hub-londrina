@@ -98,7 +98,7 @@ export default function Anuncie() {
                 Milhares de londrinenses buscam o que você oferece. Seja encontrado.
               </p>
               <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start mb-12">
-                <Button className="w-full sm:w-auto bg-[#FF9800] hover:bg-[#e68a00] text-white text-lg py-7 px-10 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all">
+                <Button onClick={() => navigate("/cadastro")} className="w-full sm:w-auto bg-[#FF9800] hover:bg-[#e68a00] text-white text-lg py-7 px-10 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all">
                   Começar Grátis
                 </Button>
                 <a href="#como-funciona">
@@ -223,7 +223,7 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl py-6 font-bold text-lg">
+              <Button onClick={() => navigate("/cadastro")} variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl py-6 font-bold text-lg">
                 Começar Grátis
               </Button>
             </div>
@@ -335,7 +335,7 @@ export default function Anuncie() {
             Pronto para crescer?<br className="hidden md:block" />
             Cadastre seu negócio agora.
           </h2>
-          <Button className="bg-white hover:bg-gray-100 text-[#FF9800] text-lg py-8 px-12 rounded-full font-black shadow-xl hover:shadow-2xl transition-all">
+          <Button onClick={() => navigate("/cadastro")} className="bg-white hover:bg-gray-100 text-[#FF9800] text-lg py-8 px-12 rounded-full font-black shadow-xl hover:shadow-2xl transition-all">
             Criar Conta Grátis
           </Button>
         </div>

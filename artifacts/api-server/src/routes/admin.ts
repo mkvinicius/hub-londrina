@@ -265,6 +265,13 @@ router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
   if (req.body.description !== undefined) updates.description = req.body.description;
   if (req.body.phone !== undefined) updates.phone = req.body.phone;
   if (req.body.whatsapp !== undefined) updates.whatsapp = req.body.whatsapp;
+  if (req.body.status !== undefined) {
+    if (!["pending", "active", "rejected"].includes(req.body.status)) {
+      res.status(400).json({ error: "status deve ser 'pending', 'active' ou 'rejected'" }); return;
+    }
+    updates.status = req.body.status;
+  }
+  if (req.body.rejectionReason !== undefined) updates.rejectionReason = req.body.rejectionReason;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "Nenhum campo válido para atualizar" });
@@ -654,6 +661,37 @@ router.delete("/admin/boosts/:id", async (req: Request, res: Response) => {
   }
 
   res.json({ success: true });
+});
+
+router.get("/admin/cadastros", async (req: Request, res: Response) => {
+  const statusFilter = req.query.status as string | undefined;
+  const conditions = [];
+  if (statusFilter && ["pending", "active", "rejected"].includes(statusFilter)) {
+    conditions.push(eq(businessesTable.status, statusFilter));
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const data = await db.select({
+    id: businessesTable.id,
+    name: businessesTable.name,
+    cnpj: businessesTable.cnpj,
+    phone: businessesTable.phone,
+    zone: businessesTable.zone,
+    categorySlug: businessesTable.categorySlug,
+    ownerName: businessesTable.ownerName,
+    ownerEmail: businessesTable.ownerEmail,
+    status: businessesTable.status,
+    rejectionReason: businessesTable.rejectionReason,
+    isVisible: businessesTable.isVisible,
+    createdAt: businessesTable.createdAt,
+  }).from(businessesTable).where(where).orderBy(desc(businessesTable.createdAt));
+
+  const [pendingCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(businessesTable)
+    .where(eq(businessesTable.status, "pending"));
+
+  res.json({ data, pendingCount: pendingCount?.count ?? 0 });
 });
 
 router.patch("/admin/businesses/:id/home-featured", async (req: Request, res: Response) => {

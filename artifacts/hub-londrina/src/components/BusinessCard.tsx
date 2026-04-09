@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { MapPin, Star, ArrowRight, Award, MessageCircle, ThumbsUp } from "lucide-react";
+import { MapPin, Star, ArrowRight, Award, MessageCircle, ThumbsUp, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Business } from "@workspace/api-client-react";
 
@@ -13,9 +13,19 @@ function getBemAvaliado(business: Business): boolean {
   return business.rating >= 4.7 && business.reviewsCount >= 10;
 }
 
+function getMaisAvaliado(business: Business): boolean {
+  return business.reviewsCount >= 20;
+}
+
+function getSemReclamacoes(business: Business): boolean {
+  return business.rating >= 4.5 && business.reviewsCount >= 5;
+}
+
 export function BusinessCard({ business: biz, size = "md", showDistance = false }: BusinessCardProps) {
   const [, navigate] = useLocation();
   const bemAvaliado = getBemAvaliado(biz);
+  const maisAvaliado = getMaisAvaliado(biz);
+  const semReclamacoes = getSemReclamacoes(biz) && !bemAvaliado;
 
   return (
     <div
@@ -50,6 +60,18 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
               <ThumbsUp className="h-2.5 w-2.5" />
               Bem Avaliado
+            </span>
+          )}
+          {maisAvaliado && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+              <Star className="h-2.5 w-2.5" />
+              Mais Avaliado
+            </span>
+          )}
+          {semReclamacoes && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+              <ShieldCheck className="h-2.5 w-2.5" />
+              Sem Reclamações
             </span>
           )}
           {biz.planType === "premium" && (
