@@ -1,0 +1,382 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## Pré-requisito
+A variável RESEND_API_KEY deve estar nos Secrets do Replit.
+Se não estiver, parar e avisar antes de continuar.
+
+## O que precisa ser feito
+
+3 funcionalidades em sequência:
+1. Email transacional via Resend
+2. Esqueci minha senha para lojistas
+3. Página admin de assinaturas (MRR + Stripe)
+
+---
+
+## PARTE 1 — EMAIL TRANSACIONAL
+
+### Instalar dependência
+pnpm add resend
+
+### Criar serviço de email
+Criar arquivo api-server/src/services/email.ts:
+
+```typescript
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const FROM = 'Hub Londrina <contato@hublondrina.com.br>';
+// Se domínio não verificado no Resend, usar:
+// const FROM = 'Hub Londrina <onboarding@resend.dev>';
+
+export async function sendEmail(to: string, subject: string, html: string) {
+  try {
+    const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+    if (error) console.error('Email error:', error);
+    return !error;
+  } catch (err) {
+    console.error('Email send failed:', err);
+    return false;
+  }
+}
+
+// Templates
+export const emails = {
+
+  boasVindas: (nome: string, negocio: string) => ({
+    subject: `Bem-vindo ao Hub Londrina, ${nome}!`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Seu negócio está no Hub Londrina!</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>O cadastro de <strong>${negocio}</strong> foi recebido com sucesso.</p>
+        <p>Nossa equipe vai analisar em até 24h. Você receberá outro email quando seu perfil for aprovado.</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+
+  cadastroAprovado: (nome: string, negocio: string) => ({
+    subject: `Seu negócio foi aprovado no Hub Londrina!`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Perfil aprovado!</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p><strong>${negocio}</strong> já está visível no Hub Londrina.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/login" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Acessar meu painel</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+
+  cadastroRejeitado: (nome: string, negocio: string, motivo: string) => ({
+    subject: `Atualização sobre seu cadastro no Hub Londrina`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#dc2626">Cadastro não aprovado</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Infelizmente o cadastro de <strong>${negocio}</strong> não foi aprovado.</p>
+        <p><strong>Motivo:</strong> ${motivo}</p>
+        <p>Se tiver dúvidas, entre em contato pelo WhatsApp.</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+
+  pagamentoConfirmado: (nome: string, plano: string, valor: string) => ({
+    subject: `Pagamento confirmado — Plano ${plano}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Pagamento confirmado!</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Seu plano <strong>${plano}</strong> está ativo. Cobrança de <strong>${valor}/mês</strong>.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/plano" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Ver meu plano</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+
+  pagamentoFalhou: (nome: string, plano: string) => ({
+    subject: `Problema no pagamento — Ação necessária`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#dc2626">Pagamento não processado</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Não conseguimos processar o pagamento do seu plano <strong>${plano}</strong>.</p>
+        <p>Seu perfil foi temporariamente rebaixado para o plano gratuito.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/plano" style="background:#dc2626;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Atualizar forma de pagamento</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+
+  novaAvaliacao: (nomeNegocio: string, autor: string, nota: number, texto: string) => ({
+    subject: `Nova avaliação recebida — ${nota} estrelas`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Você recebeu uma nova avaliação!</h2>
+        <p><strong>${autor}</strong> avaliou <strong>${nomeNegocio}</strong>:</p>
+        <p style="font-size:24px">${'⭐'.repeat(nota)}</p>
+        ${texto ? `<p style="background:#f9f9f9;padding:12px;border-radius:6px;font-style:italic">"${texto}"</p>` : ''}
+        <p><a href="https://www.hublondrina.com.br/lojista/avaliacoes" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Ver e responder</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+
+  recuperacaoSenha: (nome: string, token: string) => ({
+    subject: `Redefinir sua senha — Hub Londrina`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Redefinir senha</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Clique no botão abaixo para criar uma nova senha. O link expira em 1 hora.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/nova-senha?token=${token}" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Criar nova senha</a></p>
+        <p style="color:#888;font-size:12px">Se você não solicitou isso, ignore este email.</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `
+  }),
+};
+```
+
+### Disparar emails nos eventos
+
+1. POST /auth/register → após criar negócio com sucesso:
+```typescript
+import { sendEmail, emails } from '../services/email';
+const tpl = emails.boasVindas(body.name, body.businessName);
+await sendEmail(body.email, tpl.subject, tpl.html);
+```
+
+2. PATCH /admin/businesses/:id (aprovação) → quando status muda para 'active':
+```typescript
+if (body.status === 'active' && business.ownerEmail) {
+  const tpl = emails.cadastroAprovado(business.ownerName || 'Lojista', business.name);
+  await sendEmail(business.ownerEmail, tpl.subject, tpl.html);
+}
+if (body.status === 'rejected' && business.ownerEmail) {
+  const tpl = emails.cadastroRejeitado(business.ownerName || 'Lojista', business.name, body.rejectionReason || 'Não informado');
+  await sendEmail(business.ownerEmail, tpl.subject, tpl.html);
+}
+```
+
+3. Webhook Stripe checkout.session.completed → pagamento confirmado:
+```typescript
+const planLabel = plan === 'base' ? 'Base' : 'Premium';
+const valor = plan === 'base' ? 'R$59,90' : 'R$89,90';
+const tpl = emails.pagamentoConfirmado(business.ownerName || 'Lojista', planLabel, valor);
+await sendEmail(business.ownerEmail, tpl.subject, tpl.html);
+```
+
+4. Webhook Stripe invoice.payment_failed → após downgrade:
+```typescript
+const tpl = emails.pagamentoFalhou(business.ownerName || 'Lojista', sub.plan);
+await sendEmail(business.ownerEmail, tpl.subject, tpl.html);
+```
+
+5. POST /businesses/:id/review → após salvar avaliação:
+```typescript
+if (business.ownerEmail) {
+  const tpl = emails.novaAvaliacao(business.name, body.author || 'Visitante', body.rating, body.text || '');
+  await sendEmail(business.ownerEmail, tpl.subject, tpl.html);
+}
+```
+
+---
+
+## PARTE 2 — ESQUECI MINHA SENHA
+
+### Schema — campo novo em business_users
+Adicionar via Drizzle migration:
+- passwordResetToken: text nullable
+- passwordResetExpiresAt: timestamp nullable
+
+### Backend — 2 rotas novas
+
+POST /api/auth/forgot-password
+Body: { email: string }
+Rate limit: 3 por hora por IP (usar registerLimiter ou criar novo)
+
+```typescript
+// 1. Buscar business_user pelo email
+const user = await db.query.businessUsers.findFirst({
+  where: eq(businessUsers.email, body.email)
+});
+
+// Sempre retornar 200 — não revelar se email existe
+if (!user) {
+  return res.json({ message: 'Se o email existir, você receberá as instruções.' });
+}
+
+// 2. Gerar token único
+const token = crypto.randomBytes(32).toString('hex');
+const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+// 3. Salvar token no banco
+await db.update(businessUsers)
+  .set({ passwordResetToken: token, passwordResetExpiresAt: expiresAt })
+  .where(eq(businessUsers.id, user.id));
+
+// 4. Buscar dados do negócio para o email
+const business = await db.query.businesses.findFirst({
+  where: eq(businesses.id, user.businessId)
+});
+
+// 5. Enviar email
+const tpl = emails.recuperacaoSenha(business?.ownerName || 'Lojista', token);
+await sendEmail(body.email, tpl.subject, tpl.html);
+
+return res.json({ message: 'Se o email existir, você receberá as instruções.' });
+```
+
+POST /api/auth/reset-password
+Body: { token: string, newPassword: string }
+
+```typescript
+// 1. Buscar user pelo token
+const user = await db.query.businessUsers.findFirst({
+  where: eq(businessUsers.passwordResetToken, body.token)
+});
+
+if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+  return res.status(400).json({ error: 'Token inválido ou expirado.' });
+}
+
+if (body.newPassword.length < 8) {
+  return res.status(400).json({ error: 'Senha deve ter mínimo 8 caracteres.' });
+}
+
+// 2. Atualizar senha e limpar token
+const hash = await bcrypt.hash(body.newPassword, 10);
+await db.update(businessUsers)
+  .set({
+    passwordHash: hash,
+    passwordResetToken: null,
+    passwordResetExpiresAt: null
+  })
+  .where(eq(businessUsers.id, user.id));
+
+return res.json({ message: 'Senha atualizada com sucesso.' });
+```
+
+### Frontend — 2 páginas novas
+
+/lojista/esqueci-senha
+Formulário simples:
+- Campo email
+- Botão "Enviar instruções"
+- Chama POST /api/auth/forgot-password
+- Após envio: mensagem "Se o email existir, você receberá as instruções em breve."
+
+/lojista/nova-senha
+Lê ?token= da URL.
+Formulário:
+- Campo nova senha (mínimo 8 caracteres)
+- Campo confirmar senha
+- Botão "Salvar nova senha"
+- Chama POST /api/auth/reset-password com { token, newPassword }
+- Após sucesso: "Senha atualizada! Faça login." → link para /lojista/login
+
+### Adicionar link na página de login
+Em /lojista/login, abaixo do botão de entrar:
+Link: "Esqueci minha senha" → /lojista/esqueci-senha
+
+Adicionar no App.tsx (Wouter):
+```tsx
+<Route path="/lojista/esqueci-senha" component={EsqueciSenha} />
+<Route path="/lojista/nova-senha" component={NovaSenha} />
+```
+
+---
+
+## PARTE 3 — PÁGINA ADMIN DE ASSINATURAS
+
+### Backend — GET /api/admin/subscriptions
+
+```typescript
+// Retorna visão completa de assinaturas
+const subs = await db.query.subscriptions.findMany({
+  with: { business: true }
+});
+
+// Calcular MRR
+const planPrices = { base: 59.90, premium: 89.90 };
+const activeSubs = subs.filter(s => s.status === 'active');
+const mrr = activeSubs.reduce((sum, s) => sum + (planPrices[s.plan] || 0), 0);
+
+// Agrupar por status
+const byStatus = {
+  active: subs.filter(s => s.status === 'active').length,
+  past_due: subs.filter(s => s.status === 'past_due').length,
+  cancelled: subs.filter(s => s.status === 'cancelled').length,
+};
+
+return res.json({ mrr, byStatus, subscriptions: subs });
+```
+
+### Frontend — /admin/assinaturas
+
+Adicionar na sidebar do admin: "Assinaturas"
+
+Página com 3 seções:
+
+SEÇÃO 1 — Cards de resumo:
+- MRR total (R$ calculado)
+- Assinaturas ativas
+- Inadimplentes (past_due)
+- Canceladas
+
+SEÇÃO 2 — Inadimplentes (destaque visual em vermelho/amarelo):
+Tabela: Negócio | Plano | Desde quando | Email | Ação
+Ação: botão "Ver no Stripe" → link para dashboard.stripe.com
+
+SEÇÃO 3 — Todas as assinaturas:
+Tabela com filtro por status (todas/ativas/inadimplentes/canceladas):
+Negócio | Plano | Valor | Status | Renova em | Stripe ID
+
+Status com badges coloridos:
+- active → verde
+- past_due → laranja
+- cancelled → cinza
+
+---
+
+## RESTRIÇÕES
+- Não alterar SSR da home e rotas existentes
+- Não alterar autenticação existente
+- Não remover campos do banco
+- Emails são disparados de forma assíncrona — falha de email
+  não deve bloquear a ação principal (usar try/catch em todos)
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. POST /api/auth/forgot-password com email real do seed
+   → Esperado: 200 com mensagem genérica
+   → Verificar no banco que passwordResetToken foi salvo
+
+3. POST /api/auth/reset-password com token gerado
+   → Esperado: 200 senha atualizada
+
+4. Logar com a nova senha em /lojista/login
+   → Esperado: login funciona
+
+5. /lojista/esqueci-senha abre no browser
+
+6. /admin/assinaturas abre no browser com MRR e lista
+
+7. /admin/login e /lojista/login continuam funcionando
+
+Confirmar todos os 7 testes antes de finalizar.

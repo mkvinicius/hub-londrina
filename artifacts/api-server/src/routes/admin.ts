@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { loginLimiter } from "../middleware/rateLimiter";
+import { sendEmail, emails } from "../services/email";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -279,12 +280,31 @@ router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
     return;
   }
 
+  const [before] = await db.select().from(businessesTable).where(eq(businessesTable.id, id));
+
   const result = await db.update(businessesTable).set(updates).where(eq(businessesTable.id, id)).returning();
   if (result.length === 0) {
     res.status(404).json({ error: "Negócio não encontrado" });
     return;
   }
-  res.json(result[0]);
+
+  const updated = result[0];
+  if (before && updates.status && updates.status !== before.status) {
+    if (updates.status === "active" && updated.ownerEmail) {
+      try {
+        const tpl = emails.cadastroAprovado(updated.ownerName || "Lojista", updated.name);
+        await sendEmail(updated.ownerEmail, tpl.subject, tpl.html);
+      } catch {}
+    }
+    if (updates.status === "rejected" && updated.ownerEmail) {
+      try {
+        const tpl = emails.cadastroRejeitado(updated.ownerName || "Lojista", updated.name, String(updates.rejectionReason || "Não informado"));
+        await sendEmail(updated.ownerEmail, tpl.subject, tpl.html);
+      } catch {}
+    }
+  }
+
+  res.json(updated);
 });
 
 router.delete("/admin/businesses/:id", async (req: Request, res: Response) => {
@@ -735,6 +755,41 @@ router.patch("/admin/businesses/:id/home-featured", async (req: Request, res: Re
   const { homeFeatured } = req.body;
   await db.update(businessesTable).set({ homeFeatured: Boolean(homeFeatured) }).where(eq(businessesTable.id, id));
   res.json({ success: true });
+});
+
+router.get("/admin/subscriptions", async (_req: Request, res: Response) => {
+  const subs = await db
+    .select({
+      id: subscriptionsTable.id,
+      businessId: subscriptionsTable.businessId,
+      stripeCustomerId: subscriptionsTable.stripeCustomerId,
+      stripeSubscriptionId: subscriptionsTable.stripeSubscriptionId,
+      plan: subscriptionsTable.plan,
+      status: subscriptionsTable.status,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      cancelAtPeriodEnd: subscriptionsTable.cancelAtPeriodEnd,
+      createdAt: subscriptionsTable.createdAt,
+      updatedAt: subscriptionsTable.updatedAt,
+      businessName: businessesTable.name,
+      ownerEmail: businessesTable.ownerEmail,
+      ownerName: businessesTable.ownerName,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(businessesTable, eq(subscriptionsTable.businessId, businessesTable.id))
+    .orderBy(desc(subscriptionsTable.updatedAt));
+
+  const planPrices: Record<string, number> = { destaque: 49.9, premium: 89.9 };
+  const activeSubs = subs.filter(s => s.status === "active");
+  const mrr = activeSubs.reduce((sum, s) => sum + (planPrices[s.plan] ?? 0), 0);
+
+  const byStatus = {
+    active: subs.filter(s => s.status === "active").length,
+    past_due: subs.filter(s => s.status === "past_due").length,
+    cancelled: subs.filter(s => s.status === "cancelled").length,
+    trialing: subs.filter(s => s.status === "trialing").length,
+  };
+
+  res.json({ mrr, byStatus, subscriptions: subs });
 });
 
 router.get("/admin/home-banners", async (_req: Request, res: Response) => {

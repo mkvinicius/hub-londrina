@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { lojistaLogin } from "@/lib/lojista-api";
 
 export default function LojistaLogin() {
@@ -57,6 +57,14 @@ export default function LojistaLogin() {
           >
             {loading ? "Entrando..." : "Entrar"}
           </button>
+          <div className="text-center mt-4">
+            <Link
+              href="/lojista/esqueci-senha"
+              className="text-sm text-gray-500 hover:text-[#d97706] transition-colors"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
         </form>
       </div>
     </div>

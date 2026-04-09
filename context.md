@@ -374,6 +374,9 @@ IMPLEMENTADO:
 [x] Fluxo de aprovação admin (pending → active)
 [x] CTA "Reivindicar Página" aponta para /cadastro
 [x] Rotas públicas filtram status=active AND isVisible=true
+[x] Email transacional (Resend): 7 templates, hooks em register/approve/reject/stripe/review
+[x] Recuperação de senha: /lojista/esqueci-senha + /lojista/nova-senha
+[x] Admin Assinaturas: /admin/assinaturas com MRR, inadimplentes, filtro por status
 ```
 
 ---

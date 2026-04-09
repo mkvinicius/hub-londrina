@@ -17,6 +17,8 @@ export const businessUsersTable = pgTable(
       .references(() => businessesTable.id, { onDelete: "cascade" }),
     email: text("email").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
+    passwordResetToken: text("password_reset_token"),
+    passwordResetExpiresAt: timestamp("password_reset_expires_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("business_users_email_idx").on(t.email)],

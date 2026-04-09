@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { reviewLimiter } from "../middleware/rateLimiter";
+import { sendEmail, emails } from "../services/email";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte } from "drizzle-orm";
@@ -345,12 +346,24 @@ router.post("/businesses/:id/review", reviewLimiter, async (req: Request, res: R
     .from(reviewsTable)
     .where(eq(reviewsTable.businessId, id));
 
+  const [bizData] = await db
+    .select({ name: businessesTable.name, ownerEmail: businessesTable.ownerEmail })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, id));
+
   await db.update(businessesTable)
     .set({
       rating: Math.round((stats?.avg ?? 0) * 10) / 10,
       reviewsCount: stats?.count ?? 0,
     })
     .where(eq(businessesTable.id, id));
+
+  if (bizData?.ownerEmail) {
+    try {
+      const tpl = emails.novaAvaliacao(bizData.name, author.trim() || "Visitante", Number(rating), (text || "").trim());
+      await sendEmail(bizData.ownerEmail, tpl.subject, tpl.html);
+    } catch {}
+  }
 
   res.status(201).json({ review });
 });

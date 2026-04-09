@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { sendEmail, emails } from "../services/email";
 
 const router: IRouter = Router();
 
@@ -220,6 +221,20 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.subscription) {
           await syncSubscription(String(session.subscription));
+          try {
+            const sub = await db.query.subscriptionsTable.findFirst({
+              where: eq(subscriptionsTable.stripeSubscriptionId, String(session.subscription)),
+            });
+            if (sub) {
+              const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
+              if (biz?.ownerEmail) {
+                const planLabel = sub.plan === "premium" ? "Premium" : "Destaque";
+                const valor = sub.plan === "premium" ? "R$89,90" : "R$49,90";
+                const tpl = emails.pagamentoConfirmado(biz.ownerName || "Lojista", planLabel, valor);
+                await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+              }
+            }
+          } catch {}
         }
         break;
       }
@@ -248,6 +263,14 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
               .set({ planType: "free" })
               .where(eq(businessesTable.id, sub.businessId));
             console.log(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId}`);
+            try {
+              const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
+              if (biz?.ownerEmail) {
+                const planLabel = sub.plan === "premium" ? "Premium" : "Destaque";
+                const tpl = emails.pagamentoFalhou(biz.ownerName || "Lojista", planLabel);
+                await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+              }
+            } catch {}
           }
         }
         break;

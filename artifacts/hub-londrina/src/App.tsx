@@ -17,7 +17,10 @@ import AdminCategorias from "@/pages/admin/AdminCategorias";
 import AdminImpulsionamento from "@/pages/admin/AdminImpulsionamento";
 import AdminHomeBanners from "@/pages/admin/AdminHomeBanners";
 import AdminCadastros from "@/pages/admin/AdminCadastros";
+import AdminAssinaturas from "@/pages/admin/AdminAssinaturas";
 import LojistaLogin from "@/pages/lojista/LojistaLogin";
+import EsqueciSenha from "@/pages/lojista/EsqueciSenha";
+import NovaSenha from "@/pages/lojista/NovaSenha";
 import LojistaDashboard from "@/pages/lojista/LojistaDashboard";
 import LojistaPerfil from "@/pages/lojista/LojistaPerfil";
 import LojistaFotos from "@/pages/lojista/LojistaFotos";
@@ -66,11 +69,14 @@ function Router() {
       <Route path="/admin/negocios">{() => <PrivateRoute component={AdminNegocios} />}</Route>
       <Route path="/admin/lojistas">{() => <PrivateRoute component={AdminLojistas} />}</Route>
       <Route path="/admin/cadastros">{() => <PrivateRoute component={AdminCadastros} />}</Route>
+      <Route path="/admin/assinaturas">{() => <PrivateRoute component={AdminAssinaturas} />}</Route>
       <Route path="/admin/impulsionamento">{() => <PrivateRoute component={AdminImpulsionamento} />}</Route>
       <Route path="/admin/home-banners">{() => <PrivateRoute component={AdminHomeBanners} />}</Route>
       <Route path="/admin/categorias">{() => <PrivateRoute component={AdminCategorias} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>
       <Route path="/lojista/login" component={LojistaLogin} />
+      <Route path="/lojista/esqueci-senha" component={EsqueciSenha} />
+      <Route path="/lojista/nova-senha" component={NovaSenha} />
       <Route path="/lojista/perfil">{() => <LojistaPrivateRoute component={LojistaPerfil} />}</Route>
       <Route path="/lojista/fotos">{() => <LojistaPrivateRoute component={LojistaFotos} />}</Route>
       <Route path="/lojista/produtos">{() => <LojistaPrivateRoute component={LojistaProdutos} />}</Route>

@@ -1,11 +1,22 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { registerLimiter, cnpjLimiter } from "../middleware/rateLimiter";
+import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { sendEmail, emails } from "../services/email";
 
 const router: IRouter = Router();
+
+const forgotLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { error: "Muitas tentativas. Tente novamente em 1 hora.", code: "TOO_MANY_REQUESTS" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function stripCnpj(cnpj: string): string {
   return cnpj.replace(/\D/g, "");
@@ -173,10 +184,89 @@ router.post("/auth/register", registerLimiter, async (req: Request, res: Respons
     businessId: business.id,
   });
 
+  try {
+    const tpl = emails.boasVindas(name.trim(), businessName.trim());
+    await sendEmail(normalizedEmail, tpl.subject, tpl.html);
+  } catch {}
+
   res.status(201).json({
     message: "Cadastro recebido! Nossa equipe vai revisar em até 24h.",
     businessId: business.id,
   });
+});
+
+router.post("/auth/forgot-password", forgotLimiter, async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const GENERIC = "Se o email existir, você receberá as instruções em breve.";
+
+  if (!email) {
+    res.json({ message: GENERIC });
+    return;
+  }
+
+  const normalizedEmail = (email as string).toLowerCase().trim();
+
+  const [user] = await db
+    .select()
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.email, normalizedEmail));
+
+  if (!user) {
+    res.json({ message: GENERIC });
+    return;
+  }
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await db
+    .update(businessUsersTable)
+    .set({ passwordResetToken: token, passwordResetExpiresAt: expiresAt })
+    .where(eq(businessUsersTable.id, user.id));
+
+  const [business] = await db
+    .select({ ownerName: businessesTable.ownerName })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, user.businessId));
+
+  try {
+    const tpl = emails.recuperacaoSenha(business?.ownerName || "Lojista", token);
+    await sendEmail(normalizedEmail, tpl.subject, tpl.html);
+  } catch {}
+
+  res.json({ message: GENERIC });
+});
+
+router.post("/auth/reset-password", async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    res.status(400).json({ error: "Token e nova senha são obrigatórios." });
+    return;
+  }
+
+  if ((newPassword as string).length < 8) {
+    res.status(400).json({ error: "Senha deve ter mínimo 8 caracteres." });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.passwordResetToken, token as string));
+
+  if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+    res.status(400).json({ error: "Token inválido ou expirado." });
+    return;
+  }
+
+  const hash = await bcrypt.hash(newPassword as string, 10);
+  await db
+    .update(businessUsersTable)
+    .set({ passwordHash: hash, passwordResetToken: null, passwordResetExpiresAt: null })
+    .where(eq(businessUsersTable.id, user.id));
+
+  res.json({ message: "Senha atualizada com sucesso." });
 });
 
 export default router;
