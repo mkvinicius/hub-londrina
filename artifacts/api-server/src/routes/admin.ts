@@ -480,8 +480,9 @@ router.get("/admin/boosts", async (_req: Request, res: Response) => {
       createdAt: b.createdAt,
     }));
 
+  const now = new Date();
   const avulso = boosts
-    .filter(b => b.boostType === "avulso" && b.status === "active")
+    .filter(b => b.boostType === "avulso" && b.status === "active" && (!b.expiresAt || new Date(b.expiresAt) > now))
     .map(b => ({
       business: { id: b.businessId, name: b.businessName, planType: b.businessPlanType, region: b.businessRegion, category: b.businessCategory },
       monthlyBid: Number(b.monthlyBid),

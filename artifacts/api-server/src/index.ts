@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startup-seed";
+import { startBoostExpirationJob } from "./lib/boost-expiration";
 
 const rawPort = process.env["PORT"];
 
@@ -24,5 +25,6 @@ runStartupSeed().then(() => {
     }
 
     logger.info({ port }, "Server listening");
+    startBoostExpirationJob();
   });
 });

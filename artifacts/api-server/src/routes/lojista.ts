@@ -215,6 +215,28 @@ router.get("/lojista/profile", async (req: Request, res: Response) => {
   });
 });
 
+router.get("/lojista/boost-positions", async (_req: Request, res: Response) => {
+  const BID_MAP: Record<number, number> = { 1: 149, 2: 119, 3: 99, 4: 79, 5: 59 };
+  const activeMonthly = await db
+    .select({ position: searchBoostsTable.position })
+    .from(searchBoostsTable)
+    .where(and(
+      eq(searchBoostsTable.status, "active"),
+      eq(searchBoostsTable.boostType, "monthly"),
+      or(
+        sql`${searchBoostsTable.expiresAt} IS NULL`,
+        sql`${searchBoostsTable.expiresAt} > NOW()`
+      )
+    ));
+  const occupiedPositions = new Set(activeMonthly.map(b => b.position));
+  const positions = [1, 2, 3, 4, 5].map(p => ({
+    position: p,
+    bid: BID_MAP[p],
+    occupied: occupiedPositions.has(p),
+  }));
+  res.json({ positions });
+});
+
 router.patch("/lojista/profile", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   const allowed = [

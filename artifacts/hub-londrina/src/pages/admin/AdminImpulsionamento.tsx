@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -50,23 +50,24 @@ interface ListBusiness {
   categorySlug: string;
 }
 
-const MONTHLY_BID_OPTIONS = [
-  { value: 59, label: "R$59/mês" },
-  { value: 79, label: "R$79/mês" },
-  { value: 99, label: "R$99/mês" },
-  { value: 119, label: "R$119/mês" },
-  { value: 149, label: "R$149/mês" },
-];
+const POSITION_BIDS: Record<number, number> = { 1: 149, 2: 119, 3: 99, 4: 79, 5: 59 };
 
 const AVULSO_OPTIONS = [
-  { days: 7, label: "7 dias", price: "R$29" },
-  { days: 15, label: "15 dias", price: "R$49" },
-  { days: 30, label: "30 dias", price: "R$79" },
+  { days: 7, label: "7 dias", price: "R$29", value: 29 },
+  { days: 15, label: "15 dias", price: "R$49", value: 49 },
+  { days: 30, label: "30 dias", price: "R$79", value: 79 },
 ];
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function daysRemaining(d: string | null): string {
+  if (!d) return "—";
+  const diff = Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (diff <= 0) return "Expirado";
+  return `${diff} dia${diff > 1 ? "s" : ""}`;
 }
 
 export default function AdminImpulsionamento() {
@@ -76,10 +77,10 @@ export default function AdminImpulsionamento() {
   const [availablePositions, setAvailablePositions] = useState<number[]>([1, 2, 3, 4, 5]);
   const [businesses, setBusinesses] = useState<ListBusiness[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [addType, setAddType] = useState<"monthly" | "avulso">("monthly");
+
+  const [showAddMonthly, setShowAddMonthly] = useState<number | null>(null);
+  const [showAddAvulso, setShowAddAvulso] = useState(false);
   const [addBusinessId, setAddBusinessId] = useState<number | "">("");
-  const [addBid, setAddBid] = useState("");
   const [addDays, setAddDays] = useState(7);
   const [bizSearch, setBizSearch] = useState("");
   const [saving, setSaving] = useState(false);
@@ -114,30 +115,66 @@ export default function AdminImpulsionamento() {
     (!bizSearch || b.name.toLowerCase().includes(bizSearch.toLowerCase()))
   );
 
-  async function handleAdd() {
+  async function handleAddMonthly(position: number) {
     if (!addBusinessId) return;
+    const bid = POSITION_BIDS[position];
     setSaving(true);
     try {
-      const AVULSO_PRICES: Record<number, number> = { 7: 29, 15: 49, 30: 79 };
       await adminFetch("/api/admin/boosts", {
         method: "POST",
         body: JSON.stringify({
           businessId: addBusinessId,
-          boostType: addType,
-          monthlyBid: addType === "monthly" ? Number(addBid) : null,
-          durationDays: addType === "avulso" ? addDays : null,
-          price: addType === "monthly" ? Number(addBid) : AVULSO_PRICES[addDays] || 29,
+          boostType: "monthly",
+          monthlyBid: bid,
+          price: bid,
         }),
       });
-      setShowAdd(false);
+      setShowAddMonthly(null);
       setAddBusinessId("");
-      setAddBid("");
       setBizSearch("");
       fetchData();
     } catch (e: any) {
       alert(e.message || "Erro ao criar boost");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddAvulso() {
+    if (!addBusinessId) return;
+    const opt = AVULSO_OPTIONS.find(o => o.days === addDays)!;
+    setSaving(true);
+    try {
+      await adminFetch("/api/admin/boosts", {
+        method: "POST",
+        body: JSON.stringify({
+          businessId: addBusinessId,
+          boostType: "avulso",
+          durationDays: addDays,
+          price: opt.value,
+        }),
+      });
+      setShowAddAvulso(false);
+      setAddBusinessId("");
+      setBizSearch("");
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao criar boost");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleCancel(id: number) {
+    if (!confirm("Cancelar este boost? Ele será marcado como expirado.")) return;
+    try {
+      await adminFetch(`/api/admin/boosts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "expired" }),
+      });
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao cancelar");
     }
   }
 
@@ -151,99 +188,144 @@ export default function AdminImpulsionamento() {
     }
   }
 
-
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-gray-800 flex items-center gap-2">
-            <Zap className="w-6 h-6 text-[#d97706]" />
-            Impulsionamento
+            <Zap className="w-7 h-7 text-[#d97706]" />
+            Boost / Impulsionamento
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Gerencie as 5 vagas mensais fixas e boosts avulsos</p>
+          <p className="text-sm text-gray-500 mt-1">Gerencie as posições de destaque na busca</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={fetchData} className={`p-2 rounded-lg bg-gray-100 hover:bg-gray-200 ${BTN_ELEVATION}`}>
-            <RefreshCw className="w-4 h-4 text-gray-500" />
-          </button>
-          <button
-            onClick={() => setShowAdd(true)}
-            className={`px-4 py-2 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl flex items-center gap-1 ${BTN_ELEVATION}`}
-          >
-            <Plus className="w-4 h-4" /> Novo Boost
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
-        <p className="text-sm font-bold text-amber-800 mb-1">Como funciona:</p>
-        <ul className="text-xs text-amber-700 space-y-1">
-          <li><Crown className="w-3 h-3 inline mr-1" /><strong>Mensal (posições 1-5):</strong> Posições calculadas automaticamente pelo lance. Maior lance = posição #1.</li>
-          <li><Flame className="w-3 h-3 inline mr-1" /><strong>Avulso (7/15/30 dias):</strong> Aparecem após os mensais. R$29/R$49/R$79.</li>
-        </ul>
+        <button
+          onClick={() => fetchData()}
+          className={`p-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-[#d97706] ${BTN_ELEVATION}`}
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-          <Crown className="w-5 h-5 text-[#d97706]" />
-          Vagas Mensais ({monthly.length}/5 — {availablePositions.length > 0 ? `posições ${availablePositions.join(", ")} livres` : "lotado"})
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-          {[1, 2, 3, 4, 5].map(pos => {
-            const boost = monthly.find(b => b.position === pos);
-            return (
-              <div key={pos} className={`rounded-2xl border p-4 ${boost ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-dashed border-gray-300"}`}>
-                <div className="text-xs font-bold text-gray-500 mb-2">#{pos}</div>
-                {boost ? (
-                  <>
-                    <p className="font-bold text-sm text-gray-800 truncate">{boost.business.name}</p>
-                    <p className="text-[10px] text-gray-500 mt-1">{boost.business.region} · {boost.business.category}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{boost.business.planType}</p>
-                    <p className="text-xs text-amber-700 font-semibold mt-2">R${boost.monthlyBid}/mês</p>
-                    <button
-                      onClick={() => handleDelete(boost.id)}
-                      className={`mt-3 w-full px-2 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
-                    >
-                      <Trash2 className="w-3 h-3 inline mr-1" />Remover
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">Vaga disponível</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-          <Flame className="w-5 h-5 text-orange-500" />
-          Boosts Avulsos
+          <Crown className="w-5 h-5 text-amber-500" />
+          Vagas Mensais — {5 - availablePositions.length}/5 ocupadas
         </h2>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16">Posição</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Lance</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Região / Categoria</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Início</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Expira</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ação</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Status</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Tipo</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-32">Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-10 text-gray-400">Carregando...</td></tr>
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Carregando...</td></tr>
+              ) : (
+                [1, 2, 3, 4, 5].map(pos => {
+                  const boost = monthly.find(b => b.position === pos);
+                  return (
+                    <tr key={pos} className="border-t border-gray-50 hover:bg-gray-50/50">
+                      <td className="px-4 py-3 font-black text-amber-700">{pos}º</td>
+                      <td className="px-4 py-3 font-semibold text-gray-700">R${POSITION_BIDS[pos]}/mês</td>
+                      <td className="px-4 py-3">
+                        {boost ? (
+                          <div>
+                            <span className="font-medium text-gray-800">{boost.business.name}</span>
+                            <span className="text-[10px] text-gray-400 ml-2">{boost.business.region} · {boost.business.category}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {boost ? (
+                          <span className="text-[11px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Ativo</span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Livre</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">Mensal</td>
+                      <td className="px-4 py-3">
+                        {boost ? (
+                          <button
+                            onClick={() => handleCancel(boost.id)}
+                            className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                          >
+                            <Trash2 className="w-3 h-3 inline mr-1" />Cancelar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setShowAddMonthly(pos); setAddBusinessId(""); setBizSearch(""); }}
+                            className={`px-3 py-1.5 text-xs font-bold text-[#d97706] bg-amber-50 hover:bg-amber-100 rounded-lg ${BTN_ELEVATION}`}
+                          >
+                            <Plus className="w-3 h-3 inline mr-1" />Adicionar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-500" />
+            Boosts Avulsos Ativos
+          </h2>
+          <button
+            onClick={() => { setShowAddAvulso(true); setAddBusinessId(""); setBizSearch(""); setAddDays(7); }}
+            className={`px-4 py-2 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl ${BTN_ELEVATION}`}
+          >
+            <Plus className="w-4 h-4 inline mr-1" />Adicionar Avulso
+          </button>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Duração</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Início</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Expira em</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Dias Restantes</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Carregando...</td></tr>
               ) : avulso.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-gray-400">Nenhum boost avulso ativo.</td></tr>
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Nenhum boost avulso ativo.</td></tr>
               ) : (
                 avulso.map(b => (
                   <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-700">{b.business.name}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{b.business.region} · {b.business.category}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-gray-800">{b.business.name}</span>
+                      <span className="text-[10px] text-gray-400 ml-2">{b.business.region}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {b.startsAt && b.expiresAt
+                        ? `${Math.ceil((new Date(b.expiresAt).getTime() - new Date(b.startsAt).getTime()) / (1000 * 60 * 60 * 24))} dias`
+                        : "—"}
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{formatDate(b.startsAt)}</td>
                     <td className="px-4 py-3 text-xs text-gray-500">{formatDate(b.expiresAt)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-bold ${daysRemaining(b.expiresAt) === "Expirado" ? "text-red-500" : "text-amber-600"}`}>
+                        {daysRemaining(b.expiresAt)}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleDelete(b.id)}
@@ -261,30 +343,33 @@ export default function AdminImpulsionamento() {
       </div>
 
       {waitlist.length > 0 && (
-        <div>
+        <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-gray-400" />
-            Fila de Espera
+            <Users className="w-5 h-5 text-blue-500" />
+            Lista de Espera ({waitlist.length})
           </h2>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-left">
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Lance</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ação</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Lance Desejado</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Entrada na Fila</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {waitlist.map(b => (
-                  <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-700">{b.business.name}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{b.boostType === "monthly" ? "Mensal" : "Avulso"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">R${b.monthlyBid}</td>
+                {waitlist.map(w => (
+                  <tr key={w.id} className="border-t border-gray-50 hover:bg-gray-50/50">
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-gray-800">{w.business.name}</span>
+                      <span className="text-[10px] text-gray-400 ml-2">{w.business.region}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-semibold text-amber-700">R${w.monthlyBid}/mês</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{formatDate(w.createdAt)}</td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => handleDelete(b.id)}
+                        onClick={() => handleDelete(w.id)}
                         className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
                       >
                         <Trash2 className="w-3 h-3 inline mr-1" />Remover
@@ -298,40 +383,22 @@ export default function AdminImpulsionamento() {
         </div>
       )}
 
-      {showAdd && (
+      {showAddMonthly !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">Novo Boost</h3>
-              <button onClick={() => setShowAdd(false)} className="p-1 rounded-lg hover:bg-gray-100">
+              <h3 className="text-lg font-bold text-gray-800">
+                Adicionar Mensal — Posição {showAddMonthly}º (R${POSITION_BIDS[showAddMonthly]}/mês)
+              </h3>
+              <button onClick={() => setShowAddMonthly(null)} className="p-1 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setAddType("monthly")}
-                    disabled={availablePositions.length === 0}
-                    className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-colors ${
-                      addType === "monthly" ? "bg-[#d97706] text-white border-[#d97706]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                    } disabled:opacity-40 disabled:cursor-not-allowed ${BTN_ELEVATION}`}
-                  >
-                    <Crown className="w-4 h-4 inline mr-1" />Mensal {availablePositions.length === 0 ? "(lotado)" : ""}
-                  </button>
-                  <button
-                    onClick={() => setAddType("avulso")}
-                    className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-colors ${
-                      addType === "avulso" ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                    } ${BTN_ELEVATION}`}
-                  >
-                    <Flame className="w-4 h-4 inline mr-1" />Avulso
-                  </button>
-                </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-sm font-semibold text-amber-800">Posição {showAddMonthly}º — R${POSITION_BIDS[showAddMonthly]}/mês</p>
+                <p className="text-xs text-amber-600 mt-1">O preço é fixo para esta posição.</p>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Negócio</label>
                 <input
@@ -352,45 +419,69 @@ export default function AdminImpulsionamento() {
                   ))}
                 </select>
               </div>
-
-              {addType === "monthly" && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Lance mensal</label>
-                  <select
-                    value={addBid}
-                    onChange={e => setAddBid(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
-                  >
-                    <option value="">Selecionar valor...</option>
-                    {MONTHLY_BID_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-gray-400 mt-1">A posição será calculada automaticamente pelo valor do lance (maior lance = #1)</p>
-                </div>
-              )}
-
-              {addType === "avulso" && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Duração</label>
-                  <select
-                    value={addDays}
-                    onChange={e => setAddDays(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
-                  >
-                    {AVULSO_OPTIONS.map(o => (
-                      <option key={o.days} value={o.days}>{o.label} ({o.price})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               <button
-                onClick={handleAdd}
-                disabled={saving || !addBusinessId || (addType === "monthly" && (!addBid || Number(addBid) <= 0))}
+                onClick={() => handleAddMonthly(showAddMonthly)}
+                disabled={saving || !addBusinessId}
                 className={`w-full py-2.5 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
               >
-                {saving ? "Salvando..." : "Criar Boost"}
+                {saving ? "Salvando..." : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddAvulso && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">Novo Boost Avulso</h3>
+              <button onClick={() => setShowAddAvulso(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Negócio</label>
+                <input
+                  type="text"
+                  placeholder="Buscar negócio..."
+                  value={bizSearch}
+                  onChange={e => setBizSearch(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl mb-2"
+                />
+                <select
+                  value={addBusinessId}
+                  onChange={e => setAddBusinessId(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                >
+                  <option value="">Selecionar...</option>
+                  {availableBusinesses.slice(0, 30).map(b => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.region})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Duração</label>
+                <select
+                  value={addDays}
+                  onChange={e => setAddDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                >
+                  {AVULSO_OPTIONS.map(o => (
+                    <option key={o.days} value={o.days}>{o.label} ({o.price})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-500">Início: <span className="font-semibold text-gray-700">Hoje</span></p>
+              </div>
+              <button
+                onClick={handleAddAvulso}
+                disabled={saving || !addBusinessId}
+                className={`w-full py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
+              >
+                {saving ? "Salvando..." : "Criar Boost Avulso"}
               </button>
             </div>
           </div>

@@ -64,6 +64,9 @@ Full-stack local business directory for Londrina, Brazil.
 - `/lojista/fotos` — Logo, banner, gallery uploads (plan limits enforced)
 - `/lojista/produtos` — Product catalog CRUD
 - `/lojista/metricas` — Click analytics + 30-day chart
+- `/lojista/avaliacoes` — Review management (view, respond, copy review link)
+- `/lojista/boost` — Boost/impulsionamento info page (position table, avulso options, WhatsApp CTA)
+- `/lojista/plano` — Plan management
 - `/lojista/senha` — Password change
 
 **Key files**:
@@ -113,6 +116,13 @@ Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/
 - `home_banners` — rotating hero banners (max 2 active, CRUD admin)
 - `search_boosts` — boost auction system (5 monthly fixed positions by bid + avulso timed boosts). businessId UNIQUE FK, position 1-5, boostType monthly|avulso, status active|waitlist|expired
 - Uploads served at `/api/uploads/{logos,banners,photos}/` — MIME filtered (jpg/png/webp/gif only)
+
+**Boost System**:
+- Monthly: 5 positions, bids R$149(1st)/R$119(2nd)/R$99(3rd)/R$79(4th)/R$59(5th). Waitlist if position occupied.
+- Avulso: 7d=R$29, 15d=R$49, 30d=R$79. Expires automatically via hourly job.
+- Ordering: monthly boosted (position ASC) → avulso boosted (rating DESC) → premium → destaque → free
+- Expiration job: `api-server/src/lib/boost-expiration.ts` — runs on startup + every 1h, sets status='expired' for avulso boosts past expiresAt
+- API: `GET /api/lojista/boost-positions` — position availability for lojista view
 
 **DB Seed**: 10 categories, 20 businesses (real Londrina data), 20 lojista accounts, 42 products, 10 reviews
 Default lojista password: Hub@2026 (all accounts)

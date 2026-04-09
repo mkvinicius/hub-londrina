@@ -25,6 +25,7 @@ import LojistaMetricas from "@/pages/lojista/LojistaMetricas";
 import LojistaPlano from "@/pages/lojista/LojistaPlano";
 import LojistaSenha from "@/pages/lojista/LojistaSenha";
 import LojistaAvaliacoes from "@/pages/lojista/LojistaAvaliacoes";
+import LojistaBoost from "@/pages/lojista/LojistaBoost";
 import { isAuthenticated } from "@/lib/admin-api";
 import { isLojistaAuthenticated } from "@/lib/lojista-api";
 import { queryClient } from "@/lib/query-client";
@@ -67,6 +68,7 @@ function Router() {
       <Route path="/lojista/produtos">{() => <LojistaPrivateRoute component={LojistaProdutos} />}</Route>
       <Route path="/lojista/metricas">{() => <LojistaPrivateRoute component={LojistaMetricas} />}</Route>
       <Route path="/lojista/avaliacoes">{() => <LojistaPrivateRoute component={LojistaAvaliacoes} />}</Route>
+      <Route path="/lojista/boost">{() => <LojistaPrivateRoute component={LojistaBoost} />}</Route>
       <Route path="/lojista/plano">{() => <LojistaPrivateRoute component={LojistaPlano} />}</Route>
       <Route path="/lojista/senha">{() => <LojistaPrivateRoute component={LojistaSenha} />}</Route>
       <Route path="/lojista">{() => <LojistaPrivateRoute component={LojistaDashboard} />}</Route>
