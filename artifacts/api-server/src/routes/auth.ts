@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
+import { registerLimiter, cnpjLimiter } from "../middleware/rateLimiter";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -10,7 +11,7 @@ function stripCnpj(cnpj: string): string {
   return cnpj.replace(/\D/g, "");
 }
 
-router.get("/auth/validate-cnpj", async (req: Request, res: Response) => {
+router.get("/auth/validate-cnpj", cnpjLimiter, async (req: Request, res: Response) => {
   const cnpj = req.query.cnpj as string;
   if (!cnpj) {
     res.status(400).json({ valid: false, reason: "CNPJ não informado" });
@@ -53,7 +54,7 @@ router.get("/auth/validate-cnpj", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/auth/register", async (req: Request, res: Response) => {
+router.post("/auth/register", registerLimiter, async (req: Request, res: Response) => {
   const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep } = req.body;
 
   if (!name || !email || !password || !businessName || !cnpj || !phone || !categorySlug || !zone || !cep) {

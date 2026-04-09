@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { loginLimiter } from "../middleware/rateLimiter";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -148,7 +149,7 @@ router.post("/lojista/register", async (req: Request, res: Response) => {
   res.status(201).json({ token, businessId: business.id });
 });
 
-router.post("/lojista/login", async (req: Request, res: Response) => {
+router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
     res.status(400).json({ error: "Email e senha são obrigatórios" });

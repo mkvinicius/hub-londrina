@@ -2,6 +2,23 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startup-seed";
 import { startBoostExpirationJob } from "./lib/boost-expiration";
+import fs from "fs";
+import path from "path";
+
+const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+["logos", "banners", "photos"].forEach((dir) => {
+  const fullPath = path.join(UPLOADS_DIR, dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+    logger.warn(`Diretório de upload recriado: ${fullPath}`);
+    logger.warn("ATENÇÃO: uploads locais são perdidos ao reiniciar o container.");
+    logger.warn("Configure S3/R2 para produção permanente.");
+  }
+});
+
+if (process.env.NODE_ENV === "production" && !process.env.S3_BUCKET && !process.env.R2_BUCKET) {
+  logger.warn("⚠  UPLOADS LOCAIS ATIVOS em produção. Configure S3_BUCKET ou R2_BUCKET para persistência permanente.");
+}
 
 const rawPort = process.env["PORT"];
 

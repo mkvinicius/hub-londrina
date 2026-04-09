@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { reviewLimiter } from "../middleware/rateLimiter";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte } from "drizzle-orm";
@@ -296,7 +297,7 @@ router.get("/businesses/:id/reviews", async (req: Request, res: Response) => {
   res.json({ data: reviews });
 });
 
-router.post("/businesses/:id/review", async (req: Request, res: Response) => {
+router.post("/businesses/:id/review", reviewLimiter, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 

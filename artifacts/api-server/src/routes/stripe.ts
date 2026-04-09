@@ -11,7 +11,8 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_WEBHOOK_SECRET env var is required");
+if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY env var is required");
+if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for stripe routes");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" });
 
@@ -27,7 +28,7 @@ function getLojistaFromToken(req: Request): { businessId: number; email: string 
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET!) as any;
+    const payload = jwt.verify(token, JWT_SECRET) as any;
     if (payload.role !== "lojista") return null;
     return { businessId: payload.businessId, email: payload.email };
   } catch {
@@ -237,6 +238,17 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             .update(subscriptionsTable)
             .set({ status: "past_due", updatedAt: new Date() })
             .where(eq(subscriptionsTable.stripeSubscriptionId, subId));
+
+          const sub = await db.query.subscriptionsTable.findFirst({
+            where: eq(subscriptionsTable.stripeSubscriptionId, subId),
+          });
+          if (sub) {
+            await db
+              .update(businessesTable)
+              .set({ planType: "free" })
+              .where(eq(businessesTable.id, sub.businessId));
+            console.log(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId}`);
+          }
         }
         break;
       }

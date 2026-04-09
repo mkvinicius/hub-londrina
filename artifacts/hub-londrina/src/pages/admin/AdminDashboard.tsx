@@ -4,7 +4,7 @@ import { getStats } from "@/lib/admin-api";
 import {
   Store, MousePointerClick, MessageCircle, TrendingUp,
   Users, Package, DollarSign, Eye, EyeOff, MapPin,
-  Crown, Star, BarChart3, Clock
+  Crown, Star, BarChart3, Clock, AlertTriangle
 } from "lucide-react";
 
 interface Stats {
@@ -85,6 +85,19 @@ export default function AdminDashboard() {
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
         </div>
       </div>
+
+      {import.meta.env.PROD && (
+        <div className="mb-5 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">Uploads armazenados localmente</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Fotos, logos e banners ficam salvos no servidor e podem ser perdidos ao reiniciar o container.
+              Configure object storage externo (S3 ou Cloudflare R2) para garantir persistência permanente em produção.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {kpiCards.map((card) => {

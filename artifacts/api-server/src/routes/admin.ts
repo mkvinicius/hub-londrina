@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { loginLimiter } from "../middleware/rateLimiter";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne } from "drizzle-orm";
@@ -36,7 +37,7 @@ function authMiddleware(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-router.post("/admin/login", (req: Request, res: Response) => {
+router.post("/admin/login", loginLimiter, (req: Request, res: Response) => {
   const { password } = req.body;
   if (!password || password !== ADMIN_PASSWORD) {
     res.status(401).json({ error: "Senha incorreta" });

@@ -1,0 +1,235 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+Não altere copy, autenticação funcional ou fluxos existentes.
+
+## O que precisa ser feito
+
+Corrigir 4 bugs identificados na auditoria de segurança.
+Nenhuma nova feature — só correções.
+
+---
+
+### BUG 1 — JWT_SECRET com fallback hardcoded (CRÍTICO)
+
+Localizar no código qualquer trecho parecido com:
+
+```typescript
+const JWT_SECRET = process.env.JWT_SECRET || 'hub-londrina-jwt-secret';
+// ou
+jwt.sign(payload, process.env.JWT_SECRET || 'qualquer-coisa')
+// ou qualquer fallback string hardcoded para JWT
+```
+
+Corrigir para:
+
+```typescript
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+```
+
+Aplicar em TODOS os lugares onde JWT_SECRET é usado:
+- Assinatura de tokens (jwt.sign)
+- Verificação de tokens (jwt.verify)
+- Admin login
+- Lojista login
+- Middleware de autenticação
+
+O servidor deve recusar iniciar se JWT_SECRET não estiver definido.
+Não use fallback. Nunca.
+
+---
+
+### BUG 2 — invoice.payment_failed não faz downgrade
+
+Localizar o handler do webhook Stripe para o evento
+invoice.payment_failed.
+
+Atualmente ele apenas atualiza status para 'past_due'
+na tabela subscriptions mas NÃO atualiza planType no banco.
+
+Corrigir para:
+
+```typescript
+case 'invoice.payment_failed': {
+  const invoice = event.data.object as Stripe.Invoice;
+  const subId = invoice.subscription as string;
+
+  // 1. Atualizar status na tabela subscriptions
+  await db.update(subscriptions)
+    .set({ status: 'past_due', updatedAt: new Date() })
+    .where(eq(subscriptions.stripeSubscriptionId, subId));
+
+  // 2. Buscar o businessId vinculado
+  const sub = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.stripeSubscriptionId, subId)
+  });
+
+  if (sub) {
+    // 3. Fazer downgrade imediato para free
+    await db.update(businesses)
+      .set({ planType: 'free' })
+      .where(eq(businesses.id, sub.businessId));
+
+    console.log(`Downgrade por pagamento falho: businessId ${sub.businessId}`);
+  }
+  break;
+}
+```
+
+Verificar também se customer.subscription.updated trata
+corretamente o caso status='past_due' → downgrade.
+
+---
+
+### BUG 3 — Sem rate limiting nos endpoints sensíveis
+
+Instalar express-rate-limit:
+pnpm add express-rate-limit
+
+Criar middleware em api-server/src/middleware/rateLimiter.ts:
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+// Login — 5 tentativas por 15 minutos por IP
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    error: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
+    code: 'TOO_MANY_REQUESTS'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Cadastro — 3 cadastros por hora por IP
+export const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: {
+    error: 'Muitos cadastros deste IP. Tente novamente em 1 hora.',
+    code: 'TOO_MANY_REQUESTS'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Avaliações — 10 por hora por IP
+export const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: {
+    error: 'Muitas avaliações enviadas. Tente novamente em 1 hora.',
+    code: 'TOO_MANY_REQUESTS'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Validação CNPJ — 20 por hora por IP
+export const cnpjLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: {
+    error: 'Muitas consultas de CNPJ. Tente novamente em 1 hora.',
+    code: 'TOO_MANY_REQUESTS'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+```
+
+Aplicar os limiters nas rotas:
+
+```typescript
+// Admin login
+router.post('/admin/login', loginLimiter, ...)
+
+// Lojista login
+router.post('/lojista/login', loginLimiter, ...)
+
+// Cadastro público
+router.post('/auth/register', registerLimiter, ...)
+
+// Validação CNPJ
+router.get('/auth/validate-cnpj', cnpjLimiter, ...)
+
+// Envio de avaliação
+router.post('/businesses/:id/review', reviewLimiter, ...)
+```
+
+---
+
+### BUG 4 — Uploads armazenados no filesystem local
+
+Este é um problema de infraestrutura. O Replit pode reiniciar
+o container e apagar os arquivos. A solução correta é usar
+object storage externo, mas isso requer configuração de S3/R2.
+
+Por enquanto, implementar uma proteção menor: verificar se
+o diretório de uploads persiste entre restarts e adicionar
+log de aviso no startup.
+
+No server.mjs ou no início do api-server:
+
+```typescript
+import fs from 'fs';
+import path from 'path';
+
+const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
+
+// Garantir que o diretório existe
+['logos', 'banners', 'photos'].forEach(dir => {
+  const fullPath = path.join(UPLOADS_DIR, dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+    console.warn(`⚠️  Diretório de upload recriado: ${fullPath}`);
+    console.warn('⚠️  ATENÇÃO: uploads locais são perdidos ao reiniciar o container.');
+    console.warn('⚠️  Configure S3/R2 para produção permanente.');
+  }
+});
+```
+
+Adicionar também na página /admin (dashboard):
+Um banner de aviso amarelo se NODE_ENV === 'production' e
+não houver variável de ambiente S3_BUCKET ou R2_BUCKET:
+⚠️ Uploads armazenados localmente — dados podem ser perdidos.
+Configure object storage externo para produção.
+
+Não é a solução definitiva, mas avisa o operador do risco.
+
+---
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. Remover temporariamente JWT_SECRET dos Secrets do Replit
+   Reiniciar o servidor
+   → Esperado: servidor recusa iniciar com erro claro
+   → Restaurar JWT_SECRET depois
+
+3. Tentar fazer login com senha errada 6 vezes seguidas em
+   POST /api/admin/login
+   → Esperado: na 6ª tentativa retorna 429 Too Many Requests
+
+4. Tentar fazer login com senha errada 6 vezes em
+   POST /api/lojista/login
+   → Esperado: na 6ª tentativa retorna 429
+
+5. Simular invoice.payment_failed manualmente:
+   No banco, criar uma subscription com stripeSubscriptionId
+   de teste, depois chamar o handler diretamente para verificar
+   que planType muda para 'free'
+   OU verificar no código que o handler agora chama o update
+   em businesses além de subscriptions
+
+6. /admin/login e /lojista/login continuam funcionando
+   normalmente após as correções
+
+Confirmar todos os 6 testes antes de finalizar.
+Reportar especialmente o resultado do teste 2 — é o mais crítico.
