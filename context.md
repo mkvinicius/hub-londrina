@@ -165,6 +165,18 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 - Botão "Perto de mim" na página de busca com GPS
 - Parâmetros: lat, lng, radius (padrão 5km)
 
+### 3.14 Páginas de zona
+- Rotas: /norte, /sul, /leste, /oeste, /centro
+- SSR em todas as 5 rotas via server.mjs (title + meta description dinâmicos por zona)
+- Componente ZonePage com hero (cor da zona), destaques, filtro por categoria, listagem e CTA
+- Config de zonas em hub-londrina/src/lib/zones.ts (cor, bgColor, textColor, label, description)
+- GET /api/zones/:zone/stats — totalBusinesses, byCategory, topRated
+- GET /api/zones/:zone/businesses?category=&limit= — paginação + boost ordering
+- Rodapé atualizado com links diretos para todas as 5 zonas
+- Dropdown "Selecione a Região" da home inclui seção "Explorar por zona" com os 5 links
+- Ao clicar em uma zona no dropdown → navega diretamente para /zona (não vai para /busca)
+- Cores: centro=#dc2626, norte=#3d7a28, sul=#2563eb, leste=#d97706, oeste=#7c3aed
+
 ---
 
 ## 4. BANCO DE DADOS — ESTADO ATUAL
@@ -342,7 +354,7 @@ STRIPE_WEBHOOK_SECRET     — whsec_...
 [x] Gateway de pagamento (Stripe — cartão de crédito)
 [x] Tabela subscriptions (ciclo de vida da assinatura)
 [ ] Notificação pós-clique para solicitar avaliação
-[ ] Páginas de zona (/norte, /sul, /leste, /oeste, /centro)
+[x] Páginas de zona (/norte, /sul, /leste, /oeste, /centro)
 [ ] Destaque de Zona (slot pago por categoria)
 [ ] Subdomínios personalizados
 [ ] SEO Boost (schema.org avançado)
