@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   Search, MapPin, SlidersHorizontal,
-  ChevronDown, X, ChevronLeft, ChevronRight, Navigation, Loader2
+  ChevronDown, ChevronUp, X, ChevronLeft, ChevronRight, Navigation, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import { BusinessCard } from "@/components/BusinessCard";
 
 const PAGE_SIZE = 8;
 const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
+
+const BTN_ELEVATION = "transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm";
 
 export default function Busca() {
   const [, navigate] = useLocation();
@@ -31,6 +33,8 @@ export default function Busca() {
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyResults, setNearbyResults] = useState<Business[] | null>(null);
   const [nearbyError, setNearbyError] = useState("");
+  const [catOpen, setCatOpen] = useState(true);
+  const [regOpen, setRegOpen] = useState(true);
 
   const { data: searchData, isLoading } = useSearch({
     q: query || undefined,
@@ -45,13 +49,20 @@ export default function Busca() {
       setNearbyError("");
       return;
     }
+    if (!navigator.geolocation) {
+      setNearbyError("Seu navegador não suporta geolocalização.");
+      return;
+    }
     setNearbyLoading(true);
     setNearbyError("");
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
           const { latitude: lat, longitude: lng } = pos.coords;
-          const res = await fetch(`${API_BASE}/api/businesses/nearby?lat=${lat}&lng=${lng}&radius=5`);
+          const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius: "5" });
+          if (categoria) params.set("category", categoria);
+          if (region && region !== "todas") params.set("region", region);
+          const res = await fetch(`${API_BASE}/api/businesses/nearby?${params}`);
           const data = await res.json();
           setNearbyResults(data.data || []);
           setNearbyMode(true);
@@ -62,7 +73,7 @@ export default function Busca() {
         }
       },
       () => {
-        setNearbyError("Permissão de localização negada.");
+        setNearbyError("Permita o acesso à localização para usar este recurso.");
         setNearbyLoading(false);
       }
     );
@@ -95,7 +106,6 @@ export default function Busca() {
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [query, region, categoria, sort]);
 
   function handleSearch() {
@@ -112,6 +122,9 @@ export default function Busca() {
     setLocalQuery("");
     setRegion("");
     setCategoria("");
+    setNearbyMode(false);
+    setNearbyResults(null);
+    setNearbyError("");
     navigate("/busca");
   }
 
@@ -123,7 +136,6 @@ export default function Busca() {
   return (
     <Layout>
       <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors">
-        {/* Search Bar */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-5 px-4 transition-colors">
           <div className="max-w-3xl mx-auto">
             <div
@@ -193,7 +205,6 @@ export default function Busca() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6">
-          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
             <h1 className="font-bold text-xl text-[#3a2512] dark:text-gray-100">
               {isLoading ? (
@@ -212,7 +223,7 @@ export default function Busca() {
               <button
                 onClick={handleNearby}
                 disabled={nearbyLoading}
-                className={`flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl border transition-colors ${nearbyMode ? "bg-[#4CAF50] text-white border-[#4CAF50]" : "bg-white dark:bg-gray-800 text-[#3a2512] dark:text-gray-100 border-gray-200 dark:border-gray-700 hover:border-[#4CAF50] hover:text-[#4CAF50]"}`}
+                className={`flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl border ${BTN_ELEVATION} ${nearbyMode ? "bg-[#4CAF50] text-white border-[#4CAF50] shadow-md" : "bg-white dark:bg-gray-800 text-[#3a2512] dark:text-gray-100 border-gray-200 dark:border-gray-700 hover:border-[#4CAF50] hover:text-[#4CAF50]"}`}
               >
                 {nearbyLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -222,7 +233,7 @@ export default function Busca() {
                 {nearbyMode ? "Ver todos" : "Perto de mim"}
               </button>
               <button
-                className="md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 bg-white dark:bg-gray-800"
+                className={`md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 bg-white dark:bg-gray-800 ${BTN_ELEVATION}`}
                 onClick={() => setMobileFiltersOpen(true)}
               >
                 <SlidersHorizontal className="h-4 w-4" />
@@ -263,7 +274,6 @@ export default function Busca() {
           )}
 
           <div className="flex gap-6 items-start">
-            {/* Sidebar Filters */}
             <aside className={`
               w-[240px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors
               ${mobileFiltersOpen
@@ -285,71 +295,87 @@ export default function Busca() {
               )}
 
               <div className="space-y-6">
-                {/* Category */}
                 <div>
-                  <h3 className="font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between">
-                    Categoria <ChevronDown className="h-4 w-4 text-gray-400" />
-                  </h3>
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => setCategoria("")}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        !categoria ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      Todas
-                    </button>
-                    {categories.map((cat: Category) => {
-                      const Icon = getCategoryIcon(cat.icon);
-                      const colorClasses = getCategoryColorClasses(cat.color);
-                      return (
-                        <button
-                          key={cat.id}
-                          onClick={() => setCategoria(cat.slug === categoria ? "" : cat.slug)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between ${
-                            categoria === cat.slug ? "bg-[#d97706]/10 text-[#d97706] font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <Icon className={`h-4 w-4 ${colorClasses.split(" ")[1]}`} />
-                            {cat.name}
-                          </span>
-                          {cat.businessCount !== undefined && (
-                            <span className="text-xs text-gray-400">{cat.businessCount}</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Region */}
-                <div>
-                  <h3 className="font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between">
-                    Região <ChevronDown className="h-4 w-4 text-gray-400" />
-                  </h3>
-                  <div className="space-y-1">
-                    {["todas", ...dynamicRegions].map((reg) => (
+                  <button
+                    type="button"
+                    onClick={() => setCatOpen(!catOpen)}
+                    className="w-full font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between cursor-pointer hover:text-[#d97706] transition-colors"
+                  >
+                    Categoria
+                    {catOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                  </button>
+                  {catOpen && (
+                    <div className="space-y-1">
                       <button
-                        key={reg}
-                        onClick={() => setRegion(reg === "todas" ? "" : reg)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          (reg === "todas" && !region) || region === reg
-                            ? "bg-[#d97706]/10 text-[#d97706] font-bold"
-                            : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        onClick={() => setCategoria("")}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${BTN_ELEVATION} ${
+                          !categoria ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                         }`}
                       >
-                        {reg === "todas" ? "Todas" : reg}
+                        Todas
                       </button>
-                    ))}
-                  </div>
+                      {categories.map((cat: Category) => {
+                        const Icon = getCategoryIcon(cat.icon);
+                        const colorClasses = getCategoryColorClasses(cat.color);
+                        const isSelected = categoria === cat.slug;
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() => setCategoria(cat.slug === categoria ? "" : cat.slug)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${BTN_ELEVATION} flex items-center justify-between ${
+                              isSelected ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Icon className={`h-4 w-4 ${isSelected ? "text-white" : colorClasses.split(" ")[1]}`} />
+                              {cat.name}
+                            </span>
+                            {cat.businessCount !== undefined && (
+                              <span className={`text-xs ${isSelected ? "text-white/80" : "text-gray-400"}`}>{cat.businessCount}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setRegOpen(!regOpen)}
+                    className="w-full font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between cursor-pointer hover:text-[#d97706] transition-colors"
+                  >
+                    Região
+                    {regOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                  </button>
+                  {regOpen && (
+                    <div className="space-y-1">
+                      {["todas", ...dynamicRegions].map((reg) => {
+                        const isSelected = (reg === "todas" && !region) || region === reg;
+                        return (
+                          <button
+                            key={reg}
+                            onClick={() => setRegion(reg === "todas" ? "" : reg)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${BTN_ELEVATION} ${
+                              isSelected
+                                ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5"
+                                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            }`}
+                          >
+                            {reg === "todas" ? "Todas" : reg}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {(activeFiltersCount > 0 || query) && (
+              {(activeFiltersCount > 0 || query || nearbyMode) && (
                 <div className="mt-6 pt-4 border-t border-gray-100">
                   <button
-                    className="w-full border border-gray-200 text-[#3a2512] rounded-xl py-2 text-sm font-bold hover:bg-gray-50 transition-colors"
+                    className={`w-full border border-gray-200 text-[#3a2512] rounded-xl py-2 text-sm font-bold ${BTN_ELEVATION}`}
                     onClick={() => { clearFilters(); setMobileFiltersOpen(false); }}
                   >
                     Limpar filtros
@@ -360,7 +386,7 @@ export default function Busca() {
               {mobileFiltersOpen && (
                 <div className="mt-4">
                   <button
-                    className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl py-3 text-sm font-bold transition-colors"
+                    className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl py-3 text-sm font-bold ${BTN_ELEVATION}`}
                     onClick={() => { handleSearch(); setMobileFiltersOpen(false); }}
                   >
                     Aplicar Filtros
@@ -369,7 +395,6 @@ export default function Busca() {
               )}
             </aside>
 
-            {/* Results */}
             <div className="flex-1 min-w-0">
               {isLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -384,7 +409,7 @@ export default function Busca() {
                   <p className="text-gray-500 mb-6 text-sm">Tente buscar com outros termos ou remover filtros.</p>
                   <button
                     onClick={clearFilters}
-                    className="border border-gray-200 text-[#3a2512] rounded-xl px-6 py-2.5 text-sm font-bold hover:bg-gray-50 transition-colors"
+                    className={`border border-gray-200 text-[#3a2512] rounded-xl px-6 py-2.5 text-sm font-bold ${BTN_ELEVATION}`}
                   >
                     Limpar filtros
                   </button>
@@ -393,17 +418,16 @@ export default function Busca() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                     {paginated.map((biz) => (
-                      <BusinessCard key={biz.id} business={biz} />
+                      <BusinessCard key={biz.id} business={biz} showDistance={nearbyMode} />
                     ))}
                   </div>
 
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="mt-8 flex items-center justify-center gap-2">
                       <button
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-[#3a2512] hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className={`w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-[#3a2512] disabled:opacity-40 disabled:cursor-not-allowed ${BTN_ELEVATION}`}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
@@ -418,10 +442,10 @@ export default function Busca() {
                           <button
                             key={p}
                             onClick={() => setPage(p)}
-                            className={`w-9 h-9 rounded-lg text-sm font-bold transition-colors ${
+                            className={`w-9 h-9 rounded-lg text-sm font-bold ${BTN_ELEVATION} ${
                               p === page
                                 ? "bg-[#d97706] text-white shadow-sm"
-                                : "border border-gray-200 bg-white text-[#3a2512] hover:bg-gray-50"
+                                : "border border-gray-200 bg-white text-[#3a2512]"
                             }`}
                           >
                             {p}
@@ -432,7 +456,7 @@ export default function Busca() {
                       <button
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
-                        className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-[#3a2512] hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className={`w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-[#3a2512] disabled:opacity-40 disabled:cursor-not-allowed ${BTN_ELEVATION}`}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </button>

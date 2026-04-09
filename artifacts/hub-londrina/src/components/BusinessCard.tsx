@@ -6,6 +6,7 @@ import type { Business } from "@workspace/api-client-react";
 interface BusinessCardProps {
   business: Business;
   size?: "sm" | "md";
+  showDistance?: boolean;
 }
 
 function isBoosted(business: Business): boolean {
@@ -17,7 +18,7 @@ function getBemAvaliado(business: Business): boolean {
   return business.rating >= 4.7 && business.reviewsCount >= 10;
 }
 
-export function BusinessCard({ business: biz, size = "md" }: BusinessCardProps) {
+export function BusinessCard({ business: biz, size = "md", showDistance = false }: BusinessCardProps) {
   const [, navigate] = useLocation();
   const boosted = isBoosted(biz);
   const bemAvaliado = getBemAvaliado(biz);
@@ -76,7 +77,7 @@ export function BusinessCard({ business: biz, size = "md" }: BusinessCardProps) 
             <MapPin className="h-3.5 w-3.5 text-[#d97706] flex-shrink-0" />
             {biz.region}
           </div>
-          {biz.distanceKm !== undefined && (
+          {showDistance && biz.distanceKm !== undefined && (
             <span className="text-xs text-[#d97706] font-semibold">{biz.distanceKm} km de você</span>
           )}
         </div>
@@ -87,13 +88,13 @@ export function BusinessCard({ business: biz, size = "md" }: BusinessCardProps) 
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
           >
-            <Button className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl text-sm font-bold h-9 shadow-none flex items-center gap-2">
+            <Button className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl text-sm font-bold h-9 shadow-none flex items-center gap-2 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm">
               <MessageCircle className="h-4 w-4" />
               WhatsApp
             </Button>
           </a>
         ) : (
-          <Button className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl text-sm font-bold h-9 shadow-none">
+          <Button className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-xl text-sm font-bold h-9 shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm">
             Ver Perfil <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         )}

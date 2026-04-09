@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getMetrics } from "@/lib/lojista-api";
-import { Eye, MessageCircle, Phone, AlertTriangle } from "lucide-react";
+import { Eye, MessageCircle, Phone, AlertTriangle, Zap } from "lucide-react";
 
 export default function LojistaDashboard() {
   const [profile, setProfile] = useState<any>(null);
@@ -70,6 +70,37 @@ export default function LojistaDashboard() {
           );
         })}
       </div>
+
+      {profile?.boostedUntil && new Date(profile.boostedUntil) > new Date() ? (
+        <div className="bg-gradient-to-r from-amber-500 to-[#d97706] rounded-2xl p-5 mb-6 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">Impulsionamento Ativo</h3>
+              <p className="text-xs text-white/80">
+                Seu negócio está no topo da busca até{" "}
+                {new Date(profile.boostedUntil).toLocaleDateString("pt-BR")}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 mb-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Zap className="w-5 h-5 text-gray-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-gray-800">Impulsionamento</h3>
+              <p className="text-xs text-gray-500">
+                Nenhum impulsionamento ativo. Fale com o administrador para ativar.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {warnings.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">

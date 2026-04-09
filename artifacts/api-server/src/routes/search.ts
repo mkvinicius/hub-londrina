@@ -27,6 +27,19 @@ const COMPLETENESS = sql<number>`(
 const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
 const PLAIN    = "aaaaaeeeeiiiioooooiuuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
 
+const CATEGORY_SYNONYMS: Record<string, string[]> = {
+  "restaurantes": ["restaurante", "comida", "almoço", "almoco", "jantar", "refeição", "refeicao", "gastronomia", "churrascaria", "cantina", "lanchonete"],
+  "saloes": ["salao", "salão", "saloes", "salões", "cabeleireiro", "cabeleireira", "cabelo", "corte", "beleza", "barbearia", "barbeiro", "manicure"],
+  "academias": ["academia", "ginasio", "ginásio", "gym", "musculação", "musculacao", "fitness", "treino", "crossfit"],
+  "mercados": ["mercado", "supermercado", "mercearia", "hortifruti", "feira", "açougue", "acougue"],
+  "cafeterias": ["cafeteria", "cafe", "café", "coffee", "padaria", "confeitaria", "doceria", "bolo", "lanche"],
+  "pet-shops": ["pet", "petshop", "pet-shop", "veterinario", "veterinário", "veterinaria", "veterinária", "animal", "cachorro", "gato", "banho", "tosa"],
+  "farmacias": ["farmacia", "farmácia", "drogaria", "remedio", "remédio", "medicamento"],
+  "padarias": ["padaria", "pao", "pão", "confeitaria", "bolo", "panificadora"],
+  "saude": ["saude", "saúde", "clinica", "clínica", "medico", "médico", "dentista", "odonto", "consultorio", "consultório", "hospital", "fisioterapia"],
+  "servicos": ["servico", "serviço", "servicos", "serviços", "mecanica", "mecânica", "mecanico", "mecânico", "eletricista", "encanador", "pintor", "conserto"],
+};
+
 function stripAccents(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -46,24 +59,27 @@ function generateSearchVariants(term: string): string[] {
   if (t.endsWith("oes") || t.endsWith("aes")) {
     variants.add(t.slice(0, -3) + "ao");
   }
-
   if (t.endsWith("cao")) {
     variants.add(t.slice(0, -3) + "coes");
   }
   if (t.endsWith("coes")) {
     variants.add(t.slice(0, -4) + "cao");
   }
-
   if (t.endsWith("al")) {
     variants.add(t.slice(0, -2) + "ais");
   } else if (t.endsWith("ais")) {
     variants.add(t.slice(0, -3) + "al");
   }
-
   if (t.endsWith("el")) {
     variants.add(t.slice(0, -2) + "eis");
   } else if (t.endsWith("eis")) {
     variants.add(t.slice(0, -3) + "el");
+  }
+
+  for (const [slug, synonyms] of Object.entries(CATEGORY_SYNONYMS)) {
+    if (synonyms.some(syn => stripAccents(syn) === t || stripAccents(syn).includes(t) || t.includes(stripAccents(syn)))) {
+      variants.add(slug);
+    }
   }
 
   return [...variants];
@@ -71,6 +87,14 @@ function generateSearchVariants(term: string): string[] {
 
 function unaccentLike(column: any, pattern: string) {
   return sql`translate(lower(${column}), ${ACCENTED}, ${PLAIN}) like ${pattern}`;
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 router.get("/search", async (req, res) => {
@@ -114,7 +138,7 @@ router.get("/search", async (req, res) => {
 
   const where = and(...conditions);
 
-  let relevanceScore = sql<number>`0`;
+  let relevanceScore = sql<number>`0::int`;
   if (q) {
     const qNorm = stripAccents(q.toLowerCase());
     relevanceScore = sql<number>`(
@@ -141,7 +165,12 @@ router.get("/search", async (req, res) => {
     db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(where),
   ]);
 
-  res.json({ data, total: countResult[0]?.count ?? 0 });
+  const now = new Date();
+  const boosted = data.filter((b: any) => b.boostedUntil && new Date(b.boostedUntil) > now);
+  const rest = data.filter((b: any) => !b.boostedUntil || new Date(b.boostedUntil) <= now);
+  const finalData = [...shuffleArray(boosted), ...rest];
+
+  res.json({ data: finalData, total: countResult[0]?.count ?? 0 });
 });
 
 export default router;

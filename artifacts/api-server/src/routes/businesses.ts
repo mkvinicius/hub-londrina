@@ -52,12 +52,32 @@ router.get("/businesses", async (req: Request, res: Response) => {
   if (q) {
     const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
     const PLAIN    = "aaaaaeeeeiiiioooooiuuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
-    const qNorm = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    const variants = [qNorm];
-    if (qNorm.endsWith("s")) variants.push(qNorm.slice(0, -1));
-    else variants.push(qNorm + "s");
-    if (qNorm.endsWith("ao")) { variants.push(qNorm.slice(0, -2) + "oes"); variants.push(qNorm.slice(0, -2) + "aes"); }
-    if (qNorm.endsWith("oes") || qNorm.endsWith("aes")) variants.push(qNorm.slice(0, -3) + "ao");
+    const CATEGORY_SYNONYMS: Record<string, string[]> = {
+      "restaurantes": ["restaurante", "comida", "almoco", "jantar", "refeicao", "gastronomia", "churrascaria", "cantina", "lanchonete"],
+      "saloes": ["salao", "cabeleireiro", "cabeleireira", "cabelo", "corte", "beleza", "barbearia", "barbeiro", "manicure"],
+      "academias": ["academia", "ginasio", "gym", "musculacao", "fitness", "treino", "crossfit"],
+      "mercados": ["mercado", "supermercado", "mercearia", "hortifruti", "feira", "acougue"],
+      "cafeterias": ["cafeteria", "cafe", "coffee", "padaria", "confeitaria", "doceria", "bolo", "lanche"],
+      "pet-shops": ["pet", "petshop", "veterinario", "veterinaria", "animal", "cachorro", "gato", "banho", "tosa"],
+      "farmacias": ["farmacia", "drogaria", "remedio", "medicamento"],
+      "padarias": ["padaria", "pao", "confeitaria", "bolo", "panificadora"],
+      "saude": ["saude", "clinica", "medico", "dentista", "odonto", "consultorio", "hospital", "fisioterapia"],
+      "servicos": ["servico", "mecanica", "mecanico", "eletricista", "encanador", "pintor", "conserto"],
+    };
+
+    function strip(s: string) { return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
+    const qNorm = strip(q);
+    const variants = new Set([qNorm]);
+    if (qNorm.endsWith("s")) variants.add(qNorm.slice(0, -1));
+    else variants.add(qNorm + "s");
+    if (qNorm.endsWith("ao")) { variants.add(qNorm.slice(0, -2) + "oes"); variants.add(qNorm.slice(0, -2) + "aes"); }
+    if (qNorm.endsWith("oes") || qNorm.endsWith("aes")) variants.add(qNorm.slice(0, -3) + "ao");
+
+    for (const [slug, synonyms] of Object.entries(CATEGORY_SYNONYMS)) {
+      if (synonyms.some(syn => strip(syn) === qNorm || strip(syn).includes(qNorm) || qNorm.includes(strip(syn)))) {
+        variants.add(slug);
+      }
+    }
 
     const variantConditions: any[] = [];
     for (const v of variants) {
@@ -90,12 +110,18 @@ router.get("/businesses", async (req: Request, res: Response) => {
     db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(where),
   ]);
 
-  res.json({ data, total: countResult[0]?.count ?? 0 });
+  const now = new Date();
+  const boosted = data.filter((b: any) => b.boostedUntil && new Date(b.boostedUntil) > now);
+  const rest = data.filter((b: any) => !b.boostedUntil || new Date(b.boostedUntil) <= now);
+  for (let i = boosted.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [boosted[i], boosted[j]] = [boosted[j], boosted[i]]; }
+
+  res.json({ data: [...boosted, ...rest], total: countResult[0]?.count ?? 0 });
 });
 
 router.get("/businesses/nearby", async (req: Request, res: Response) => {
   const lat = parseFloat(req.query.lat as string);
   const lng = parseFloat(req.query.lng as string);
+  const radius = parseFloat(req.query.radius as string) || 5;
   const category = req.query.category as string | undefined;
   const region = req.query.region as string | undefined;
 
@@ -118,18 +144,30 @@ router.get("/businesses/nearby", async (req: Request, res: Response) => {
     )
   )`;
 
+  conditions.push(sql`(
+    6371 * acos(
+      cos(radians(${lat})) *
+      cos(radians(${businessesTable.lat}::float)) *
+      cos(radians(${businessesTable.lng}::float) - radians(${lng})) +
+      sin(radians(${lat})) *
+      sin(radians(${businessesTable.lat}::float))
+    )
+  ) <= ${radius}`);
+
   const data = await db
     .select({ business: businessesTable, distanceKm: haversine })
     .from(businessesTable)
     .where(and(...conditions))
-    .orderBy(asc(BOOST_ORDER), asc(PLAN_ORDER), asc(haversine));
+    .orderBy(asc(haversine));
+
+  const result = data.map(r => ({
+    ...r.business,
+    distanceKm: Math.round((r.distanceKm ?? 0) * 10) / 10,
+  }));
 
   res.json({
-    data: data.map(r => ({
-      ...r.business,
-      distanceKm: Math.round((r.distanceKm ?? 0) * 10) / 10,
-    })),
-    total: data.length,
+    data: result,
+    total: result.length,
   });
 });
 

@@ -1,0 +1,186 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+Corrigir 6 problemas na página de busca e implementar
+o motor de busca com relevância paga.
+
+---
+
+### PROBLEMA 1 — Botão "Perto de mim" não funciona
+
+O botão existe mas ao clicar não retorna resultados
+e o botão "Limpar filtros" não reseta o estado de proximidade.
+
+Correções:
+- Quando usuário clica "Perto de mim", solicitar
+  geolocalização via navigator.geolocation.getCurrentPosition()
+- Se aceitar, chamar GET /api/businesses com parâmetros:
+  lat={latitude}&lng={longitude}&radius=5
+- Backend: adicionar suporte a esses parâmetros em
+  GET /api/businesses
+  → filtrar negócios onde distância(lat,lng, business.lat, business.lng) ≤ radius km
+  → usar fórmula de Haversine
+  → ordenar por distância crescente (mais próximo primeiro)
+  → retornar campo "distanceKm" em cada negócio
+- Frontend: exibir "X km de você" em cada card quando
+  busca por proximidade estiver ativa
+- Botão "Limpar filtros" deve resetar lat/lng/radius
+  e refazer a busca sem esses parâmetros
+- Se usuário negar geolocalização, exibir mensagem:
+  "Permita o acesso à localização para usar este recurso"
+
+---
+
+### PROBLEMA 2 — Dropdown de regiões não abre
+
+O filtro de região no menu lateral tem uma setinha
+mas não responde ao clique.
+
+Correção:
+- Verificar o componente de filtro de região
+- Garantir que o toggle do dropdown está vinculado
+  ao evento de clique correto
+- Testar que ao clicar abre/fecha a lista de regiões
+- Ao selecionar uma região, filtrar os resultados
+
+---
+
+### PROBLEMA 3 — Botões sem efeito visual de elevação
+
+Os botões brancos da busca não dão feedback visual
+ao hover e ao clique.
+
+Aplicar em TODOS os botões da página de busca:
+- Hover: sombra sutil + leve translação para cima
+  (transform: translateY(-1px) + box-shadow)
+- Active/clique: translação para baixo
+  (transform: translateY(1px), sombra menor)
+- Transition suave: transition: all 0.15s ease
+
+Exemplo de classes Tailwind:
+  hover:-translate-y-0.5 hover:shadow-md
+  active:translate-y-0 active:shadow-sm
+  transition-all duration-150
+
+Aplicar em:
+- Botão "Buscar"
+- Botão "Perto de mim"
+- Botão "Limpar filtros"
+- Botões de ação nos cards de negócio (WhatsApp, ver perfil)
+
+---
+
+### PROBLEMA 4 — Categoria selecionada sem feedback visual
+
+Quando o usuário clica em uma categoria para filtrar,
+o botão não dá sensação clara de estar selecionado.
+
+Correção:
+- Estado selecionado: fundo laranja (#d97706),
+  texto branco, sombra de elevação
+  (bg-amber-600 text-white shadow-md -translate-y-0.5)
+- Estado normal: fundo branco, borda cinza
+- Transição suave entre os estados
+- Aplicar o mesmo padrão nos filtros de região
+  quando uma região estiver selecionada
+
+---
+
+### PROBLEMA 5 — Motor de busca exato demais
+
+Buscar "restaurante" não retorna negócios da categoria
+Restaurantes. A busca precisa ser mais inteligente.
+
+Correções no backend (GET /api/businesses e /api/search):
+
+1. Busca case-insensitive e sem acento:
+   - Normalizar o termo buscado (remover acentos, lowercase)
+   - Comparar contra: name, description, tags, categorySlug,
+     neighborhood, region
+
+2. Busca parcial:
+   - "pizza" deve retornar "Pizzaria do Rei" e negócios
+     com tag "pizza"
+   - Usar ILIKE no PostgreSQL:
+     WHERE name ILIKE '%pizza%'
+     OR description ILIKE '%pizza%'
+     OR tags::text ILIKE '%pizza%'
+     OR categorySlug ILIKE '%pizza%'
+
+3. Busca por sinônimos de categoria:
+   - "restaurante" → busca na categorySlug "restaurantes"
+   - "salão" ou "cabeleireiro" → categorySlug "saloes"
+   - "academia" ou "ginásio" → categorySlug "academias"
+   - "mercado" ou "supermercado" → categorySlug "mercados"
+   - "café" ou "cafeteria" → categorySlug "cafeterias"
+   - "pet" ou "veterinário" ou "veterinaria" → categorySlug "pet-shops"
+   - "farmácia" ou "farmacia" ou "drogaria" → categorySlug "farmacias"
+   - "padaria" ou "pão" ou "pao" → categorySlug "padarias"
+   - "saúde" ou "saude" ou "clínica" ou "clinica" → categorySlug "saude"
+   - "serviço" ou "servico" ou "mecânica" ou "mecanica" → categorySlug "servicos"
+
+4. Busca na home (barra de pesquisa principal):
+   - Deve usar as mesmas regras acima
+   - Ao submeter a busca na home, redirecionar para
+     /busca?q={termo} com os resultados aplicados
+
+---
+
+### PROBLEMA 6 — Relevância paga na busca
+
+Implementar o sistema de impulsionamento que afeta
+a posição na busca.
+
+#### Backend — campo novo no banco
+Adicionar em businesses via migration Drizzle:
+- boostedUntil: timestamp nullable
+  (data até quando o negócio está impulsionado)
+
+#### Ordenação da busca (aplicar nesta ordem exata):
+1. Negócios com boostedUntil > NOW() — embaralhados
+   aleatoriamente entre si (cada request tem ordem diferente)
+2. Plano premium — ordenados por rating DESC
+3. Plano destaque — ordenados por rating DESC
+4. Plano free — ordenados por rating DESC
+
+#### Como embaralhar os impulsionados:
+No SQL, usar ORDER BY RANDOM() apenas para os
+impulsionados, depois concatenar com o resto ordenado.
+
+Ou em JavaScript após a query:
+const boosted = results.filter(b => b.isBoosted);
+const rest = results.filter(b => !b.isBoosted);
+const shuffledBoosted = boosted.sort(() => Math.random() - 0.5);
+return [...shuffledBoosted, ...rest];
+
+#### No painel admin:
+Adicionar campo "Impulsionar até" na gestão de cada negócio:
+- Input de data: o admin define até quando o negócio
+  fica impulsionado
+- PATCH /api/admin/businesses/:id aceita { boostedUntil }
+- Na tabela de negócios do admin, mostrar badge "BOOST"
+  em vermelho para negócios com boostedUntil > agora
+
+#### No painel do lojista (Premium):
+- Card informativo mostrando se há boost ativo e até quando
+- Por ora sem self-service de compra — o admin ativa manualmente
+  (pagamento será implementado depois)
+
+---
+
+## Restrições
+- Não alterar SSR da home e do /negocio/:id
+- Não alterar autenticação do admin ou do lojista
+- Não remover campos existentes do banco
+- Não alterar a copy da landing page
+- Manter o padrão visual laranja/marrom (#d97706 / #6F4E37)
+  já existente na plataforma
+
+## Ao finalizar, execute os 4 testes da seção 9 do CONTEXT.md
+e confirme os resultados. Teste também:
+5. Buscar "restaurante" na página de busca — deve retornar resultados
+6. Buscar "pizza" — deve retornar negócios com essa tag
+7. Clicar "Perto de mim" — deve pedir geolocalização
+8. Selecionar uma categoria — deve ficar visualmente destacada
