@@ -123,8 +123,10 @@ router.get("/businesses", async (req: Request, res: Response) => {
     getActiveBoosts(),
   ]);
 
+  const now = Date.now();
   const monthlyBoosted: any[] = [];
   const avulsoBoosted: any[] = [];
+  const directBoosted: any[] = [];
   const premium: any[] = [];
   const destaque: any[] = [];
   const free: any[] = [];
@@ -147,6 +149,8 @@ router.get("/businesses", async (req: Request, res: Response) => {
       } else {
         avulsoBoosted.push(enriched);
       }
+    } else if (biz.boostedUntil && new Date(biz.boostedUntil).getTime() > now) {
+      directBoosted.push({ ...biz, boostPosition: null, boostInfo: null, _boostBadge: "Impulsionado" });
     } else if (biz.planType === "premium") {
       premium.push({ ...biz, boostPosition: null, boostInfo: null });
     } else if (biz.planType === "destaque") {
@@ -158,6 +162,7 @@ router.get("/businesses", async (req: Request, res: Response) => {
 
   monthlyBoosted.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
   avulsoBoosted.sort((a: any, b: any) => (b.rating ?? 0) - (a.rating ?? 0));
+  directBoosted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   premium.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   destaque.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   free.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
@@ -165,6 +170,7 @@ router.get("/businesses", async (req: Request, res: Response) => {
   const buckets = [
     { items: monthlyBoosted, prefix: "boost_monthly" },
     { items: avulsoBoosted, prefix: "boost_avulso" },
+    { items: directBoosted, prefix: "boost_direto" },
     { items: premium, prefix: "premium" },
     { items: destaque, prefix: "destaque" },
     { items: free, prefix: "free" },

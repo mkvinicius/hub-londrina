@@ -8,6 +8,7 @@ import adminRouter from "./admin";
 import lojistaRouter from "./lojista";
 import authRouter from "./auth";
 import stripeRouter from "./stripe";
+import zonesRouter from "./zones";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(adminRouter);
 router.use(lojistaRouter);
 router.use(authRouter);
 router.use(stripeRouter);
+router.use(zonesRouter);
 
 export default router;

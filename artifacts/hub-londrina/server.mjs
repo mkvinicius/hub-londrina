@@ -128,6 +128,42 @@ async function handler(req, res) {
     return;
   }
 
+  // ── SSR: zone pages /norte, /sul, /leste, /oeste, /centro ─────
+  const ZONES = ["norte", "sul", "leste", "oeste", "centro"];
+  const ZONE_LABELS = { norte: "Zona Norte", sul: "Zona Sul", leste: "Zona Leste", oeste: "Zona Oeste", centro: "Centro" };
+  const zoneMatch = ZONES.find(z => pathname === `/${z}`);
+  if (zoneMatch) {
+    try {
+      const render = await getRender();
+      const [stats, businesses] = await Promise.all([
+        safeFetch(`${API_BASE}/api/zones/${zoneMatch}/stats`),
+        safeFetch(`${API_BASE}/api/zones/${zoneMatch}/businesses?limit=12`),
+      ]);
+      const extraQueries = [];
+      if (stats) extraQueries.push({ key: [`/api/zones/${zoneMatch}/stats`], data: stats });
+      if (businesses) extraQueries.push({ key: [`/api/zones/${zoneMatch}/businesses`, null, 1], data: businesses });
+      const appHtml = render(pathname, undefined, extraQueries);
+      const zoneLabel = ZONE_LABELS[zoneMatch];
+      const hydrationScript = `<script>window.__SSR_QUERIES__=${JSON.stringify(extraQueries).replace(/</g, "\\u003c")}</script>`;
+      const html = template
+        .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
+        .replace("<title>Hub Londrina — Negócio Local</title>", `<title>${zoneLabel} Londrina — Negócios Locais | Hub Londrina</title>`)
+        .replace(
+          `content="Feito por londrinense, para londrinense. Encontre restaurantes, salões, clínicas e serviços locais em Londrina, PR."`,
+          `content="Encontre os melhores negócios da ${zoneLabel} de Londrina. Restaurantes, salões, academias e muito mais perto de você."`
+        )
+        .replace("</head>", `${hydrationScript}\n</head>`);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+      return;
+    } catch (e) {
+      console.error(`[SSR /${zoneMatch} error]`, e.message);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(template);
+      return;
+    }
+  }
+
   // ── SPA-only routes (no SSR data fetch) ───────────────────────
   if (pathname.startsWith("/admin") || pathname.startsWith("/lojista")) {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });

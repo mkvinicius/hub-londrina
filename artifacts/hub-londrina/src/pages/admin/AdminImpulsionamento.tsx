@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -80,8 +80,12 @@ export default function AdminImpulsionamento() {
 
   const [showAddMonthly, setShowAddMonthly] = useState<number | null>(null);
   const [showAddAvulso, setShowAddAvulso] = useState(false);
+  const [showAddDirect, setShowAddDirect] = useState(false);
   const [addBusinessId, setAddBusinessId] = useState<number | "">("");
   const [addDays, setAddDays] = useState(7);
+  const [directDays, setDirectDays] = useState(7);
+  const [directBizId, setDirectBizId] = useState<number | "">("");
+  const [directBizSearch, setDirectBizSearch] = useState("");
   const [bizSearch, setBizSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -185,6 +189,41 @@ export default function AdminImpulsionamento() {
       fetchData();
     } catch (e: any) {
       alert(e.message || "Erro ao remover");
+    }
+  }
+
+  const now = Date.now();
+  const directActiveBoosted = businesses.filter(b => (b as any).boostedUntil && new Date((b as any).boostedUntil).getTime() > now);
+  const directAvailable = businesses.filter(b =>
+    !(b as any).boostedUntil || new Date((b as any).boostedUntil).getTime() <= now
+  ).filter(b => !directBizSearch || b.name.toLowerCase().includes(directBizSearch.toLowerCase()));
+
+  async function handleAddDirect() {
+    if (!directBizId || !directDays) return;
+    setSaving(true);
+    try {
+      await adminFetch(`/api/admin/businesses/${directBizId}/boost`, {
+        method: "POST",
+        body: JSON.stringify({ days: directDays }),
+      });
+      setShowAddDirect(false);
+      setDirectBizId("");
+      setDirectBizSearch("");
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao criar boost direto");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemoveDirect(bizId: number) {
+    if (!confirm("Remover boost direto deste negócio?")) return;
+    try {
+      await adminFetch(`/api/admin/businesses/${bizId}/boost`, { method: "DELETE" });
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao remover boost direto");
     }
   }
 
@@ -487,6 +526,130 @@ export default function AdminImpulsionamento() {
           </div>
         </div>
       )}
+
+      {/* ── BOOST DIRETO (boostedUntil) ─────────────────────── */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <Rocket className="w-5 h-5 text-purple-500" />
+            Boost Direto — Impulsionamento Manual
+          </h2>
+          <button
+            onClick={() => setShowAddDirect(v => !v)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl bg-purple-600 text-white hover:bg-purple-700 ${BTN_ELEVATION}`}
+          >
+            <Plus className="w-4 h-4" />
+            Adicionar
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Impulsione qualquer negócio por um período determinado — aparece acima de Premium e Destaque na listagem.
+        </p>
+
+        {showAddDirect && (
+          <div className="bg-white rounded-2xl border border-purple-100 shadow-sm p-5 mb-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                <Rocket className="w-4 h-4 text-purple-500" />
+                Novo Boost Direto
+              </h3>
+              <button onClick={() => setShowAddDirect(false)} className="text-gray-400 hover:text-gray-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Buscar negócio</label>
+                <input
+                  type="text"
+                  placeholder="Nome..."
+                  value={directBizSearch}
+                  onChange={e => setDirectBizSearch(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl mb-2"
+                />
+                <select
+                  value={directBizId}
+                  onChange={e => setDirectBizId(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                >
+                  <option value="">Selecionar negócio...</option>
+                  {directAvailable.slice(0, 40).map(b => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.region})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Duração</label>
+                <select
+                  value={directDays}
+                  onChange={e => setDirectDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                >
+                  <option value={7}>7 dias</option>
+                  <option value={14}>14 dias</option>
+                  <option value={30}>30 dias</option>
+                  <option value={60}>60 dias</option>
+                  <option value={90}>90 dias</option>
+                </select>
+              </div>
+              <button
+                onClick={handleAddDirect}
+                disabled={saving || !directBizId}
+                className={`w-full py-2.5 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
+              >
+                {saving ? "Salvando..." : "Aplicar Boost Direto"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-32">Expira</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Restante</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="text-center py-10 text-gray-400">Carregando...</td></tr>
+              ) : directActiveBoosted.length === 0 ? (
+                <tr><td colSpan={4} className="text-center py-10 text-gray-400">Nenhum boost direto ativo.</td></tr>
+              ) : (
+                directActiveBoosted.map(b => (
+                  <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-gray-800">{b.name}</span>
+                      <span className="text-gray-400 ml-2 text-xs">{b.region}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {formatDate((b as any).boostedUntil)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                        <Clock className="w-3 h-3" />
+                        {daysRemaining((b as any).boostedUntil)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleRemoveDirect(b.id)}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remover boost"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </AdminLayout>
   );
 }

@@ -169,8 +169,10 @@ router.get("/search", async (req, res) => {
     getActiveBoosts(),
   ]);
 
+  const now = Date.now();
   const monthlyBoosted: any[] = [];
   const avulsoBoosted: any[] = [];
+  const directBoosted: any[] = [];
   const premium: any[] = [];
   const destaque: any[] = [];
   const free: any[] = [];
@@ -190,6 +192,8 @@ router.get("/search", async (req, res) => {
       } else {
         avulsoBoosted.push(enriched);
       }
+    } else if (biz.boostedUntil && new Date(biz.boostedUntil).getTime() > now) {
+      directBoosted.push({ ...biz, boostInfo: null, _boostBadge: "Impulsionado" });
     } else if (biz.planType === "premium") {
       premium.push({ ...biz, boostInfo: null });
     } else if (biz.planType === "destaque") {
@@ -201,11 +205,12 @@ router.get("/search", async (req, res) => {
 
   monthlyBoosted.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
   avulsoBoosted.sort((a: any, b: any) => (b.rating ?? 0) - (a.rating ?? 0));
+  directBoosted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   premium.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   destaque.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   free.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 
-  res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 });
+  res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...directBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 });
 });
 
 export default router;

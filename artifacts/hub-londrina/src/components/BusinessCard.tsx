@@ -56,6 +56,9 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
           {(biz as any).boostInfo?.isActive && (
             <span className="text-xs text-gray-400 font-normal ml-auto">Patrocinado</span>
           )}
+          {!(biz as any).boostInfo?.isActive && (biz as any)._boostBadge === "Impulsionado" && (
+            <span className="text-xs text-purple-500 font-semibold ml-auto">Impulsionado</span>
+          )}
           {bemAvaliado && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
               <ThumbsUp className="h-2.5 w-2.5" />

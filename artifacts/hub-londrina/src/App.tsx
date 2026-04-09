@@ -27,6 +27,7 @@ import LojistaPlano from "@/pages/lojista/LojistaPlano";
 import LojistaSenha from "@/pages/lojista/LojistaSenha";
 import LojistaAvaliacoes from "@/pages/lojista/LojistaAvaliacoes";
 import LojistaBoost from "@/pages/lojista/LojistaBoost";
+import ZonePage from "@/pages/zona";
 import { isAuthenticated } from "@/lib/admin-api";
 import { isLojistaAuthenticated } from "@/lib/lojista-api";
 import { queryClient } from "@/lib/query-client";
@@ -56,6 +57,11 @@ function Router() {
       <Route path="/negocio/:id" component={Negocio} />
       <Route path="/anuncie" component={Anuncie} />
       <Route path="/cadastro" component={Cadastro} />
+      <Route path="/norte">{() => <ZonePage zone="norte" />}</Route>
+      <Route path="/sul">{() => <ZonePage zone="sul" />}</Route>
+      <Route path="/leste">{() => <ZonePage zone="leste" />}</Route>
+      <Route path="/oeste">{() => <ZonePage zone="oeste" />}</Route>
+      <Route path="/centro">{() => <ZonePage zone="centro" />}</Route>
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/negocios">{() => <PrivateRoute component={AdminNegocios} />}</Route>
       <Route path="/admin/lojistas">{() => <PrivateRoute component={AdminLojistas} />}</Route>

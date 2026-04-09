@@ -1,0 +1,212 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+Criar as 5 páginas de zona: /norte, /sul, /leste, /oeste, /centro
+Cada zona tem identidade visual própria e exibe os negócios daquela zona.
+
+---
+
+## 1. BACKEND — rotas de zona
+
+### GET /api/zones/:zone/stats
+Parâmetros: zone = norte | sul | leste | oeste | centro
+
+Retorna:
+{
+  zone: string,
+  label: string,        // "Zona Norte", "Zona Sul", etc
+  color: string,        // cor hex da zona
+  totalBusinesses: number,
+  byCategory: [
+    { slug: string, name: string, count: number }
+  ],  // só categorias com pelo menos 1 negócio na zona
+  topRated: [...]       // top 4 negócios da zona por rating
+}
+
+### GET /api/zones/:zone/businesses
+Query params: category (slug), page (default 1), limit (default 12)
+
+Filtra:
+WHERE (zone = :zone OR :zone = ANY(extraZones))
+  AND status = 'active'
+  AND isVisible = true
+
+Mesma ordenação hierárquica de /api/businesses:
+boost ativo > premium > destaque > free, depois por rating
+
+Retorna: { data: [...], total, page, limit }
+
+---
+
+## 2. CONFIGURAÇÃO DAS ZONAS
+
+Criar arquivo em hub-londrina/src/lib/zones.ts:
+```typescript
+export const zoneConfig = {
+  norte: {
+    label: 'Zona Norte',
+    color: '#3d7a28',
+    bgColor: '#f0fdf4',
+    textColor: '#14532d',
+    description: 'Negócios da Zona Norte de Londrina',
+    slug: 'norte',
+  },
+  sul: {
+    label: 'Zona Sul',
+    color: '#2563eb',
+    bgColor: '#eff6ff',
+    textColor: '#1e3a8a',
+    description: 'Negócios da Zona Sul de Londrina',
+    slug: 'sul',
+  },
+  leste: {
+    label: 'Zona Leste',
+    color: '#d97706',
+    bgColor: '#fffbeb',
+    textColor: '#92400e',
+    description: 'Negócios da Zona Leste de Londrina',
+    slug: 'leste',
+  },
+  oeste: {
+    label: 'Zona Oeste',
+    color: '#7c3aed',
+    bgColor: '#f5f3ff',
+    textColor: '#4c1d95',
+    description: 'Negócios da Zona Oeste de Londrina',
+    slug: 'oeste',
+  },
+  centro: {
+    label: 'Centro',
+    color: '#dc2626',
+    bgColor: '#fef2f2',
+    textColor: '#7f1d1d',
+    description: 'Negócios do Centro de Londrina',
+    slug: 'centro',
+  },
+} as const;
+
+export type ZoneSlug = keyof typeof zoneConfig;
+```
+
+---
+
+## 3. FRONTEND — componente ZonePage
+
+Criar hub-londrina/src/pages/zona.tsx
+
+Estrutura da página:
+
+### SEÇÃO 1 — Hero da zona
+Fundo sólido com a bgColor da zona.
+Altura: 280px.
+
+Conteúdo centralizado:
+- Badge pequeno: "Londrina, PR"
+- Título grande: "Zona Norte" (com a color da zona)
+- Subtítulo: "X negócios verificados nesta região"
+- Barra de busca inline filtrada pela zona:
+  Input de texto + botão Buscar (com a cor da zona)
+
+### SEÇÃO 2 — Destaques da zona
+Título: "Destaques da [Zona]"
+Subtítulo: "Os mais bem avaliados da região"
+
+Grid de até 4 cards usando o componente BusinessCard existente.
+Buscar os top 4 por: plano (premium primeiro) + rating.
+Se a zona tiver menos de 4 negócios: mostrar quantos tiver.
+Se a zona não tiver nenhum Premium: mostrar os melhores Destaque.
+
+### SEÇÃO 3 — Categorias com negócios na zona
+Título: "Explore por categoria"
+Mostrar apenas categorias que têm pelo menos 1 negócio na zona.
+Usar o mesmo componente de categoria da home (grid de ícones).
+Ao clicar numa categoria: filtra a seção 4.
+
+### SEÇÃO 4 — Todos os negócios da zona
+Título: "Todos os negócios"
+Lista com filtro por categoria (estado local).
+Usar o componente BusinessCard existente.
+Paginação simples: botão "Ver mais" carrega mais 12.
+
+### SEÇÃO 5 — CTA para lojistas
+Fundo com a color da zona.
+Texto: "Seu negócio é da [Zona Norte]? Apareça aqui."
+Botão: "Cadastrar meu negócio — é grátis" → /cadastro
+
+---
+
+## 4. ROTAS NO App.tsx
+
+Adicionar no App.tsx com Wouter:
+```tsx
+import ZonePage from './pages/zona';
+
+// Dentro do Switch:
+<Route path="/norte"  component={() => <ZonePage zone="norte" />} />
+<Route path="/sul"    component={() => <ZonePage zone="sul" />} />
+<Route path="/leste"  component={() => <ZonePage zone="leste" />} />
+<Route path="/oeste"  component={() => <ZonePage zone="oeste" />} />
+<Route path="/centro" component={() => <ZonePage zone="centro" />} />
+```
+
+---
+
+## 5. SSR PARA PÁGINAS DE ZONA
+
+No server.mjs, adicionar handlers para /norte, /sul, /leste, /oeste, /centro:
+```javascript
+const zones = ['norte', 'sul', 'leste', 'oeste', 'centro'];
+
+for (const zone of zones) {
+  app.get(`/${zone}`, async (req, res) => {
+    try {
+      const zoneLabels = {
+        norte: 'Zona Norte', sul: 'Zona Sul', leste: 'Zona Leste',
+        oeste: 'Zona Oeste', centro: 'Centro'
+      };
+
+      // Buscar dados da zona
+      const [statsRes, businessesRes] = await Promise.all([
+        fetch(`http://localhost:${API_PORT}/api/zones/${zone}/stats`),
+        fetch(`http://localhost:${API_PORT}/api/zones/${zone}/businesses?limit=12`)
+      ]);
+
+      const stats = await statsRes.json();
+      const businesses = await businessesRes.json();
+
+      const ssrQueries = [
+        { key: [`/api/zones/${zone}/stats`], data: stats },
+        { key: [`/api/zones/${zone}/businesses`], data: businesses },
+      ];
+
+      const appHtml = render(`/${zone}`, ssrQueries);
+
+      const html = template
+        .replace('<!--ssr-outlet-->', appHtml)
+        .replace(
+          '</head>',
+          `<script>window.__SSR_QUERIES__=${JSON.stringify(ssrQueries)}</script>
+           <title>${zoneLabels[zone]} Londrina — Negócios Locais | Hub Londrina</title>
+           <meta name="description" content="Encontre os melhores negócios da ${zoneLabels[zone]} de Londrina. Restaurantes, salões, academias e muito mais perto de você." />
+           </head>`
+        );
+
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+    } catch (e) {
+      console.error(e);
+      // Fallback para SPA
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+    }
+  });
+}
+```
+
+---
+
+## 6. NAVEGAÇÃO — links para zonas
+
+### No rodapé (footer)
+A seção "Regiões" atualmente tem links para /busca?regiao=...
+Substituir por links diretos para as páginas de zona:

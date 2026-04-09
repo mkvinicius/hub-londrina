@@ -174,11 +174,13 @@ export function Layout({ children }: LayoutProps) {
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Regiões</h4>
+                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Zonas</h4>
                 <ul className="space-y-2">
-                  <li><Link href="/busca?regiao=Centro" className="text-white/70 hover:text-white transition-colors">Centro</Link></li>
-                  <li><Link href="/busca?regiao=Gleba+Palhano" className="text-white/70 hover:text-white transition-colors">Gleba Palhano</Link></li>
-                  <li><Link href="/busca?regiao=Zona+Norte" className="text-white/70 hover:text-white transition-colors">Zona Norte</Link></li>
+                  <li><Link href="/centro" className="text-white/70 hover:text-white transition-colors">Centro</Link></li>
+                  <li><Link href="/norte" className="text-white/70 hover:text-white transition-colors">Zona Norte</Link></li>
+                  <li><Link href="/sul" className="text-white/70 hover:text-white transition-colors">Zona Sul</Link></li>
+                  <li><Link href="/leste" className="text-white/70 hover:text-white transition-colors">Zona Leste</Link></li>
+                  <li><Link href="/oeste" className="text-white/70 hover:text-white transition-colors">Zona Oeste</Link></li>
                 </ul>
               </div>
             </div>

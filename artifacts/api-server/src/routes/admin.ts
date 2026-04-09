@@ -704,6 +704,30 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
   res.json({ data, pendingCount: pendingCount?.count ?? 0 });
 });
 
+router.post("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { days } = req.body;
+  if (!days || isNaN(Number(days)) || Number(days) < 1) {
+    res.status(400).json({ error: "days deve ser >= 1" });
+    return;
+  }
+  const boostedUntil = new Date(Date.now() + Number(days) * 86_400_000);
+  const [biz] = await db.update(businessesTable)
+    .set({ boostedUntil })
+    .where(eq(businessesTable.id, id))
+    .returning({ id: businessesTable.id, name: businessesTable.name, boostedUntil: businessesTable.boostedUntil });
+  if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+  res.json({ success: true, business: biz });
+});
+
+router.delete("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  await db.update(businessesTable).set({ boostedUntil: null }).where(eq(businessesTable.id, id));
+  res.json({ success: true });
+});
+
 router.patch("/admin/businesses/:id/home-featured", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
