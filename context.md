@@ -238,7 +238,7 @@ Regras:
 - Campo boostedUntil no banco de dados
 ```
 
-### 5.5 Regras do boost mensal (ainda não implementado)
+### 5.5 Regras do boost mensal (IMPLEMENTADO)
 
 ```
 Vagas mensais: 5 posições fixas por lance
@@ -248,12 +248,17 @@ Vagas mensais: 5 posições fixas por lance
   4º lugar — R$79/mês
   5º lugar — R$59/mês
 
-Regras (quando implementar):
+Tabela: search_boosts (id, businessId UNIQUE FK, monthlyBid, position 1-5, boostType 'monthly'|'avulso', status 'active'|'waitlist'|'expired', startsAt, expiresAt, createdAt)
+
+Regras implementadas:
 - Posição é fixa enquanto estiver pagando (não rota entre buscas)
 - Avulso entra APÓS os 5 mensais na ordenação
-- Badge "Patrocinado" discreto (cinza) exibido no card
-- Boost se aplica à categoria principal do negócio
-- Tabela no banco: search_boosts (a criar)
+- Badge "Patrocinado" exibido no card (_boostBadge no JSON)
+- Boost se aplica à busca geral (search.ts e businesses.ts)
+- boostedUntil mantido no businesses (legado) mas NÃO usado na ordenação
+- Admin CRUD: GET/POST/PATCH/DELETE /api/admin/search-boosts
+- Lojista profile retorna _boost com boostType/position/expiresAt
+- Admin panel AdminImpulsionamento.tsx com grid de 5 vagas + tabela avulso
 ```
 
 ### 5.6 Zoneamento
@@ -317,7 +322,7 @@ SESSION_SECRET    — secret para sessões/JWT
 [ ] Notificação pós-clique para solicitar avaliação
 [ ] Páginas de zona (/norte, /sul, /leste, /oeste, /centro)
 [ ] Destaque de Zona (slot pago por categoria)
-[ ] Boost mensal (5 vagas fixas por lance — tabela search_boosts)
+[x] Boost mensal (5 vagas fixas por lance — tabela search_boosts)
 [ ] Subdomínios personalizados
 [ ] SEO Boost (schema.org avançado)
 [ ] Relatório mensal PDF para Premium

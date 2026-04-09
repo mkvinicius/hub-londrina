@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { businessesTable } from "@workspace/db/schema";
+import { businessesTable, searchBoostsTable } from "@workspace/db/schema";
 import { or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
 import { SearchQueryParams } from "@workspace/api-zod";
 
@@ -10,11 +10,6 @@ const PLAN_ORDER = sql<number>`CASE ${businessesTable.planType}
   WHEN 'premium' THEN 1
   WHEN 'destaque' THEN 2
   ELSE 3
-END`;
-
-const BOOST_ORDER = sql<number>`CASE
-  WHEN ${businessesTable.boostedUntil} IS NOT NULL AND ${businessesTable.boostedUntil} > NOW() THEN 0
-  ELSE 1
 END`;
 
 const COMPLETENESS = sql<number>`(
@@ -89,12 +84,21 @@ function unaccentLike(column: any, pattern: string) {
   return sql`translate(lower(${column}), ${ACCENTED}, ${PLAIN}) like ${pattern}`;
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+async function getActiveBoosts(): Promise<Map<number, { position: number | null; boostType: string; monthlyBid: string }>> {
+  const boosts = await db.select().from(searchBoostsTable).where(
+    and(
+      eq(searchBoostsTable.status, "active"),
+      or(
+        sql`${searchBoostsTable.expiresAt} IS NULL`,
+        sql`${searchBoostsTable.expiresAt} > NOW()`
+      )
+    )
+  );
+  const map = new Map<number, { position: number | null; boostType: string; monthlyBid: string }>();
+  for (const b of boosts) {
+    map.set(b.businessId, { position: b.position, boostType: b.boostType, monthlyBid: b.monthlyBid });
   }
-  return arr;
+  return map;
 }
 
 router.get("/search", async (req, res) => {
@@ -149,26 +153,43 @@ router.get("/search", async (req, res) => {
     )`;
   }
 
-  const [data, countResult] = await Promise.all([
+  const [data, countResult, boostMap] = await Promise.all([
     db
       .select()
       .from(businessesTable)
       .where(where)
       .orderBy(
-        asc(BOOST_ORDER),
-        desc(relevanceScore),
         asc(PLAN_ORDER),
+        desc(relevanceScore),
         desc(businessesTable.rating),
         desc(COMPLETENESS),
         desc(businessesTable.clicks),
       ),
     db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(where),
+    getActiveBoosts(),
   ]);
 
-  const now = new Date();
-  const boosted = data.filter((b: any) => b.boostedUntil && new Date(b.boostedUntil) > now);
-  const rest = data.filter((b: any) => !b.boostedUntil || new Date(b.boostedUntil) <= now);
-  const finalData = [...shuffleArray(boosted), ...rest];
+  const monthly: any[] = [];
+  const avulso: any[] = [];
+  const rest: any[] = [];
+
+  for (const biz of data) {
+    const boost = boostMap.get(biz.id);
+    if (boost) {
+      const enriched = { ...biz, _boostType: boost.boostType, _boostPosition: boost.position, _boostBadge: "Patrocinado" };
+      if (boost.boostType === "monthly" && boost.position) {
+        monthly.push(enriched);
+      } else {
+        avulso.push(enriched);
+      }
+    } else {
+      rest.push(biz);
+    }
+  }
+
+  monthly.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
+
+  const finalData = [...monthly, ...avulso, ...rest];
 
   res.json({ data: finalData, total: countResult[0]?.count ?? 0 });
 });

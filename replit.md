@@ -54,6 +54,8 @@ Full-stack local business directory for Londrina, Brazil.
 - `/admin` — Dashboard (stats, charts)
 - `/admin/negocios` — Business management table (CRUD, visibility toggle, plan change)
 - `/admin/categorias` — Category management (CRUD)
+- `/admin/impulsionamento` — Search boost management (5 monthly positions + avulso boosts)
+- `/admin/home-banners` — Home banner management (CRUD, max 2 active)
 
 **Routes (lojista — SPA, no SSR)**:
 - `/lojista/login` — Email+password login (JWT 7 days)
@@ -103,10 +105,13 @@ Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/
 `GET /api/lojista/metrics`, `PATCH /api/lojista/password`
 
 **DB Schema**:
-- `businesses` — extended with cnpj, ownerName, ownerEmail, ownerPhone, logoUrl, bannerUrl, photos[], cep, street, number, neighborhood, city, state, lat, lng, instagram, website, paymentMethods[], tags[], videoUrl
+- `businesses` — extended with cnpj, ownerName, ownerEmail, ownerPhone, logoUrl, bannerUrl, photos[], cep, street, number, neighborhood, city, state, lat, lng, instagram, website, paymentMethods[], tags[], videoUrl, boostedUntil (legacy), homeFeatured
 - `business_users` — lojista login accounts (email+bcrypt hash, FK to businesses)
 - `products` — product catalog per business (name, description, price, media, sortOrder)
-- `business_clicks` — click event history (type: profile/whatsapp/phone/maps)
+- `business_clicks` — click event history (type: profile/whatsapp/phone/maps, visitorId)
+- `reviews` — with visitorId, verified, ownerResponse
+- `home_banners` — rotating hero banners (max 2 active, CRUD admin)
+- `search_boosts` — boost auction system (5 monthly fixed positions by bid + avulso timed boosts). businessId UNIQUE FK, position 1-5, boostType monthly|avulso, status active|waitlist|expired
 - Uploads served at `/api/uploads/{logos,banners,photos}/` — MIME filtered (jpg/png/webp/gif only)
 
 **DB Seed**: 10 categories, 20 businesses (real Londrina data), 20 lojista accounts, 42 products, 10 reviews

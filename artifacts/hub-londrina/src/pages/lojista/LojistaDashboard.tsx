@@ -71,17 +71,22 @@ export default function LojistaDashboard() {
         })}
       </div>
 
-      {profile?.boostedUntil && new Date(profile.boostedUntil) > new Date() ? (
+      {profile?._boost ? (
         <div className="bg-gradient-to-r from-amber-500 to-[#d97706] rounded-2xl p-5 mb-6 text-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-sm">Impulsionamento Ativo</h3>
+              <h3 className="font-bold text-sm">
+                {profile._boost.boostType === "monthly"
+                  ? `Patrocinado — Posição #${profile._boost.position}`
+                  : "Boost Avulso Ativo"}
+              </h3>
               <p className="text-xs text-white/80">
-                Seu negócio está no topo da busca até{" "}
-                {new Date(profile.boostedUntil).toLocaleDateString("pt-BR")}
+                {profile._boost.expiresAt
+                  ? `Seu negócio está no topo da busca até ${new Date(profile._boost.expiresAt).toLocaleDateString("pt-BR")}`
+                  : "Seu negócio está no topo da busca (plano mensal)"}
               </p>
             </div>
           </div>

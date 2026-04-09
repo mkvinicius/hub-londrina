@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable } from "@workspace/db/schema";
-import { eq, ilike, sql, and, desc, gte, asc, or } from "drizzle-orm";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable } from "@workspace/db/schema";
+import { eq, ilike, sql, and, desc, gte, asc, or, ne } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -401,30 +401,111 @@ router.delete("/admin/categories/:id", async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-router.post("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.get("/admin/search-boosts", async (_req: Request, res: Response) => {
+  const boosts = await db
+    .select({
+      id: searchBoostsTable.id,
+      businessId: searchBoostsTable.businessId,
+      monthlyBid: searchBoostsTable.monthlyBid,
+      position: searchBoostsTable.position,
+      boostType: searchBoostsTable.boostType,
+      status: searchBoostsTable.status,
+      startsAt: searchBoostsTable.startsAt,
+      expiresAt: searchBoostsTable.expiresAt,
+      createdAt: searchBoostsTable.createdAt,
+      businessName: businessesTable.name,
+      businessRegion: businessesTable.region,
+      businessCategory: businessesTable.categorySlug,
+    })
+    .from(searchBoostsTable)
+    .innerJoin(businessesTable, eq(searchBoostsTable.businessId, businessesTable.id))
+    .orderBy(asc(searchBoostsTable.position), desc(searchBoostsTable.createdAt));
 
-  const { days } = req.body;
-  if (!days || ![7, 15, 30].includes(Number(days))) {
-    res.status(400).json({ error: "days deve ser 7, 15 ou 30" });
+  res.json({ data: boosts });
+});
+
+router.post("/admin/search-boosts", async (req: Request, res: Response) => {
+  const { businessId, monthlyBid, position, boostType, days } = req.body;
+  if (!businessId || !boostType) {
+    res.status(400).json({ error: "businessId e boostType são obrigatórios" });
+    return;
+  }
+  if (!["monthly", "avulso"].includes(boostType)) {
+    res.status(400).json({ error: "boostType deve ser 'monthly' ou 'avulso'" });
     return;
   }
 
-  const boostedUntil = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
-  const result = await db
-    .update(businessesTable)
-    .set({ boostedUntil })
-    .where(eq(businessesTable.id, id))
-    .returning({ id: businessesTable.id, boostedUntil: businessesTable.boostedUntil });
+  if (boostType === "monthly") {
+    if (!position || position < 1 || position > 5) {
+      res.status(400).json({ error: "Posição mensal deve ser 1-5" });
+      return;
+    }
+    const existing = await db.select().from(searchBoostsTable).where(
+      and(
+        eq(searchBoostsTable.position, position),
+        eq(searchBoostsTable.boostType, "monthly"),
+        eq(searchBoostsTable.status, "active")
+      )
+    );
+    if (existing.length > 0) {
+      res.status(400).json({ error: `Posição ${position} já ocupada` });
+      return;
+    }
+  }
 
-  if (result.length === 0) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
-  res.json({ success: true, boostedUntil });
+  const existing = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.businessId, Number(businessId)));
+  if (existing.length > 0) {
+    res.status(400).json({ error: "Este negócio já possui um boost ativo" });
+    return;
+  }
+
+  const startsAt = new Date();
+  let expiresAt: Date | null = null;
+  if (boostType === "avulso" && days) {
+    expiresAt = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
+  }
+
+  try {
+    const [boost] = await db.insert(searchBoostsTable).values({
+      businessId: Number(businessId),
+      monthlyBid: String(monthlyBid || "0"),
+      position: boostType === "monthly" ? Number(position) : null,
+      boostType,
+      status: "active",
+      startsAt,
+      expiresAt,
+    }).returning();
+
+    res.status(201).json({ boost });
+  } catch (err: any) {
+    if (err.message?.includes("foreign key")) {
+      res.status(400).json({ error: "Negócio não encontrado" });
+    } else if (err.message?.includes("unique")) {
+      res.status(400).json({ error: "Este negócio já possui um boost" });
+    } else {
+      res.status(500).json({ error: "Erro ao criar boost" });
+    }
+  }
 });
 
-router.delete("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+router.patch("/admin/search-boosts/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  await db.update(businessesTable).set({ boostedUntil: null }).where(eq(businessesTable.id, id));
+  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const { monthlyBid, position, status } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (monthlyBid !== undefined) updates.monthlyBid = String(monthlyBid);
+  if (position !== undefined) updates.position = Number(position);
+  if (status !== undefined) updates.status = status;
+
+  const [boost] = await db.update(searchBoostsTable).set(updates).where(eq(searchBoostsTable.id, id)).returning();
+  if (!boost) { res.status(404).json({ error: "Boost não encontrado" }); return; }
+  res.json({ boost });
+});
+
+router.delete("/admin/search-boosts/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  await db.delete(searchBoostsTable).where(eq(searchBoostsTable.id, id));
   res.json({ success: true });
 });
 

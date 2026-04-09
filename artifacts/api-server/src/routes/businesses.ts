@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, reviewsTable, businessClicksTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte } from "drizzle-orm";
 import {
   ListBusinessesQueryParams,
@@ -16,17 +16,29 @@ const PLAN_ORDER = sql<number>`CASE ${businessesTable.planType}
   ELSE 3
 END`;
 
-const BOOST_ORDER = sql<number>`CASE
-  WHEN ${businessesTable.boostedUntil} IS NOT NULL AND ${businessesTable.boostedUntil} > NOW() THEN 0
-  ELSE 1
-END`;
-
 const COMPLETENESS = sql<number>`(
   CASE WHEN ${businessesTable.logoUrl} IS NOT NULL THEN 1 ELSE 0 END +
   CASE WHEN array_length(${businessesTable.photos}, 1) > 0 THEN 1 ELSE 0 END +
   CASE WHEN ${businessesTable.description} != '' THEN 1 ELSE 0 END +
   CASE WHEN ${businessesTable.address} != '' THEN 1 ELSE 0 END
 )`;
+
+async function getActiveBoosts(): Promise<Map<number, { position: number | null; boostType: string; monthlyBid: string }>> {
+  const boosts = await db.select().from(searchBoostsTable).where(
+    and(
+      eq(searchBoostsTable.status, "active"),
+      or(
+        sql`${searchBoostsTable.expiresAt} IS NULL`,
+        sql`${searchBoostsTable.expiresAt} > NOW()`
+      )
+    )
+  );
+  const map = new Map<number, { position: number | null; boostType: string; monthlyBid: string }>();
+  for (const b of boosts) {
+    map.set(b.businessId, { position: b.position, boostType: b.boostType, monthlyBid: b.monthlyBid });
+  }
+  return map;
+}
 
 function getVisitorId(req: Request, res: Response): string {
   let vid = req.cookies?.hub_visitor;
@@ -102,20 +114,36 @@ router.get("/businesses", async (req: Request, res: Response) => {
   } else if (sort === "name") {
     orderBy = asc(businessesTable.name);
   } else {
-    orderBy = [asc(BOOST_ORDER), asc(PLAN_ORDER), desc(businessesTable.rating), desc(COMPLETENESS), desc(businessesTable.clicks)];
+    orderBy = [asc(PLAN_ORDER), desc(businessesTable.rating), desc(COMPLETENESS), desc(businessesTable.clicks)];
   }
 
-  const [data, countResult] = await Promise.all([
+  const [data, countResult, boostMap] = await Promise.all([
     db.select().from(businessesTable).where(where).orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy])),
     db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(where),
+    getActiveBoosts(),
   ]);
 
-  const now = new Date();
-  const boosted = data.filter((b: any) => b.boostedUntil && new Date(b.boostedUntil) > now);
-  const rest = data.filter((b: any) => !b.boostedUntil || new Date(b.boostedUntil) <= now);
-  for (let i = boosted.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [boosted[i], boosted[j]] = [boosted[j], boosted[i]]; }
+  const monthly: any[] = [];
+  const avulso: any[] = [];
+  const rest: any[] = [];
 
-  res.json({ data: [...boosted, ...rest], total: countResult[0]?.count ?? 0 });
+  for (const biz of data) {
+    const boost = boostMap.get(biz.id);
+    if (boost) {
+      const enriched = { ...biz, _boostType: boost.boostType, _boostPosition: boost.position, _boostBadge: "Patrocinado" };
+      if (boost.boostType === "monthly" && boost.position) {
+        monthly.push(enriched);
+      } else {
+        avulso.push(enriched);
+      }
+    } else {
+      rest.push(biz);
+    }
+  }
+
+  monthly.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
+
+  res.json({ data: [...monthly, ...avulso, ...rest], total: countResult[0]?.count ?? 0 });
 });
 
 router.get("/businesses/nearby", async (req: Request, res: Response) => {

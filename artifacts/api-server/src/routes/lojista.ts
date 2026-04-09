@@ -5,8 +5,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { db } from "@workspace/db";
-import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable } from "@workspace/db/schema";
-import { eq, sql, and, gte, desc, asc } from "drizzle-orm";
+import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable } from "@workspace/db/schema";
+import { eq, sql, and, gte, desc, asc, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -193,7 +193,26 @@ router.get("/lojista/profile", async (req: Request, res: Response) => {
     res.status(404).json({ error: "Negócio não encontrado" });
     return;
   }
-  res.json(business);
+
+  const [boost] = await db.select().from(searchBoostsTable).where(
+    and(
+      eq(searchBoostsTable.businessId, businessId),
+      eq(searchBoostsTable.status, "active"),
+      or(
+        sql`${searchBoostsTable.expiresAt} IS NULL`,
+        sql`${searchBoostsTable.expiresAt} > NOW()`
+      )
+    )
+  );
+
+  res.json({
+    ...business,
+    _boost: boost ? {
+      boostType: boost.boostType,
+      position: boost.position,
+      expiresAt: boost.expiresAt,
+    } : null,
+  });
 });
 
 router.patch("/lojista/profile", async (req: Request, res: Response) => {
