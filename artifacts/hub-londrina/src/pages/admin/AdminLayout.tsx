@@ -68,7 +68,7 @@ export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
           <div className="flex items-start gap-2 bg-white/5 rounded-xl px-3 py-2.5">
             <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] text-white/50 leading-snug">
-              Uploads armazenados no workspace do Replit. Para produção em escala, configure S3 ou Cloudflare R2.
+              <span className="font-semibold text-white/70">Uploads armazenados localmente.</span> Fotos, logos e banners ficam salvos no servidor e podem ser perdidos ao reiniciar o container. Configure object storage externo (S3 ou Cloudflare R2) para garantir persistência permanente em produção.
             </p>
           </div>
           <button
