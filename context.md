@@ -56,7 +56,10 @@ workspace/
 ## 3. O QUE ESTÁ FUNCIONANDO — NÃO QUEBRAR
 
 ### 3.1 SSR (Server-Side Rendering)
-- `server.mjs` serve HTML completo para home e /negocio/:id
+- `server.mjs` serve HTML completo para home, /negocio/:id e /norte /sul /leste /oeste /centro
+- Em dev (Vite) as páginas de zona são SPA — SSR só ativa em produção via server.mjs
+- GET /api/stats incluído no SSR (totalBusinesses, totalCategories, totalZones)
+- Stats da home carregam no servidor, sem flickering no cliente
 - `curl https://www.hublondrina.com.br/ | wc -c` retorna ~82.000 bytes
 - `entry-server.tsx` renderiza React no servidor com dados prefetchados
 - `window.__SSR_QUERIES__` injeta cache do React Query no cliente
@@ -166,16 +169,101 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 - Parâmetros: lat, lng, radius (padrão 5km)
 
 ### 3.14 Páginas de zona
-- Rotas: /norte, /sul, /leste, /oeste, /centro
-- SSR em todas as 5 rotas via server.mjs (title + meta description dinâmicos por zona)
-- Componente ZonePage com hero (cor da zona), destaques, filtro por categoria, listagem e CTA
-- Config de zonas em hub-londrina/src/lib/zones.ts (cor, bgColor, textColor, label, description)
-- GET /api/zones/:zone/stats — totalBusinesses, byCategory, topRated
-- GET /api/zones/:zone/businesses?category=&limit= — paginação + boost ordering
-- Rodapé atualizado com links diretos para todas as 5 zonas
-- Dropdown "Selecione a Região" da home inclui seção "Explorar por zona" com os 5 links
-- Ao clicar em uma zona no dropdown → navega diretamente para /zona (não vai para /busca)
-- Cores: centro=#dc2626, norte=#3d7a28, sul=#2563eb, leste=#d97706, oeste=#7c3aed
+- Rotas SSR: /norte, /sul, /leste, /oeste, /centro
+- Componente ZonePage com hero colorido, destaques, categorias, listagem
+- Config em hub-londrina/src/lib/zones.ts (cores, labels, slugs)
+- GET /api/zones/:zone/stats e /api/zones/:zone/businesses
+- Cores: norte=#3d7a28, sul=#2563eb, leste=#d97706, oeste=#7c3aed, centro=#dc2626
+- Rodapé com links diretos para páginas de zona
+- Dropdown de região na home: seção "Explorar por zona" com 5 zonas coloridas no topo, seção "Por bairro" abaixo com bairros do banco
+
+### 3.17 Email transacional (Resend)
+- Serviço em api-server/src/services/email.ts
+- Templates: boasVindas, cadastroAprovado, cadastroRejeitado, pagamentoConfirmado, pagamentoFalhou, novaAvaliacao, recuperacaoSenha
+- Disparos: cadastro, aprovação/rejeição admin, checkout Stripe, payment_failed, nova avaliação
+- Emails assíncronos — falha não bloqueia ação principal
+
+### 3.18 Recuperação de senha
+- POST /api/auth/forgot-password — gera token 32 bytes, expira em 1h
+- POST /api/auth/reset-password — valida token, atualiza senha, limpa token
+- Campos novos em business_users: passwordResetToken, passwordResetExpiresAt
+- Páginas: /lojista/esqueci-senha e /lojista/nova-senha?token=
+- Link "Esqueci minha senha" na página de login
+
+### 3.20 Índices de banco
+- Índices em businesses: zone, categorySlug, status, isVisible, planType, lat/lng, rating
+- Índice composto: status + isVisible + planType (query pública mais comum)
+- Índices em reviews: businessId
+- Índices em search_boosts: status, expiresAt
+
+### 3.21 Sitemap.xml dinâmico
+- GET /sitemap.xml — gerado dinamicamente com todas as páginas estáticas + perfis de negócios
+- GET /robots.txt — Allow /, Disallow /admin /lojista /api, aponta para sitemap
+
+### 3.22 Structured Data (JSON-LD)
+- Schema LocalBusiness em cada /negocio/:id (nome, endereço, telefone, rating, horário, geo)
+- Schema WebSite na home com SearchAction
+- Injetado no SSR antes de </head>
+
+### 3.23 Upload direto de mídia nos produtos
+- POST /api/lojista/upload/product-media (Premium only)
+- Aceita imagem (10MB) e vídeo/mp4 (50MB)
+- Salva em /public/uploads/products/
+- Frontend: toggle Upload/URL no formulário de produto com preview
+
+### 3.25 Connection pooling
+- Pool configurado com max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 2000
+- Drizzle usando Pool do pg em vez de conexão direta
+
+### 3.26 CSRF protection
+- GET /api/auth/csrf-token — gera token + cookie csrf-token (httpOnly: false, sameSite: strict)
+- Middleware csrfProtection aplicado em: POST /auth/register, POST /auth/forgot-password, POST /businesses/:id/review
+- Frontend: src/lib/csrf.ts com getCsrfToken() (cache 55min) e csrfFetch()
+- Cadastro.tsx, EsqueciSenha.tsx e negocio.tsx usam csrfFetch
+- Sem token: retorna 403 CSRF_INVALID
+
+### 3.28 Validação de IDs e proteção contra overflow
+- Middleware validateId em api-server/src/middleware/validateId.ts
+- parseId: valida isNaN, id <= 0, id > 2147483647 (limite int4 PostgreSQL)
+- Aplicado em todas as rotas com :id em businesses.ts, admin.ts, lojista.ts
+- validatePagination: limita page (max 10000) e limit (max 100)
+- Validação de :zone contra lista VALID_ZONES
+- businessViewLimiter: 60 requests/minuto por IP nas rotas públicas
+- parseId também aplicado em body fields: businessId em boosts e banners
+
+### 3.27 Uploads persistentes
+- Diretório de uploads dentro do workspace do Replit (persistente)
+- Express serve /uploads/ como estático
+- Banner informativo no sidebar do admin sobre limitação de storage local
+
+### 3.24 Confirmação de email no cadastro
+- Campos novos em business_users: emailVerified, emailVerificationToken
+- GET /api/auth/verify-email?token= — verifica e redireciona para /lojista/login?verified=1
+- Página /lojista/verificar-email
+- Banner verde no login quando ?verified=1
+- Coluna de email verificado no /admin/cadastros
+
+### 3.19 Página admin de assinaturas
+- GET /api/admin/subscriptions — MRR calculado, agrupamento por status
+- Página /admin/assinaturas com cards MRR, ativas, inadimplentes, canceladas
+- Tabela de inadimplentes com link direto ao Stripe Dashboard
+- Tabela completa com filtro por status
+
+### 3.16 Segurança implementada
+- JWT_SECRET sem fallback hardcoded — servidor recusa iniciar se variável ausente
+- Rate limiting em todos os endpoints sensíveis:
+  login admin/lojista: 5 tentativas/15min
+  cadastro: 3/hora, CNPJ: 20/hora, avaliações: 10/hora
+- invoice.payment_failed faz downgrade imediato para free
+- Diretórios de upload recriados automaticamente no restart
+- Banner de aviso no admin quando uploads estão em filesystem local
+
+### 3.15 Sistema de boost direto (admin)
+- POST /api/admin/businesses/:id/boost — seta boostedUntil com duração em dias
+- DELETE /api/admin/businesses/:id/boost — remove boost direto
+- Badge roxo Impulsionado no BusinessCard
+- Hierarquia final: boost_monthly > boost_avulso > boost_direto > premium > destaque > free
+- Duração disponível: 7, 14, 30, 60, 90 dias
 
 ---
 
@@ -212,7 +300,8 @@ status (pending|active|rejected), rejectionReason
 - 42 produtos de exemplo distribuídos entre os negócios
 - 10 categorias: Restaurantes, Salões, Academias, Mercados,
   Cafeterias, Pet Shops, Farmácias, Serviços, Padarias, Saúde
-- Zonas: norte, sul, leste, oeste, centro
+- Zonas: norte (4), sul (7), centro (9) — leste e oeste sem negócios no seed ainda
+- Coordenadas lat/lng preenchidas em todos os 20 negócios
 
 ### 4.4 Exemplos de login de lojista (para teste)
 ```
@@ -292,7 +381,8 @@ Regras:
 
 ### 5.4 Zoneamento
 - Cada negócio pertence a **uma** zona principal
-- Zonas: norte, sul, leste, oeste, centro
+- Zonas: norte (4), sul (7), centro (9) — leste e oeste sem negócios no seed ainda
+- Coordenadas lat/lng preenchidas em todos os 20 negócios
 - Cores por zona:
   - Norte: #3d7a28 (verde)
   - Sul: #2563eb (azul)
@@ -315,6 +405,9 @@ SEO Boost            | R$49/mês   | schema.org avançado
 ```
 
 ---
+
+## 5.6 Preços exibidos na plataforma (não alterar)
+
 
 ## 6. COPY E POSICIONAMENTO — NÃO ALTERAR
 
@@ -343,6 +436,7 @@ STRIPE_PUBLISHABLE_KEY    — pk_test_... ou pk_live_...
 STRIPE_BASE_PRICE_ID      — price_... (plano Base R9,90/mês)
 STRIPE_PREMIUM_PRICE_ID   — price_... (plano Premium R9,90/mês)
 STRIPE_WEBHOOK_SECRET     — whsec_...
+RESEND_API_KEY            — re_...
 ```
 
 ---
@@ -363,6 +457,16 @@ STRIPE_WEBHOOK_SECRET     — whsec_...
 [ ] Google Search Console ping automático
 
 IMPLEMENTADO:
+[x] Connection pooling (max: 10)
+[x] CSRF protection nos formulários públicos
+[x] Uploads em diretório persistente do workspace
+[x] Email transacional via Resend (7 templates)
+[x] Recuperação de senha para lojistas
+[x] Página admin de assinaturas com MRR
+[x] JWT_SECRET sem fallback hardcoded (segurança)
+[x] Rate limiting: login, cadastro, CNPJ, avaliações
+[x] Downgrade imediato em invoice.payment_failed
+[x] Aviso de uploads locais no admin
 [x] Sistema de boost na busca com leilão de 5 vagas
 [x] Sistema de avaliações com verificação por visita
 [x] Banners rotativos da home (home_banners)
@@ -374,9 +478,6 @@ IMPLEMENTADO:
 [x] Fluxo de aprovação admin (pending → active)
 [x] CTA "Reivindicar Página" aponta para /cadastro
 [x] Rotas públicas filtram status=active AND isVisible=true
-[x] Email transacional (Resend): 7 templates, hooks em register/approve/reject/stripe/review
-[x] Recuperação de senha: /lojista/esqueci-senha + /lojista/nova-senha
-[x] Admin Assinaturas: /admin/assinaturas com MRR, inadimplentes, filtro por status
 ```
 
 ---
@@ -415,6 +516,13 @@ curl https://www.hublondrina.com.br/api/categories
 ```
 
 **Se qualquer teste falhar:** corrija antes de considerar a tarefa concluída.
+
+**OBRIGATÓRIO após qualquer alteração no backend:**
+```bash
+cd ~/workspace/artifacts/api-server && pnpm build
+```
+O servidor de produção roda dist/index.mjs (bundle compilado).
+Sem rebuild, as correções no TypeScript não chegam em produção.
 
 ---
 
