@@ -204,6 +204,12 @@ export default function Cadastro() {
   return (
     <div className="min-h-screen bg-[#3a2512] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
+        <div className="mb-4">
+          <Link href="/" className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar ao início
+          </Link>
+        </div>
         <div className="text-center mb-8">
           <a href="/" className="inline-block">
             <span className="font-extrabold text-2xl text-[#d97706]">Hub</span>

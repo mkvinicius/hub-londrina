@@ -255,7 +255,7 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg">
+              <Button onClick={() => navigate("/cadastro")} className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg">
                 Assinar Plano Destaque
               </Button>
             </div>

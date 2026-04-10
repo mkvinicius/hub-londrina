@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { lojistaLogin } from "@/lib/lojista-api";
 
 const verified = new URLSearchParams(window.location.search).get("verified") === "1";
@@ -28,6 +29,12 @@ export default function LojistaLogin() {
   return (
     <div className="min-h-screen bg-[#3a2512] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
+        <div className="mb-6">
+          <Link href="/" className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar ao início
+          </Link>
+        </div>
         <div className="text-center mb-8">
           <span className="font-extrabold text-2xl text-[#d97706]">Hub</span>
           <span className="font-extrabold text-2xl text-white ml-1">Lojista</span>
