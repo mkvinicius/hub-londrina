@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { lojistaLogin } from "@/lib/lojista-api";
 
+const verified = new URLSearchParams(window.location.search).get("verified") === "1";
+
 export default function LojistaLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,6 +33,16 @@ export default function LojistaLogin() {
           <span className="font-extrabold text-2xl text-white ml-1">Lojista</span>
           <p className="text-white/50 text-sm mt-2">Painel do Lojista</p>
         </div>
+        {verified && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-sm text-green-700 font-medium">Email confirmado com sucesso!</p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-8 shadow-xl">
           <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
           <input

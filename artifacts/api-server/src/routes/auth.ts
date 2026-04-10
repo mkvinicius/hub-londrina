@@ -178,21 +178,58 @@ router.post("/auth/register", registerLimiter, async (req: Request, res: Respons
   }).returning();
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await db.insert(businessUsersTable).values({
+  const verifyToken = randomBytes(32).toString("hex");
+  const [newUser] = await db.insert(businessUsersTable).values({
     email: normalizedEmail,
     passwordHash,
     businessId: business.id,
-  });
+    emailVerificationToken: verifyToken,
+  }).returning();
 
   try {
     const tpl = emails.boasVindas(name.trim(), businessName.trim());
     await sendEmail(normalizedEmail, tpl.subject, tpl.html);
   } catch {}
 
+  try {
+    const verifyUrl = `https://www.hublondrina.com.br/lojista/verificar-email?token=${verifyToken}`;
+    await sendEmail(normalizedEmail, "Confirme seu email — Hub Londrina", `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#d97706">Confirme seu email</h2>
+        <p>Olá, ${name.trim()}! Clique no botão abaixo para confirmar seu endereço de email.</p>
+        <p><a href="${verifyUrl}" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Confirmar email</a></p>
+        <p style="color:#888;font-size:12px">Link válido por 24 horas. Se não solicitou este cadastro, ignore este email.</p>
+      </div>
+    `);
+  } catch {}
+
   res.status(201).json({
     message: "Cadastro recebido! Nossa equipe vai revisar em até 24h.",
     businessId: business.id,
   });
+});
+
+router.get("/auth/verify-email", async (req: Request, res: Response) => {
+  const token = req.query.token as string;
+  if (!token) {
+    return res.redirect("https://www.hublondrina.com.br/lojista/verificar-email?error=invalid");
+  }
+
+  const [user] = await db
+    .select()
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.emailVerificationToken, token));
+
+  if (!user) {
+    return res.redirect("https://www.hublondrina.com.br/lojista/verificar-email?error=invalid");
+  }
+
+  await db
+    .update(businessUsersTable)
+    .set({ emailVerified: "true", emailVerificationToken: null })
+    .where(eq(businessUsersTable.id, user.id));
+
+  return res.redirect("https://www.hublondrina.com.br/lojista/login?verified=1");
 });
 
 router.post("/auth/forgot-password", forgotLimiter, async (req: Request, res: Response) => {

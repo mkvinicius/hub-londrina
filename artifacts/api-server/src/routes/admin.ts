@@ -702,7 +702,7 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const data = await db.select({
+  const businesses = await db.select({
     id: businessesTable.id,
     name: businessesTable.name,
     cnpj: businessesTable.cnpj,
@@ -716,6 +716,14 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
     isVisible: businessesTable.isVisible,
     createdAt: businessesTable.createdAt,
   }).from(businessesTable).where(where).orderBy(desc(businessesTable.createdAt));
+
+  const userRecords = await db.select({
+    businessId: businessUsersTable.businessId,
+    emailVerified: businessUsersTable.emailVerified,
+  }).from(businessUsersTable);
+
+  const verifiedMap = new Map(userRecords.map(u => [u.businessId, u.emailVerified === "true"]));
+  const data = businesses.map(b => ({ ...b, emailVerified: verifiedMap.get(b.id) ?? false }));
 
   const [pendingCount] = await db
     .select({ count: sql<number>`count(*)::int` })

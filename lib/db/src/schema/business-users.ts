@@ -19,6 +19,8 @@ export const businessUsersTable = pgTable(
     passwordHash: text("password_hash").notNull(),
     passwordResetToken: text("password_reset_token"),
     passwordResetExpiresAt: timestamp("password_reset_expires_at"),
+    emailVerified: text("email_verified").notNull().default("false"),
+    emailVerificationToken: text("email_verification_token"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("business_users_email_idx").on(t.email)],

@@ -68,6 +68,12 @@ export const businessesTable = pgTable(
     index("businesses_category_slug_idx").on(t.categorySlug),
     index("businesses_region_idx").on(t.region),
     index("businesses_rating_idx").on(t.rating),
+    index("businesses_zone_idx").on(t.zone),
+    index("businesses_status_idx").on(t.status),
+    index("businesses_is_visible_idx").on(t.isVisible),
+    index("businesses_plan_type_idx").on(t.planType),
+    index("businesses_location_idx").on(t.lat, t.lng),
+    index("businesses_public_search_idx").on(t.status, t.isVisible, t.planType),
   ],
 );
 

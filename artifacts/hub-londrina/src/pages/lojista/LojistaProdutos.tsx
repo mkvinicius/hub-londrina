@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getProducts, createProduct, updateProduct, deleteProduct } from "@/lib/lojista-api";
-import { Plus, Trash2, Edit2, X, Check } from "lucide-react";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken } from "@/lib/lojista-api";
+import { Plus, Trash2, Edit2, X, Check, Upload, Link2 } from "lucide-react";
 import { LockedFeature } from "@/components/LockedFeature";
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 interface Product {
   id: number;
@@ -25,6 +27,10 @@ export default function LojistaProdutos() {
   const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [mediaMode, setMediaMode] = useState<"url" | "upload">("url");
+  const [uploading, setUploading] = useState(false);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([getProfile(), getProducts()])
@@ -54,6 +60,8 @@ export default function LojistaProdutos() {
     setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "" });
     setShowForm(false);
     setEditId(null);
+    setMediaMode("url");
+    setUploadPreview(null);
   }
 
   function startEdit(p: Product) {
@@ -67,6 +75,42 @@ export default function LojistaProdutos() {
     });
     setEditId(p.id);
     setShowForm(true);
+    setMediaMode("url");
+    setUploadPreview(p.mediaUrl || null);
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith("video/");
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setMsg(`Arquivo muito grande. Máximo: ${isVideo ? "50MB" : "10MB"}`);
+      return;
+    }
+
+    setUploading(true);
+    setMsg("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = getLojistaToken();
+      const res = await fetch(`${API_BASE}/api/lojista/upload/product-media`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro no upload");
+      setForm(f => ({ ...f, mediaUrl: data.mediaUrl, mediaType: data.mediaType }));
+      if (data.mediaType === "image") setUploadPreview(data.mediaUrl);
+      else setUploadPreview(null);
+    } catch (err: any) {
+      setMsg(`Erro: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSave() {
@@ -152,16 +196,77 @@ export default function LojistaProdutos() {
               <label className="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className={inputCls} />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">URL da Mídia</label>
-              <input value={form.mediaUrl} onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))} placeholder="https://..." className={inputCls} />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Tipo de Mídia</label>
-              <select value={form.mediaType} onChange={e => setForm(f => ({ ...f, mediaType: e.target.value }))} className={inputCls}>
-                <option value="image">Imagem</option>
-                <option value="video">Vídeo</option>
-              </select>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2">Mídia do Produto</label>
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setMediaMode("upload")}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${mediaMode === "upload" ? "bg-[#d97706] text-white border-[#d97706]" : "bg-white text-gray-600 border-gray-300 hover:border-[#d97706]"}`}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Fazer upload
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaMode("url")}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${mediaMode === "url" ? "bg-[#d97706] text-white border-[#d97706]" : "bg-white text-gray-600 border-gray-300 hover:border-[#d97706]"}`}
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  URL externa
+                </button>
+              </div>
+
+              {mediaMode === "upload" ? (
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/jpeg,image/png,image/webp,video/mp4"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full border-2 border-dashed border-gray-300 rounded-xl py-6 flex flex-col items-center gap-2 text-gray-500 hover:border-[#d97706] hover:text-[#d97706] transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? (
+                      <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="w-6 h-6" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {uploading ? "Enviando..." : "Clique para selecionar arquivo"}
+                    </span>
+                    <span className="text-xs text-gray-400">JPG, PNG, WebP (máx 10MB) · MP4 (máx 50MB)</span>
+                  </button>
+                  {uploadPreview && (
+                    <img src={uploadPreview} alt="Preview" className="mt-3 w-full max-h-48 rounded-xl object-cover border border-gray-200" />
+                  )}
+                  {form.mediaUrl && form.mediaType === "video" && (
+                    <p className="mt-2 text-xs text-green-600 font-medium">✓ Vídeo enviado com sucesso</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={form.mediaUrl}
+                    onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))}
+                    placeholder="https://..."
+                    className={inputCls + " flex-1"}
+                  />
+                  <select
+                    value={form.mediaType}
+                    onChange={e => setForm(f => ({ ...f, mediaType: e.target.value }))}
+                    className="border border-gray-300 rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706]"
+                  >
+                    <option value="image">Imagem</option>
+                    <option value="video">Vídeo</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-gray-700 mb-1">Link WhatsApp</label>

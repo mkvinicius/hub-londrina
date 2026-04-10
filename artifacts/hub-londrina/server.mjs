@@ -82,6 +82,71 @@ async function handler(req, res) {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
 
+  // ── robots.txt ────────────────────────────────────────────────
+  if (pathname === "/robots.txt") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /lojista
+Disallow: /api
+
+Sitemap: https://www.hublondrina.com.br/sitemap.xml`);
+    return;
+  }
+
+  // ── sitemap.xml ───────────────────────────────────────────────
+  if (pathname === "/sitemap.xml") {
+    try {
+      const businesses = await safeFetch(`${API_BASE}/api/businesses?limit=1000`);
+      const baseUrl = "https://www.hublondrina.com.br";
+      const today = new Date().toISOString().split("T")[0];
+
+      const staticPages = [
+        { url: "/", priority: "1.0", changefreq: "daily" },
+        { url: "/categorias", priority: "0.8", changefreq: "weekly" },
+        { url: "/busca", priority: "0.8", changefreq: "daily" },
+        { url: "/anuncie", priority: "0.7", changefreq: "monthly" },
+        { url: "/cadastro", priority: "0.6", changefreq: "monthly" },
+        { url: "/norte", priority: "0.8", changefreq: "weekly" },
+        { url: "/sul", priority: "0.8", changefreq: "weekly" },
+        { url: "/leste", priority: "0.8", changefreq: "weekly" },
+        { url: "/oeste", priority: "0.8", changefreq: "weekly" },
+        { url: "/centro", priority: "0.8", changefreq: "weekly" },
+      ];
+
+      const staticUrls = staticPages.map(p => `
+  <url>
+    <loc>${baseUrl}${p.url}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`).join("");
+
+      const bizUrls = (businesses?.data || []).map(b => `
+  <url>
+    <loc>${baseUrl}/negocio/${b.id}</loc>
+    <lastmod>${b.createdAt ? b.createdAt.split("T")[0] : today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`).join("");
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrls}
+${bizUrls}
+</urlset>`;
+
+      res.writeHead(200, { "Content-Type": "application/xml" });
+      res.end(xml);
+    } catch (e) {
+      console.error("Sitemap error:", e);
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Sitemap generation failed");
+    }
+    return;
+  }
+
   // ── Static assets ─────────────────────────────────────────────
   if (pathname !== "/" && pathname !== "") {
     const filePath = resolve(DIST_DIR, pathname.slice(1));
@@ -108,6 +173,43 @@ async function handler(req, res) {
         const desc = rawDesc.slice(0, 155);
         const safeData = JSON.stringify(business).replace(/</g, "\\u003c");
         const ssrScript = `<script>window.__SSR_DATA__=${safeData}</script>`;
+
+        const jsonLd = {
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          "name": business.name,
+          "description": business.description || "",
+          "telephone": business.phone || "",
+          "url": `https://www.hublondrina.com.br/negocio/${business.id}`,
+          "image": business.photoUrl || business.logoUrl || "",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": business.address || "",
+            "addressLocality": "Londrina",
+            "addressRegion": "PR",
+            "addressCountry": "BR",
+            "postalCode": business.cep || "",
+          },
+          ...(business.lat && business.lng ? {
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": business.lat,
+              "longitude": business.lng,
+            },
+          } : {}),
+          ...(business.rating && business.reviewsCount > 0 ? {
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": business.rating,
+              "reviewCount": business.reviewsCount,
+              "bestRating": 5,
+              "worstRating": 1,
+            },
+          } : {}),
+          ...(business.hours ? { "openingHours": business.hours } : {}),
+        };
+        const jsonLdScript = `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`;
+
         let html = template
           .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
           .replace("<title>Hub Londrina — Negócio Local</title>", `<title>${title}</title>`)
@@ -115,7 +217,7 @@ async function handler(req, res) {
             `content="Feito por londrinense, para londrinense. Encontre restaurantes, salões, clínicas e serviços locais em Londrina, PR."`,
             `content="${desc.replace(/"/g, "&quot;")}"`
           )
-          .replace("</head>", `${ssrScript}\n</head>`);
+          .replace("</head>", `${ssrScript}\n${jsonLdScript}\n</head>`);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(html);
         return;
@@ -187,13 +289,27 @@ async function handler(req, res) {
 
     const appHtml = render(pathname || "/", undefined, extraQueries);
 
+    const homeLd = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Hub Londrina",
+      "url": "https://www.hublondrina.com.br",
+      "description": "O guia de negócios locais feito por quem é de Londrina.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.hublondrina.com.br/busca?q={search_term_string}",
+        "query-input": "required name=search_term_string",
+      },
+    };
+    const homeLdScript = `<script type="application/ld+json">${JSON.stringify(homeLd)}</script>`;
+
     const hydrationScript = `<script>window.__SSR_QUERIES__=${
       JSON.stringify(extraQueries).replace(/</g, "\\u003c")
     }</script>`;
 
     const html = template
       .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
-      .replace("</head>", `${hydrationScript}\n</head>`);
+      .replace("</head>", `${homeLdScript}\n${hydrationScript}\n</head>`);
 
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(html);

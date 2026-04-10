@@ -712,6 +712,65 @@ router.delete("/lojista/reviews/:reviewId/respond", async (req: Request, res: Re
   res.json({ success: true });
 });
 
+const productMediaStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOAD_BASE, "products");
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `product-${Date.now()}${ext}`);
+  },
+});
+
+const ALLOWED_PRODUCT_MIMES = ["image/jpeg", "image/png", "image/webp", "video/mp4"];
+const ALLOWED_PRODUCT_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".mp4"];
+
+function productMediaFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_PRODUCT_MIMES.includes(file.mimetype) && ALLOWED_PRODUCT_EXTS.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Apenas imagens (JPG, PNG, WebP) e vídeos MP4 são permitidos"));
+  }
+}
+
+const uploadProductMedia = multer({
+  storage: productMediaStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: productMediaFilter,
+});
+
+router.post("/lojista/upload/product-media", uploadProductMedia.single("file"), async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz || biz.planType !== "premium") {
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(403).json({ error: "Upload de mídia de produto é exclusivo do plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium" });
+    return;
+  }
+
+  if (!req.file) {
+    res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+
+  const isVideo = req.file.mimetype.startsWith("video/");
+  const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+
+  if (req.file.size > maxSize) {
+    fs.unlinkSync(req.file.path);
+    res.status(400).json({ error: `Arquivo muito grande. Máximo: ${isVideo ? "50MB" : "10MB"}` });
+    return;
+  }
+
+  const mediaUrl = `/uploads/products/${req.file.filename}`;
+  const mediaType: "image" | "video" = isVideo ? "video" : "image";
+  res.json({ mediaUrl, mediaType });
+});
+
 router.patch("/lojista/password", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   const { currentPassword, newPassword } = req.body;

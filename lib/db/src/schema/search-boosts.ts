@@ -6,6 +6,7 @@ import {
   numeric,
   timestamp,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { businessesTable } from "./businesses";
@@ -26,6 +27,8 @@ export const searchBoostsTable = pgTable("search_boosts", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   uniqueIndex("search_boosts_business_not_expired").on(table.businessId).where(sql`status != 'expired'`),
+  index("search_boosts_status_idx").on(table.status),
+  index("search_boosts_expires_at_idx").on(table.expiresAt),
 ]);
 
 export type InsertSearchBoost = typeof searchBoostsTable.$inferInsert;

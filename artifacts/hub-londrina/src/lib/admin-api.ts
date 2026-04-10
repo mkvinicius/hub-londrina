@@ -1,5 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+export function getAdminToken(): string | null {
+  return localStorage.getItem("hub_admin_token");
+}
+
 function getToken(): string | null {
   return localStorage.getItem("hub_admin_token");
 }

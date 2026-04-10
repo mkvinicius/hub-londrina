@@ -1,5 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+export function getLojistaToken(): string | null {
+  return localStorage.getItem("hub_lojista_token");
+}
+
 function getToken(): string | null {
   return localStorage.getItem("hub_lojista_token");
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { ClipboardList, CheckCircle2, XCircle, Clock, RefreshCw, X } from "lucide-react";
+import { ClipboardList, CheckCircle2, XCircle, Clock, RefreshCw, X, MailCheck, MailX } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -18,6 +18,7 @@ interface Cadastro {
   rejectionReason: string | null;
   isVisible: boolean;
   createdAt: string;
+  emailVerified?: boolean;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -137,17 +138,18 @@ export default function AdminCadastros() {
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">CNPJ</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Zona</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Categoria</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Data</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Categoria</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Data</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-10 text-gray-400">Carregando...</td></tr>
+              <tr><td colSpan={8} className="text-center py-10 text-gray-400">Carregando...</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum cadastro encontrado.</td></tr>
+              <tr><td colSpan={8} className="text-center py-10 text-gray-400">Nenhum cadastro encontrado.</td></tr>
             ) : data.map(c => {
               const st = STATUS_LABELS[c.status] || STATUS_LABELS.pending;
               return (
@@ -158,8 +160,15 @@ export default function AdminCadastros() {
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-600 font-mono">{c.cnpj || "—"}</td>
                   <td className="px-4 py-3 text-xs text-gray-600">{ZONE_LABELS[c.zone] || c.zone}</td>
-                  <td className="px-4 py-3 text-xs text-gray-600">{c.categorySlug}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{new Date(c.createdAt).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 hidden md:table-cell">{c.categorySlug}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{new Date(c.createdAt).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3">
+                    <span title={c.emailVerified ? "Email verificado" : "Email não verificado"}>
+                      {c.emailVerified
+                        ? <MailCheck className="w-4 h-4 text-green-500" />
+                        : <MailX className="w-4 h-4 text-gray-300" />}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-[11px] font-bold ${st.color} ${st.bg} px-2 py-0.5 rounded-full inline-flex items-center gap-1`}>
                       {c.status === "pending" && <Clock className="w-3 h-3" />}

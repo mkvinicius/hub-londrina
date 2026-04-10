@@ -21,6 +21,7 @@ import AdminAssinaturas from "@/pages/admin/AdminAssinaturas";
 import LojistaLogin from "@/pages/lojista/LojistaLogin";
 import EsqueciSenha from "@/pages/lojista/EsqueciSenha";
 import NovaSenha from "@/pages/lojista/NovaSenha";
+import VerificarEmail from "@/pages/lojista/VerificarEmail";
 import LojistaDashboard from "@/pages/lojista/LojistaDashboard";
 import LojistaPerfil from "@/pages/lojista/LojistaPerfil";
 import LojistaFotos from "@/pages/lojista/LojistaFotos";
@@ -77,6 +78,7 @@ function Router() {
       <Route path="/lojista/login" component={LojistaLogin} />
       <Route path="/lojista/esqueci-senha" component={EsqueciSenha} />
       <Route path="/lojista/nova-senha" component={NovaSenha} />
+      <Route path="/lojista/verificar-email" component={VerificarEmail} />
       <Route path="/lojista/perfil">{() => <LojistaPrivateRoute component={LojistaPerfil} />}</Route>
       <Route path="/lojista/fotos">{() => <LojistaPrivateRoute component={LojistaFotos} />}</Route>
       <Route path="/lojista/produtos">{() => <LojistaPrivateRoute component={LojistaProdutos} />}</Route>

@@ -1,0 +1,355 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+5 melhorias técnicas em sequência. Nenhuma nova feature de produto.
+
+---
+
+## 1. ÍNDICES DE BANCO
+
+Adicionar via Drizzle migration os seguintes índices
+na tabela businesses para otimizar as queries mais frequentes:
+
+```typescript
+// Em lib/db/schema.ts, adicionar indexes na tabela businesses:
+
+export const businessesIndexes = {
+  zoneIdx: index('businesses_zone_idx').on(businesses.zone),
+  categoryIdx: index('businesses_category_slug_idx').on(businesses.categorySlug),
+  statusIdx: index('businesses_status_idx').on(businesses.status),
+  visibleIdx: index('businesses_is_visible_idx').on(businesses.isVisible),
+  planIdx: index('businesses_plan_type_idx').on(businesses.planType),
+  locationIdx: index('businesses_location_idx').on(businesses.lat, businesses.lng),
+  ratingIdx: index('businesses_rating_idx').on(businesses.rating),
+  // Índice composto para a query mais comum (busca pública)
+  publicSearchIdx: index('businesses_public_search_idx')
+    .on(businesses.status, businesses.isVisible, businesses.planType),
+};
+```
+
+Também adicionar em reviews:
+```typescript
+reviewBusinessIdx: index('reviews_business_id_idx').on(reviews.businessId),
+```
+
+Em search_boosts:
+```typescript
+boostStatusIdx: index('search_boosts_status_idx').on(searchBoosts.status),
+boostExpiresIdx: index('search_boosts_expires_at_idx').on(searchBoosts.expiresAt),
+```
+
+Executar a migration após criar os índices.
+Confirmar no console que a migration rodou sem erros.
+
+---
+
+## 2. SITEMAP.XML DINÂMICO
+
+Criar rota GET /sitemap.xml no servidor que gera
+o sitemap dinamicamente com todas as páginas do site.
+
+No server.mjs ou em uma rota Express dedicada:
+
+```javascript
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    // Buscar todos os negócios ativos
+    const businesses = await fetch(
+      `http://localhost:${API_PORT}/api/businesses?limit=1000&status=active`
+    ).then(r => r.json());
+
+    const baseUrl = 'https://www.hublondrina.com.br';
+    const today = new Date().toISOString().split('T')[0];
+
+    // Páginas estáticas
+    const staticPages = [
+      { url: '/', priority: '1.0', changefreq: 'daily' },
+      { url: '/categorias', priority: '0.8', changefreq: 'weekly' },
+      { url: '/busca', priority: '0.8', changefreq: 'daily' },
+      { url: '/anuncie', priority: '0.7', changefreq: 'monthly' },
+      { url: '/cadastro', priority: '0.6', changefreq: 'monthly' },
+      { url: '/norte', priority: '0.8', changefreq: 'weekly' },
+      { url: '/sul', priority: '0.8', changefreq: 'weekly' },
+      { url: '/leste', priority: '0.8', changefreq: 'weekly' },
+      { url: '/oeste', priority: '0.8', changefreq: 'weekly' },
+      { url: '/centro', priority: '0.8', changefreq: 'weekly' },
+    ];
+
+    // Gerar XML
+    const urls = [
+      ...staticPages.map(p => `
+  <url>
+    <loc>${baseUrl}${p.url}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`),
+      ...(businesses.data || []).map(b => `
+  <url>
+    <loc>${baseUrl}/negocio/${b.id}</loc>
+    <lastmod>${b.updatedAt ? b.updatedAt.split('T')[0] : today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`)
+    ].join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`;
+
+    res.set('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (e) {
+    console.error('Sitemap error:', e);
+    res.status(500).send('Sitemap generation failed');
+  }
+});
+```
+
+Criar também GET /robots.txt:
+
+```javascript
+app.get('/robots.txt', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /lojista
+Disallow: /api
+
+Sitemap: https://www.hublondrina.com.br/sitemap.xml`);
+});
+```
+
+---
+
+## 3. STRUCTURED DATA — JSON-LD
+
+Em cada página de perfil de negócio (/negocio/:id),
+injetar JSON-LD com schema LocalBusiness no SSR.
+
+No server.mjs, na rota /negocio/:id, adicionar ao HTML:
+
+```javascript
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": business.name,
+  "description": business.description || '',
+  "telephone": business.phone || '',
+  "url": `https://www.hublondrina.com.br/negocio/${business.id}`,
+  "image": business.photoUrl || business.logoUrl || '',
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": business.address || '',
+    "addressLocality": "Londrina",
+    "addressRegion": "PR",
+    "addressCountry": "BR",
+    "postalCode": business.cep || ''
+  },
+  ...(business.lat && business.lng ? {
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": business.lat,
+      "longitude": business.lng
+    }
+  } : {}),
+  ...(business.rating && business.reviewsCount > 0 ? {
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": business.rating,
+      "reviewCount": business.reviewsCount,
+      "bestRating": 5,
+      "worstRating": 1
+    }
+  } : {}),
+  ...(business.hours ? {
+    "openingHours": business.hours
+  } : {})
+};
+
+// Injetar no HTML antes de </head>
+const scriptTag = `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`;
+```
+
+Adicionar também JSON-LD básico na home (WebSite schema):
+
+```javascript
+const homeLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Hub Londrina",
+  "url": "https://www.hublondrina.com.br",
+  "description": "O guia de negócios locais feito por quem é de Londrina.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://www.hublondrina.com.br/busca?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+};
+```
+
+---
+
+## 4. UPLOAD DIRETO DE MÍDIA NOS PRODUTOS
+
+Atualmente os produtos da vitrine pedem URL externa.
+Adicionar opção de upload direto de arquivo.
+
+### Backend
+POST /api/lojista/upload/product-media
+- Aceita multipart/form-data com campo "file"
+- Salva em /public/uploads/products/
+- Retorna { mediaUrl: string, mediaType: 'image' | 'video' }
+- Limite de tamanho: 10MB para imagens, 50MB para vídeos
+- Tipos aceitos: image/jpeg, image/png, image/webp, video/mp4
+
+```typescript
+router.post('/upload/product-media',
+  requirePlan('premium'),
+  upload.single('file'),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    const isVideo = req.file.mimetype.startsWith('video/');
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+
+    if (req.file.size > maxSize) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        error: `Arquivo muito grande. Máximo: ${isVideo ? '50MB' : '10MB'}`
+      });
+    }
+
+    const mediaUrl = `/uploads/products/${req.file.filename}`;
+    const mediaType = isVideo ? 'video' : 'image';
+
+    return res.json({ mediaUrl, mediaType });
+  }
+);
+```
+
+### Frontend — /lojista/produtos
+No formulário de criar/editar produto, substituir
+o campo "URL da mídia" por:
+
+- Toggle: "Upload de arquivo" / "URL externa"
+- Se upload: input file com preview
+  → ao selecionar arquivo: POST /api/lojista/upload/product-media
+  → exibir preview da imagem ou ícone de vídeo
+- Se URL: campo de texto (comportamento atual)
+- Mostrar tamanho máximo aceito
+
+---
+
+## 5. CONFIRMAÇÃO DE EMAIL NO CADASTRO
+
+Adicionar verificação de propriedade do email no fluxo
+de cadastro público.
+
+### Schema — campo novo em business_users
+Adicionar via migration:
+- emailVerified: boolean default false
+- emailVerificationToken: text nullable
+
+### Backend
+
+Após criar o business_user em POST /api/auth/register,
+enviar email de confirmação:
+
+```typescript
+const verifyToken = crypto.randomBytes(32).toString('hex');
+
+await db.update(businessUsers)
+  .set({ emailVerificationToken: verifyToken })
+  .where(eq(businessUsers.id, newUser.id));
+
+// Email de verificação
+const verifyUrl = `https://www.hublondrina.com.br/lojista/verificar-email?token=${verifyToken}`;
+await sendEmail(body.email, 'Confirme seu email — Hub Londrina', `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+    <h2 style="color:#3d7a28">Confirme seu email</h2>
+    <p>Clique no botão abaixo para confirmar seu endereço de email.</p>
+    <p><a href="${verifyUrl}" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Confirmar email</a></p>
+    <p style="color:#888;font-size:12px">Link válido por 24 horas.</p>
+  </div>
+`);
+```
+
+GET /api/auth/verify-email?token=xxx
+
+```typescript
+const user = await db.query.businessUsers.findFirst({
+  where: eq(businessUsers.emailVerificationToken, token)
+});
+
+if (!user) {
+  return res.status(400).json({ error: 'Token inválido.' });
+}
+
+await db.update(businessUsers)
+  .set({ emailVerified: true, emailVerificationToken: null })
+  .where(eq(businessUsers.id, user.id));
+
+// Redirecionar para login com mensagem de sucesso
+return res.redirect('https://www.hublondrina.com.br/lojista/login?verified=1');
+```
+
+### Frontend
+
+/lojista/verificar-email
+Página simples que lê ?token= da URL e chama
+GET /api/auth/verify-email?token=
+- Loading enquanto verifica
+- Sucesso: "Email confirmado! Agora é só aguardar a aprovação."
+- Erro: "Link inválido ou expirado. Solicite um novo."
+
+Na página /lojista/login, se ?verified=1 na URL:
+Mostrar banner verde: "Email confirmado com sucesso!"
+
+No painel admin /admin/cadastros, adicionar coluna
+"Email verificado" (ícone verde/vermelho) para o admin
+saber se o email é válido antes de aprovar.
+
+Adicionar na rota na App.tsx:
+```tsx
+<Route path="/lojista/verificar-email" component={VerificarEmail} />
+```
+
+---
+
+## RESTRIÇÕES
+- Não alterar SSR da home e rotas existentes
+- Não alterar autenticação existente
+- Não remover campos do banco
+- Upload de produto só para Premium (manter enforcement)
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. curl https://www.hublondrina.com.br/sitemap.xml
+   → Esperado: XML válido com URLs das páginas e negócios
+
+3. curl https://www.hublondrina.com.br/robots.txt
+   → Esperado: texto com Allow, Disallow e Sitemap
+
+4. curl https://www.hublondrina.com.br/negocio/1 | grep "application/ld+json"
+   → Esperado: encontra a tag script com JSON-LD
+
+5. curl https://www.hublondrina.com.br/negocio/1 | grep "LocalBusiness"
+   → Esperado: encontra o tipo no JSON-LD
+
+6. Cadastrar negócio novo via /cadastro
+   → Verificar no banco que emailVerified = false
+     e emailVerificationToken está preenchido
+
+7. /admin/login e /lojista/login continuam funcionando
+
+Confirmar todos os 7 testes antes de finalizar.
