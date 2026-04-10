@@ -291,7 +291,7 @@ export default function Anuncie() {
 
           <div className="text-center mt-10">
             <p className="text-gray-500 font-medium">
-              Planos anuais com desconto de 20% — R$399/ano e R$699/ano
+              Planos anuais com desconto de 20% — R$479/ano e R$863/ano
             </p>
           </div>
         </div>
