@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { reviewLimiter } from "../middleware/rateLimiter";
+import { reviewLimiter, businessViewLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { csrfProtection } from "../middleware/csrf";
+import { validateId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte } from "drizzle-orm";
@@ -246,13 +247,8 @@ router.get("/businesses/nearby", async (req: Request, res: Response) => {
   });
 });
 
-router.get("/businesses/:id", async (req: Request, res: Response) => {
-  const parsed = GetBusinessByIdParams.safeParse(req.params);
-  if (!parsed.success) {
-    res.status(400).json({ error: "ID inválido" });
-    return;
-  }
-  const { id } = parsed.data;
+router.get("/businesses/:id", businessViewLimiter, validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, id));
 
@@ -286,9 +282,8 @@ router.get("/businesses/:id", async (req: Request, res: Response) => {
   res.json({ ...business, category, reviews, boostInfo });
 });
 
-router.get("/businesses/:id/reviews", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.get("/businesses/:id/reviews", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const reviews = await db
     .select()
@@ -299,9 +294,8 @@ router.get("/businesses/:id/reviews", async (req: Request, res: Response) => {
   res.json({ data: reviews });
 });
 
-router.post("/businesses/:id/review", reviewLimiter, csrfProtection, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.post("/businesses/:id/review", reviewLimiter, csrfProtection, validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const { author, rating, text } = req.body;
   if (!author || !rating || rating < 1 || rating > 5) {
@@ -369,9 +363,8 @@ router.post("/businesses/:id/review", reviewLimiter, csrfProtection, async (req:
   res.status(201).json({ review });
 });
 
-router.post("/businesses/:id/click-whatsapp", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.post("/businesses/:id/click-whatsapp", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const visitorId = getVisitorId(req, res);
 

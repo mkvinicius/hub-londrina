@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { validatePagination } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, and, ne, desc, sql, or } from "drizzle-orm";
@@ -52,7 +53,7 @@ async function getActiveBoostMap(): Promise<Map<number, { position: number | nul
 router.get("/zones/:zone/stats", async (req: Request, res: Response) => {
   const zone = req.params.zone as ZoneSlug;
   if (!VALID_ZONES.includes(zone)) {
-    res.status(400).json({ error: "Zona inválida" });
+    res.status(400).json({ error: "Zona inválida.", code: "INVALID_ZONE" });
     return;
   }
 
@@ -105,16 +106,16 @@ router.get("/zones/:zone/stats", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/zones/:zone/businesses", async (req: Request, res: Response) => {
+router.get("/zones/:zone/businesses", validatePagination, async (req: Request, res: Response) => {
   const zone = req.params.zone as ZoneSlug;
   if (!VALID_ZONES.includes(zone)) {
-    res.status(400).json({ error: "Zona inválida" });
+    res.status(400).json({ error: "Zona inválida.", code: "INVALID_ZONE" });
     return;
   }
 
   const category = typeof req.query.category === "string" ? req.query.category : undefined;
-  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-  const limit = Math.min(50, parseInt(String(req.query.limit ?? "12"), 10));
+  const page = parseInt(req.query.page as string || "1", 10);
+  const limit = parseInt(req.query.limit as string || "12", 10);
   const offset = (page - 1) * limit;
 
   try {

@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import jwt from "jsonwebtoken";
 import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
+import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne } from "drizzle-orm";
@@ -212,9 +213,8 @@ router.get("/admin/businesses", async (req: Request, res: Response) => {
   res.json({ data, total: countResult[0]?.count ?? 0, page, limit });
 });
 
-router.get("/admin/businesses/:id", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.get("/admin/businesses/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, id));
   if (!business) {
@@ -236,9 +236,8 @@ router.get("/admin/businesses/:id", async (req: Request, res: Response) => {
   res.json({ ...business, products, lojista: lojista[0] || null, clickBreakdown: clicks });
 });
 
-router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.patch("/admin/businesses/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const updates: Record<string, unknown> = {};
 
@@ -307,9 +306,8 @@ router.patch("/admin/businesses/:id", async (req: Request, res: Response) => {
   res.json(updated);
 });
 
-router.delete("/admin/businesses/:id", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+router.delete("/admin/businesses/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
 
   const result = await db.delete(businessesTable).where(eq(businessesTable.id, id)).returning();
   if (result.length === 0) {
@@ -349,7 +347,7 @@ router.get("/admin/lojistas", async (req: Request, res: Response) => {
   res.json({ data: rows, total: countResult?.count ?? 0, page, limit });
 });
 
-router.post("/admin/lojistas/:id/reset-password", async (req: Request, res: Response) => {
+router.post("/admin/lojistas/:id/reset-password", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
@@ -386,7 +384,7 @@ router.post("/admin/categories", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
-router.patch("/admin/categories/:id", async (req: Request, res: Response) => {
+router.patch("/admin/categories/:id", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
@@ -409,7 +407,7 @@ router.patch("/admin/categories/:id", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
-router.delete("/admin/categories/:id", async (req: Request, res: Response) => {
+router.delete("/admin/categories/:id", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
@@ -637,7 +635,7 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/admin/boosts/:id", async (req: Request, res: Response) => {
+router.patch("/admin/boosts/:id", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
@@ -677,7 +675,7 @@ router.patch("/admin/boosts/:id", async (req: Request, res: Response) => {
   res.json({ boost: updated });
 });
 
-router.delete("/admin/boosts/:id", async (req: Request, res: Response) => {
+router.delete("/admin/boosts/:id", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const [toDelete] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
   if (!toDelete) { res.status(404).json({ error: "Boost não encontrado" }); return; }
@@ -733,7 +731,7 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
   res.json({ data, pendingCount: pendingCount?.count ?? 0 });
 });
 
-router.post("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+router.post("/admin/businesses/:id/boost", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
   const { days } = req.body;
@@ -750,14 +748,14 @@ router.post("/admin/businesses/:id/boost", async (req: Request, res: Response) =
   res.json({ success: true, business: biz });
 });
 
-router.delete("/admin/businesses/:id/boost", async (req: Request, res: Response) => {
+router.delete("/admin/businesses/:id/boost", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
   await db.update(businessesTable).set({ boostedUntil: null }).where(eq(businessesTable.id, id));
   res.json({ success: true });
 });
 
-router.patch("/admin/businesses/:id/home-featured", async (req: Request, res: Response) => {
+router.patch("/admin/businesses/:id/home-featured", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
   const { homeFeatured } = req.body;
@@ -833,7 +831,7 @@ router.post("/admin/home-banners", async (req: Request, res: Response) => {
   res.status(201).json({ banner });
 });
 
-router.patch("/admin/home-banners/:id", async (req: Request, res: Response) => {
+router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
 
@@ -850,7 +848,7 @@ router.patch("/admin/home-banners/:id", async (req: Request, res: Response) => {
   res.json({ banner });
 });
 
-router.delete("/admin/home-banners/:id", async (req: Request, res: Response) => {
+router.delete("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   await db.delete(homeBannersTable).where(eq(homeBannersTable.id, id));
   res.json({ success: true });

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { loginLimiter } from "../middleware/rateLimiter";
 import multer from "multer";
 import path from "path";
+import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, desc, asc, or } from "drizzle-orm";
@@ -501,10 +502,9 @@ router.patch("/lojista/products/reorder", async (req: Request, res: Response) =>
   res.json({ success: true });
 });
 
-router.patch("/lojista/products/:id", async (req: Request, res: Response) => {
+router.patch("/lojista/products/:id", validateId, async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
@@ -536,10 +536,9 @@ router.patch("/lojista/products/:id", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
-router.delete("/lojista/products/:id", async (req: Request, res: Response) => {
+router.delete("/lojista/products/:id", validateId, async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
@@ -644,8 +643,8 @@ router.post("/lojista/reviews/:reviewId/respond", async (req: Request, res: Resp
     res.status(403).json({ error: "Resposta a avaliações disponível a partir do plano Destaque", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType || "free" });
     return;
   }
-  const reviewId = Number(req.params.reviewId);
-  if (!reviewId) { res.status(400).json({ error: "ID inválido" }); return; }
+  const reviewId = parseId(req.params.reviewId);
+  if (!reviewId) { res.status(400).json({ error: "ID inválido.", code: "INVALID_ID" }); return; }
 
   const [review] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, reviewId));
   if (!review || review.businessId !== businessId) {
@@ -661,7 +660,8 @@ router.post("/lojista/reviews/:reviewId/respond", async (req: Request, res: Resp
 
 router.delete("/lojista/reviews/:reviewId/respond", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const reviewId = Number(req.params.reviewId);
+  const reviewId = parseId(req.params.reviewId);
+  if (!reviewId) { res.status(400).json({ error: "ID inválido.", code: "INVALID_ID" }); return; }
   const [review] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, reviewId));
   if (!review || review.businessId !== businessId) { res.status(404).json({ error: "Avaliação não encontrada" }); return; }
   await db.update(reviewsTable).set({ ownerResponse: null }).where(eq(reviewsTable.id, reviewId));

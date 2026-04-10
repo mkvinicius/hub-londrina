@@ -1,0 +1,192 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+Adicionar validação de ID em todas as rotas que recebem
+parâmetros numéricos via URL. Sem isso, inputs maliciosos
+como /negocio/abc ou /negocio/99999999999999 podem causar
+comportamento inesperado no banco.
+
+---
+
+## 1. CRIAR HELPER DE VALIDAÇÃO
+
+Criar arquivo api-server/src/middleware/validateId.ts:
+
+```typescript
+import { Request, Response, NextFunction } from 'express';
+
+// Valida e retorna ID numérico seguro
+// Retorna null se inválido
+export function parseId(value: string | undefined): number | null {
+  if (!value) return null;
+  const id = parseInt(value, 10);
+  if (isNaN(id) || id <= 0 || id > 2147483647) return null; // max int4 PostgreSQL
+  return id;
+}
+
+// Middleware para rotas com :id
+export function validateId(req: Request, res: Response, next: NextFunction) {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({
+      error: 'ID inválido.',
+      code: 'INVALID_ID'
+    });
+  }
+  req.params.id = String(id); // normaliza
+  next();
+}
+
+// Middleware para paginação
+export function validatePagination(req: Request, res: Response, next: NextFunction) {
+  const page = parseInt(req.query.page as string || '1', 10);
+  const limit = parseInt(req.query.limit as string || '12', 10);
+
+  if (isNaN(page) || page < 1) req.query.page = '1';
+  else if (page > 10000) req.query.page = '10000';
+
+  if (isNaN(limit) || limit < 1) req.query.limit = '12';
+  else if (limit > 100) req.query.limit = '100'; // máximo por request
+
+  next();
+}
+```
+
+---
+
+## 2. APLICAR validateId NAS ROTAS
+
+### businesses.ts
+Aplicar em todas as rotas com :id:
+
+```typescript
+import { validateId } from '../middleware/validateId';
+
+router.get('/:id', validateId, async (req, res) => { ... });
+router.post('/:id/review', validateId, async (req, res) => { ... });
+router.post('/:id/click-whatsapp', validateId, async (req, res) => { ... });
+router.get('/:id/reviews', validateId, async (req, res) => { ... });
+```
+
+Substituir todos os `Number(req.params.id)` por `parseInt(req.params.id, 10)`
+(já validado pelo middleware, mas manter o parseInt explícito)
+
+### lojista.ts
+Aplicar em rotas com :id de produto e review:
+
+```typescript
+router.patch('/products/:id', validateId, ...)
+router.delete('/products/:id', validateId, ...)
+router.post('/reviews/:reviewId/respond', ...)
+router.delete('/reviews/:reviewId/respond', ...)
+```
+
+Para reviewId, adicionar validação inline:
+```typescript
+const reviewId = parseId(req.params.reviewId);
+if (!reviewId) return res.status(400).json({ error: 'ID inválido', code: 'INVALID_ID' });
+```
+
+### admin.ts
+Aplicar validateId em todas as 13 rotas com :id:
+
+```typescript
+router.get('/businesses/:id', validateId, ...)
+router.patch('/businesses/:id', validateId, ...)
+router.delete('/businesses/:id', validateId, ...)
+router.post('/businesses/:id/boost', validateId, ...)
+router.delete('/businesses/:id/boost', validateId, ...)
+router.patch('/businesses/:id/home-featured', validateId, ...)
+router.patch('/businesses/:id/zones', validateId, ...)
+// ... e todas as demais com :id
+```
+
+### zones.ts
+Para page e limit de paginação, substituir parseInt solto por:
+
+```typescript
+import { validatePagination } from '../middleware/validateId';
+
+router.get('/:zone/businesses', validatePagination, async (req, res) => {
+  const page = parseInt(req.query.page as string, 10);
+  const limit = parseInt(req.query.limit as string, 10);
+  // já garantidos como válidos pelo middleware
+  ...
+});
+```
+
+Também validar o parâmetro :zone:
+
+```typescript
+const VALID_ZONES = ['norte', 'sul', 'leste', 'oeste', 'centro'];
+
+router.get('/:zone/stats', async (req, res) => {
+  if (!VALID_ZONES.includes(req.params.zone)) {
+    return res.status(400).json({ error: 'Zona inválida.', code: 'INVALID_ZONE' });
+  }
+  ...
+});
+
+router.get('/:zone/businesses', validatePagination, async (req, res) => {
+  if (!VALID_ZONES.includes(req.params.zone)) {
+    return res.status(400).json({ error: 'Zona inválida.', code: 'INVALID_ZONE' });
+  }
+  ...
+});
+```
+
+---
+
+## 3. PROTEÇÃO ADICIONAL — IDs SEQUENCIAIS
+
+Os IDs de negócio são sequenciais (/negocio/1, /negocio/2).
+Isso expõe o tamanho da base mas não é um risco de segurança
+direto. Para dificultar enumeração no futuro, adicionar
+header de rate limit nas rotas públicas de negócio:
+
+Criar limitador específico em rateLimiter.ts:
+```typescript
+export const businessViewLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 60,             // 60 visualizações por minuto por IP
+  message: { error: 'Muitas requisições. Tente novamente em breve.', code: 'TOO_MANY_REQUESTS' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+```
+
+Aplicar em:
+```typescript
+router.get('/:id', businessViewLimiter, validateId, async (req, res) => { ... });
+```
+
+---
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/api/businesses/abc
+   → Esperado: 400 { error: 'ID inválido', code: 'INVALID_ID' }
+
+2. curl https://www.hublondrina.com.br/api/businesses/99999999999
+   → Esperado: 400 { error: 'ID inválido', code: 'INVALID_ID' }
+
+3. curl https://www.hublondrina.com.br/api/businesses/0
+   → Esperado: 400 { error: 'ID inválido', code: 'INVALID_ID' }
+
+4. curl https://www.hublondrina.com.br/api/businesses/1
+   → Esperado: 200 com dados do negócio (continua funcionando)
+
+5. curl https://www.hublondrina.com.br/api/zones/invalida/stats
+   → Esperado: 400 { error: 'Zona inválida', code: 'INVALID_ZONE' }
+
+6. curl https://www.hublondrina.com.br/api/zones/norte/businesses?limit=9999
+   → Esperado: 200 mas com máximo de 100 resultados
+
+7. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+8. /admin/login e /lojista/login continuam funcionando
+
+Confirmar todos os 8 testes antes de finalizar.

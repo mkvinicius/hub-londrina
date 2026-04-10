@@ -33,6 +33,17 @@ export const reviewLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+export const businessViewLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: {
+    error: "Muitas requisições. Tente novamente em breve.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const cnpjLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
