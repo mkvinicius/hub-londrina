@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
+import { csrfFetch } from "@/lib/csrf";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
   MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send,
@@ -54,10 +55,8 @@ function formatDate(dateStr: string) {
 const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
 
 async function submitReview(businessId: number, data: { author: string; rating: number; text: string }) {
-  const res = await fetch(`${API_BASE}/api/businesses/${businessId}/review`, {
+  const res = await csrfFetch(`${API_BASE}/api/businesses/${businessId}/review`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(data),
   });
   if (!res.ok) {

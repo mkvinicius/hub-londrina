@@ -7,8 +7,20 @@ import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
+import { generateCsrfToken, csrfProtection } from "../middleware/csrf";
 
 const router: IRouter = Router();
+
+router.get("/auth/csrf-token", (req: Request, res: Response) => {
+  const token = generateCsrfToken();
+  res.cookie("csrf-token", token, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 60 * 60 * 1000,
+  });
+  res.json({ csrfToken: token });
+});
 
 const forgotLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -65,7 +77,7 @@ router.get("/auth/validate-cnpj", cnpjLimiter, async (req: Request, res: Respons
   }
 });
 
-router.post("/auth/register", registerLimiter, async (req: Request, res: Response) => {
+router.post("/auth/register", registerLimiter, csrfProtection, async (req: Request, res: Response) => {
   const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep } = req.body;
 
   if (!name || !email || !password || !businessName || !cnpj || !phone || !categorySlug || !zone || !cep) {
@@ -232,7 +244,7 @@ router.get("/auth/verify-email", async (req: Request, res: Response) => {
   return res.redirect("https://www.hublondrina.com.br/lojista/login?verified=1");
 });
 
-router.post("/auth/forgot-password", forgotLimiter, async (req: Request, res: Response) => {
+router.post("/auth/forgot-password", forgotLimiter, csrfProtection, async (req: Request, res: Response) => {
   const { email } = req.body;
   const GENERIC = "Se o email existir, você receberá as instruções em breve.";
 

@@ -1,0 +1,198 @@
+Leia o CONTEXT.md antes de fazer qualquer alteração.
+Não quebre nada listado na seção 3.
+
+## O que precisa ser feito
+
+Corrigir 3 itens de dívida técnica restantes.
+Nenhuma nova feature — só correções de infraestrutura.
+
+---
+
+## 1. CONNECTION POOLING NO BANCO
+
+Localizar onde a conexão com PostgreSQL é criada
+(lib/db/index.ts ou similar).
+
+Adicionar configuração explícita de pool:
+
+```typescript
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,                // máximo de conexões simultâneas
+  idleTimeoutMillis: 30000,  // fechar conexão ociosa após 30s
+  connectionTimeoutMillis: 2000, // timeout para obter conexão do pool
+});
+
+export const db = drizzle(pool, { schema });
+```
+
+Se já usa Pool, verificar se max está configurado.
+Se usa conexão direta (não pool), migrar para Pool.
+
+---
+
+## 2. CSRF PROTECTION NOS FORMULÁRIOS PÚBLICOS
+
+Instalar:
+pnpm add csurf cookie-parser
+pnpm add -D @types/csurf @types/cookie-parser
+
+Aplicar proteção CSRF nos endpoints públicos
+que recebem dados de formulário:
+
+- POST /api/auth/register
+- POST /api/auth/forgot-password
+- POST /api/businesses/:id/review
+
+Implementação com double-submit cookie pattern
+(mais simples, não requer sessão):
+
+```typescript
+// Middleware em api-server/src/middleware/csrf.ts
+import crypto from 'crypto';
+
+export function generateCsrfToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function csrfProtection(req: Request, res: Response, next: NextFunction) {
+  // Endpoints GET não precisam de CSRF
+  if (req.method === 'GET') return next();
+
+  const tokenFromHeader = req.headers['x-csrf-token'] as string;
+  const tokenFromCookie = req.cookies?.['csrf-token'];
+
+  if (!tokenFromHeader || !tokenFromCookie || tokenFromHeader !== tokenFromCookie) {
+    return res.status(403).json({
+      error: 'Token CSRF inválido.',
+      code: 'CSRF_INVALID'
+    });
+  }
+
+  next();
+}
+```
+
+Rota para gerar token:
+```typescript
+// GET /api/auth/csrf-token
+app.get('/api/auth/csrf-token', (req, res) => {
+  const token = generateCsrfToken();
+  res.cookie('csrf-token', token, {
+    httpOnly: false, // frontend precisa ler
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 1000 // 1 hora
+  });
+  res.json({ csrfToken: token });
+});
+```
+
+No frontend, antes de submeter os formulários públicos
+(cadastro, avaliação, esqueci senha):
+1. Chamar GET /api/auth/csrf-token
+2. Incluir o token retornado no header X-CSRF-Token
+3. O cookie é enviado automaticamente
+
+Criar hook reutilizável em hub-londrina/src/lib/csrf.ts:
+```typescript
+export async function getCsrfToken(): Promise<string> {
+  const res = await fetch('/api/auth/csrf-token');
+  const { csrfToken } = await res.json();
+  return csrfToken;
+}
+
+export async function csrfFetch(url: string, options: RequestInit = {}) {
+  const csrfToken = await getCsrfToken();
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'X-CSRF-Token': csrfToken,
+    },
+    credentials: 'include',
+  });
+}
+```
+
+Usar csrfFetch nos formulários:
+- /cadastro → usar csrfFetch no POST /api/auth/register
+- /negocio/:id → usar csrfFetch no POST /businesses/:id/review
+- /lojista/esqueci-senha → usar csrfFetch no POST /api/auth/forgot-password
+
+---
+
+## 3. AVISO DE UPLOADS LOCAIS → MIGRAÇÃO PARA OBJECT STORAGE
+
+Por enquanto não vamos integrar S3/R2 (requer configuração
+externa). Mas precisamos garantir que uploads sobrevivam
+a restarts do container e documentar a limitação.
+
+### 3a. Persistência via volume Replit
+Verificar se o diretório /public/uploads está dentro
+do workspace (que persiste no Replit) ou em /tmp (que não persiste).
+
+Se estiver em /tmp ou no diretório do processo:
+Mover para ~/workspace/artifacts/hub-londrina/public/uploads/
+que é parte do workspace persistente do Replit.
+
+Atualizar todos os paths de upload no backend para
+usar o caminho absoluto baseado em __dirname ou process.cwd()
+apontando para dentro do workspace:
+
+```typescript
+import path from 'path';
+
+// Caminho persistente no Replit
+const UPLOADS_DIR = path.join(
+  process.cwd(),
+  'artifacts', 'hub-londrina', 'public', 'uploads'
+);
+
+// Garantir subdiretórios
+['logos', 'banners', 'photos', 'products'].forEach(dir => {
+  const fullPath = path.join(UPLOADS_DIR, dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+});
+```
+
+### 3b. Servir arquivos estáticos corretamente
+Garantir que o Express serve /uploads/ como estático:
+
+```typescript
+app.use('/uploads', express.static(path.join(UPLOADS_DIR)));
+```
+
+### 3c. Atualizar o banner de aviso no admin
+Mudar o texto do banner de aviso para ser mais informativo:
+ℹ️ Uploads armazenados no workspace do Replit.
+Para produção em escala, configure S3 ou Cloudflare R2.
+
+---
+
+## TESTES AO FINALIZAR
+
+1. curl https://www.hublondrina.com.br/ | wc -c
+   → Esperado: acima de 50000
+
+2. curl https://www.hublondrina.com.br/api/categories
+   → Esperado: JSON com categorias
+
+3. Verificar no código que Pool está configurado com max: 10
+   → grep -r "max:" ~/workspace/lib/db/ --include="*.ts"
+   → Esperado: encontra a configuração do pool
+
+4. curl https://www.hublondrina.com.br/api/auth/csrf-token
+   → Esperado: JSON com csrfToken e cookie csrf-token no header
+
+5. Tentar POST /api/auth/register sem header X-CSRF-Token
+   → Esperado: 403 CSRF_INVALID
+
+6. /admin/login e /lojista/login continuam funcionando
+
+Confirmar todos os 6 testes antes de finalizar.

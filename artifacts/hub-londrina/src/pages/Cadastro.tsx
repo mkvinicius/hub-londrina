@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { CheckCircle2, ArrowLeft, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { csrfFetch } from "@/lib/csrf";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -148,9 +149,8 @@ export default function Cadastro() {
     setError("");
     setSubmitting(true);
     try {
-      const resp = await fetch(`${API}/api/auth/register`, {
+      const resp = await csrfFetch(`${API}/api/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim().toLowerCase(),

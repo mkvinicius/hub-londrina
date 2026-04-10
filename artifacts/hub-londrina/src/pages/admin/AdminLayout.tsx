@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard } from "lucide-react";
+import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info } from "lucide-react";
 import { clearToken } from "@/lib/admin-api";
 import { useState } from "react";
 
@@ -64,7 +64,13 @@ export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/10 space-y-2">
+          <div className="flex items-start gap-2 bg-white/5 rounded-xl px-3 py-2.5">
+            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <p className="text-[10px] text-white/50 leading-snug">
+              Uploads armazenados no workspace do Replit. Para produção em escala, configure S3 ou Cloudflare R2.
+            </p>
+          </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors w-full"

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { csrfFetch } from "@/lib/csrf";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function EsqueciSenha() {
   const [email, setEmail] = useState("");
@@ -14,9 +15,8 @@ export default function EsqueciSenha() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+      const res = await csrfFetch(`${API_BASE}/api/auth/forgot-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
       if (!res.ok) {
