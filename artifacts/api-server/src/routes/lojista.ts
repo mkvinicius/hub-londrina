@@ -4,10 +4,10 @@ import bcrypt from "bcryptjs";
 import { loginLimiter } from "../middleware/rateLimiter";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, desc, asc, or } from "drizzle-orm";
+import { uploadBufferToGCS } from "../lib/gcsUpload";
 
 const router: IRouter = Router();
 
@@ -15,51 +15,6 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET env var is required for lojista routes");
 }
-
-const UPLOAD_BASE = path.resolve(
-  process.cwd(),
-  "public/uploads"
-);
-
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-const logoStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(UPLOAD_BASE, "logos");
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `logo-${Date.now()}${ext}`);
-  },
-});
-
-const bannerStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(UPLOAD_BASE, "banners");
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `banner-${Date.now()}${ext}`);
-  },
-});
-
-const photoStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(UPLOAD_BASE, "photos");
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `photo-${Date.now()}${ext}`);
-  },
-});
 
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -73,9 +28,7 @@ function imageFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilter
   }
 }
 
-const uploadLogo = multer({ storage: logoStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
-const uploadBanner = multer({ storage: bannerStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
-const uploadPhoto = multer({ storage: photoStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
+const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
 
 interface LojistaPayload { businessId: number; email: string; role: string }
 
@@ -298,7 +251,7 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
-router.post("/lojista/upload/logo", uploadLogo.single("file"), async (req: Request, res: Response) => {
+router.post("/lojista/upload/logo", memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
@@ -306,16 +259,17 @@ router.post("/lojista/upload/logo", uploadLogo.single("file"), async (req: Reque
   }
   const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!business || business.planType === "free") {
-    fs.unlinkSync(req.file.path);
     res.status(403).json({ error: "Logo disponível apenas nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: business?.planType || "free" });
     return;
   }
-  const logoUrl = `/uploads/logos/${req.file.filename}`;
+  const ext = path.extname(req.file.originalname) || ".jpg";
+  const filename = `logo-${Date.now()}${ext}`;
+  const logoUrl = await uploadBufferToGCS(req.file.buffer, "logos", filename, req.file.mimetype);
   await db.update(businessesTable).set({ logoUrl }).where(eq(businessesTable.id, businessId));
   res.json({ logoUrl });
 });
 
-router.post("/lojista/upload/banner", uploadBanner.single("file"), async (req: Request, res: Response) => {
+router.post("/lojista/upload/banner", memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
@@ -323,16 +277,17 @@ router.post("/lojista/upload/banner", uploadBanner.single("file"), async (req: R
   }
   const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!business || business.planType === "free") {
-    fs.unlinkSync(req.file.path);
     res.status(403).json({ error: "Banner disponível apenas nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: business?.planType || "free" });
     return;
   }
-  const bannerUrl = `/uploads/banners/${req.file.filename}`;
+  const ext = path.extname(req.file.originalname) || ".jpg";
+  const filename = `banner-${Date.now()}${ext}`;
+  const bannerUrl = await uploadBufferToGCS(req.file.buffer, "banners", filename, req.file.mimetype);
   await db.update(businessesTable).set({ bannerUrl }).where(eq(businessesTable.id, businessId));
   res.json({ bannerUrl });
 });
 
-router.post("/lojista/upload/photo", uploadPhoto.single("file"), async (req: Request, res: Response) => {
+router.post("/lojista/upload/photo", memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
@@ -354,12 +309,13 @@ router.post("/lojista/upload/photo", uploadPhoto.single("file"), async (req: Req
   const limit = limits[business.planType] || 1;
 
   if (currentPhotos.length >= limit) {
-    fs.unlinkSync(req.file.path);
     res.status(400).json({ error: `Limite de ${limit} foto(s) atingido para o plano ${business.planType}` });
     return;
   }
 
-  const photoUrl = `/uploads/photos/${req.file.filename}`;
+  const ext = path.extname(req.file.originalname) || ".jpg";
+  const filename = `photo-${Date.now()}${ext}`;
+  const photoUrl = await uploadBufferToGCS(req.file.buffer, "photos", filename, req.file.mimetype);
   const newPhotos = [...currentPhotos, photoUrl];
 
   await db
@@ -712,18 +668,6 @@ router.delete("/lojista/reviews/:reviewId/respond", async (req: Request, res: Re
   res.json({ success: true });
 });
 
-const productMediaStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(UPLOAD_BASE, "products");
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `product-${Date.now()}${ext}`);
-  },
-});
-
 const ALLOWED_PRODUCT_MIMES = ["image/jpeg", "image/png", "image/webp", "video/mp4"];
 const ALLOWED_PRODUCT_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".mp4"];
 
@@ -736,18 +680,17 @@ function productMediaFilter(_req: any, file: Express.Multer.File, cb: multer.Fil
   }
 }
 
-const uploadProductMedia = multer({
-  storage: productMediaStorage,
+const memoryProductUpload = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: productMediaFilter,
 });
 
-router.post("/lojista/upload/product-media", uploadProductMedia.single("file"), async (req: Request, res: Response) => {
+router.post("/lojista/upload/product-media", memoryProductUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
   if (!biz || biz.planType !== "premium") {
-    if (req.file) fs.unlinkSync(req.file.path);
     res.status(403).json({ error: "Upload de mídia de produto é exclusivo do plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium" });
     return;
   }
@@ -761,12 +704,13 @@ router.post("/lojista/upload/product-media", uploadProductMedia.single("file"), 
   const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
 
   if (req.file.size > maxSize) {
-    fs.unlinkSync(req.file.path);
     res.status(400).json({ error: `Arquivo muito grande. Máximo: ${isVideo ? "50MB" : "10MB"}` });
     return;
   }
 
-  const mediaUrl = `/uploads/products/${req.file.filename}`;
+  const ext = path.extname(req.file.originalname) || ".jpg";
+  const filename = `product-${Date.now()}${ext}`;
+  const mediaUrl = await uploadBufferToGCS(req.file.buffer, "products", filename, req.file.mimetype);
   const mediaType: "image" | "video" = isVideo ? "video" : "image";
   res.json({ mediaUrl, mediaType });
 });
