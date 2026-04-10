@@ -348,8 +348,7 @@ router.get("/admin/lojistas", async (req: Request, res: Response) => {
 });
 
 router.post("/admin/lojistas/:id/reset-password", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const tempPassword = "Hub@" + Math.floor(1000 + Math.random() * 9000);
   const bcryptjs = await import("bcryptjs");
@@ -385,8 +384,7 @@ router.post("/admin/categories", async (req: Request, res: Response) => {
 });
 
 router.patch("/admin/categories/:id", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const allowed = ["name", "slug", "icon", "color"];
   const updates: Record<string, unknown> = {};
@@ -408,8 +406,7 @@ router.patch("/admin/categories/:id", validateId, async (req: Request, res: Resp
 });
 
 router.delete("/admin/categories/:id", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const cat = await db.select().from(categoriesTable).where(eq(categoriesTable.id, id));
   if (cat.length === 0) { res.status(404).json({ error: "Categoria não encontrada" }); return; }
@@ -542,12 +539,17 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
     res.status(400).json({ error: "businessId e boostType são obrigatórios" });
     return;
   }
+  const parsedBusinessId = parseId(String(businessId));
+  if (!parsedBusinessId) {
+    res.status(400).json({ error: "businessId inválido.", code: "INVALID_ID" });
+    return;
+  }
   if (!["monthly", "avulso"].includes(boostType)) {
     res.status(400).json({ error: "boostType deve ser 'monthly' ou 'avulso'" });
     return;
   }
 
-  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, Number(businessId)));
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, parsedBusinessId));
   if (!biz) {
     res.status(404).json({ error: "Negócio não encontrado" });
     return;
@@ -588,7 +590,7 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
     .from(searchBoostsTable)
     .where(
       and(
-        eq(searchBoostsTable.businessId, Number(businessId)),
+        eq(searchBoostsTable.businessId, parsedBusinessId),
         sql`${searchBoostsTable.status} != 'expired'`
       )
     );
@@ -607,7 +609,7 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
 
   try {
     const [boost] = await db.insert(searchBoostsTable).values({
-      businessId: Number(businessId),
+      businessId: parsedBusinessId,
       monthlyBid: String(boostType === "monthly" ? monthlyBid : "0"),
       position: status === "active" && boostType === "monthly" ? BID_TO_POSITION[Number(monthlyBid)] : null,
       boostType,
@@ -636,8 +638,7 @@ router.post("/admin/boosts", async (req: Request, res: Response) => {
 });
 
 router.patch("/admin/boosts/:id", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const [existing] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Boost não encontrado" }); return; }
@@ -676,7 +677,7 @@ router.patch("/admin/boosts/:id", validateId, async (req: Request, res: Response
 });
 
 router.delete("/admin/boosts/:id", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
+  const id = parseInt(req.params.id, 10);
   const [toDelete] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
   if (!toDelete) { res.status(404).json({ error: "Boost não encontrado" }); return; }
 
@@ -732,8 +733,7 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
 });
 
 router.post("/admin/businesses/:id/boost", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
   const { days } = req.body;
   if (!days || isNaN(Number(days)) || Number(days) < 1) {
     res.status(400).json({ error: "days deve ser >= 1" });
@@ -749,15 +749,13 @@ router.post("/admin/businesses/:id/boost", validateId, async (req: Request, res:
 });
 
 router.delete("/admin/businesses/:id/boost", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
   await db.update(businessesTable).set({ boostedUntil: null }).where(eq(businessesTable.id, id));
   res.json({ success: true });
 });
 
 router.patch("/admin/businesses/:id/home-featured", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
   const { homeFeatured } = req.body;
   await db.update(businessesTable).set({ homeFeatured: Boolean(homeFeatured) }).where(eq(businessesTable.id, id));
   res.json({ success: true });
@@ -810,6 +808,15 @@ router.post("/admin/home-banners", async (req: Request, res: Response) => {
     return;
   }
 
+  let parsedBannerId: number | null = null;
+  if (businessId) {
+    parsedBannerId = parseId(String(businessId));
+    if (!parsedBannerId) {
+      res.status(400).json({ error: "businessId inválido.", code: "INVALID_ID" });
+      return;
+    }
+  }
+
   const active3 = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(homeBannersTable)
@@ -825,15 +832,14 @@ router.post("/admin/home-banners", async (req: Request, res: Response) => {
     linkUrl: linkUrl || null,
     active: active !== false,
     endsAt: endsAt ? new Date(endsAt) : null,
-    businessId: businessId ? Number(businessId) : null,
+    businessId: parsedBannerId,
   }).returning();
 
   res.status(201).json({ banner });
 });
 
 router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!id) { res.status(400).json({ error: "ID inválido" }); return; }
+  const id = parseInt(req.params.id, 10);
 
   const { title, imageUrl, linkUrl, active, endsAt } = req.body;
   const updates: Record<string, unknown> = {};
@@ -849,7 +855,7 @@ router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Re
 });
 
 router.delete("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
+  const id = parseInt(req.params.id, 10);
   await db.delete(homeBannersTable).where(eq(homeBannersTable.id, id));
   res.json({ success: true });
 });
