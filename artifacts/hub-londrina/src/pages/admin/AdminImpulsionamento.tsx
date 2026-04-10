@@ -231,8 +231,8 @@ export default function AdminImpulsionamento() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-800 flex items-center gap-2">
-            <Zap className="w-7 h-7 text-[#d97706]" />
+          <h1 className="text-xl sm:text-2xl font-black text-gray-800 flex items-center gap-2">
+            <Zap className="w-6 h-6 sm:w-7 sm:h-7 text-[#d97706]" />
             Boost / Impulsionamento
           </h1>
           <p className="text-sm text-gray-500 mt-1">Gerencie as posições de destaque na busca</p>
@@ -245,79 +245,68 @@ export default function AdminImpulsionamento() {
         </button>
       </div>
 
+      {/* ── VAGAS MENSAIS ─────────────────────── */}
       <div className="mb-8">
         <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
           <Crown className="w-5 h-5 text-amber-500" />
           Vagas Mensais — {5 - availablePositions.length}/5 ocupadas
         </h2>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-left">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16">Posição</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Lance</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Tipo</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-32">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Carregando...</td></tr>
-              ) : (
-                [1, 2, 3, 4, 5].map(pos => {
-                  const boost = monthly.find(b => b.position === pos);
-                  return (
-                    <tr key={pos} className="border-t border-gray-50 hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-black text-amber-700">{pos}º</td>
-                      <td className="px-4 py-3 font-semibold text-gray-700">R${POSITION_BIDS[pos]}/mês</td>
-                      <td className="px-4 py-3">
-                        {boost ? (
-                          <div>
-                            <span className="font-medium text-gray-800">{boost.business.name}</span>
-                            <span className="text-[10px] text-gray-400 ml-2">{boost.business.region} · {boost.business.category}</span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 italic">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {boost ? (
-                          <span className="text-[11px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Ativo</span>
-                        ) : (
-                          <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Livre</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">Mensal</td>
-                      <td className="px-4 py-3">
-                        {boost ? (
-                          <button
-                            onClick={() => handleCancel(boost.id)}
-                            className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
-                          >
-                            <Trash2 className="w-3 h-3 inline mr-1" />Cancelar
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => { setShowAddMonthly(pos); setAddBusinessId(""); setBizSearch(""); }}
-                            className={`px-3 py-1.5 text-xs font-bold text-[#d97706] bg-amber-50 hover:bg-amber-100 rounded-lg ${BTN_ELEVATION}`}
-                          >
-                            <Plus className="w-3 h-3 inline mr-1" />Adicionar
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
+        ) : (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(pos => {
+              const boost = monthly.find(b => b.position === pos);
+              return (
+                <div key={pos} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="w-9 h-9 flex items-center justify-center bg-amber-50 rounded-xl font-black text-amber-700 text-sm">{pos}º</span>
+                      <div>
+                        <span className="font-semibold text-gray-800 text-sm">R${POSITION_BIDS[pos]}/mês</span>
+                        <span className="text-[10px] text-gray-400 ml-2 hidden sm:inline">Mensal</span>
+                      </div>
+                    </div>
+                    {boost ? (
+                      <span className="text-[11px] font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">Ativo</span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">Livre</span>
+                    )}
+                  </div>
+                  {boost ? (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 text-sm truncate">{boost.business.name}</p>
+                        <p className="text-[10px] text-gray-400">{boost.business.region} · {boost.business.category}</p>
+                      </div>
+                      <button
+                        onClick={() => handleCancel(boost.id)}
+                        className={`flex-shrink-0 ml-3 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                      >
+                        <Trash2 className="w-3 h-3 inline mr-1" />Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 pt-2 border-t border-gray-50">
+                      <button
+                        onClick={() => { setShowAddMonthly(pos); setAddBusinessId(""); setBizSearch(""); }}
+                        className={`px-3 py-1.5 text-xs font-bold text-[#d97706] bg-amber-50 hover:bg-amber-100 rounded-lg ${BTN_ELEVATION}`}
+                      >
+                        <Plus className="w-3 h-3 inline mr-1" />Adicionar negócio
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* ── BOOSTS AVULSOS ─────────────────────── */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Flame className="w-5 h-5 text-orange-500" />
             Boosts Avulsos Ativos
@@ -329,105 +318,97 @@ export default function AdminImpulsionamento() {
             <Plus className="w-4 h-4 inline mr-1" />Adicionar Avulso
           </button>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-left">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Duração</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Início</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Expira em</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Dias Restantes</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Carregando...</td></tr>
-              ) : avulso.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Nenhum boost avulso ativo.</td></tr>
-              ) : (
-                avulso.map(b => (
-                  <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-gray-800">{b.business.name}</span>
-                      <span className="text-[10px] text-gray-400 ml-2">{b.business.region}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {b.startsAt && b.expiresAt
-                        ? `${Math.ceil((new Date(b.expiresAt).getTime() - new Date(b.startsAt).getTime()) / (1000 * 60 * 60 * 24))} dias`
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{formatDate(b.startsAt)}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{formatDate(b.expiresAt)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-bold ${daysRemaining(b.expiresAt) === "Expirado" ? "text-red-500" : "text-amber-600"}`}>
-                        {daysRemaining(b.expiresAt)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(b.id)}
-                        className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
-                      >
-                        <Trash2 className="w-3 h-3 inline mr-1" />Remover
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
+        ) : avulso.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Nenhum boost avulso ativo.</div>
+        ) : (
+          <div className="space-y-3">
+            {avulso.map(b => {
+              const dur = b.startsAt && b.expiresAt
+                ? `${Math.ceil((new Date(b.expiresAt).getTime() - new Date(b.startsAt).getTime()) / (1000 * 60 * 60 * 24))} dias`
+                : "—";
+              const remaining = daysRemaining(b.expiresAt);
+              return (
+                <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-800 text-sm truncate">{b.business.name}</p>
+                      <p className="text-[10px] text-gray-400">{b.business.region}</p>
+                    </div>
+                    <span className={`flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${remaining === "Expirado" ? "text-red-600 bg-red-50" : "text-amber-700 bg-amber-50"}`}>
+                      {remaining}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 border-t border-gray-50 pt-2 mt-1">
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase font-semibold">Duração</p>
+                      <p className="font-medium text-gray-700">{dur}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase font-semibold">Início</p>
+                      <p className="font-medium text-gray-700">{formatDate(b.startsAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase font-semibold">Expira</p>
+                      <p className="font-medium text-gray-700">{formatDate(b.expiresAt)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => handleDelete(b.id)}
+                      className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                    >
+                      <Trash2 className="w-3 h-3 inline mr-1" />Remover
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* ── LISTA DE ESPERA ─────────────────────── */}
       {waitlist.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-500" />
             Lista de Espera ({waitlist.length})
           </h2>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Lance Desejado</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Entrada na Fila</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {waitlist.map(w => (
-                  <tr key={w.id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-gray-800">{w.business.name}</span>
-                      <span className="text-[10px] text-gray-400 ml-2">{w.business.region}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-semibold text-amber-700">R${w.monthlyBid}/mês</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{formatDate(w.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(w.id)}
-                        className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
-                      >
-                        <Trash2 className="w-3 h-3 inline mr-1" />Remover
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {waitlist.map(w => (
+              <div key={w.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-800 text-sm truncate">{w.business.name}</p>
+                    <p className="text-[10px] text-gray-400">{w.business.region}</p>
+                  </div>
+                  <span className="flex-shrink-0 text-xs font-bold text-amber-700">R${w.monthlyBid}/mês</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-50 pt-2 mt-1">
+                  <p className="text-xs text-gray-400">Entrada: {formatDate(w.createdAt)}</p>
+                  <button
+                    onClick={() => handleDelete(w.id)}
+                    className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                  >
+                    <Trash2 className="w-3 h-3 inline mr-1" />Remover
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
+      {/* ── MODALS ─────────────────────── */}
       {showAddMonthly !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800">
-                Adicionar Mensal — Posição {showAddMonthly}º (R${POSITION_BIDS[showAddMonthly]}/mês)
+                Posição {showAddMonthly}º — R${POSITION_BIDS[showAddMonthly]}/mês
               </h3>
               <button onClick={() => setShowAddMonthly(null)} className="p-1 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-400" />
@@ -527,128 +508,103 @@ export default function AdminImpulsionamento() {
         </div>
       )}
 
-      {/* ── BOOST DIRETO (boostedUntil) ─────────────────────── */}
+      {/* ── BOOST DIRETO ─────────────────────── */}
       <div className="mt-10">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Rocket className="w-5 h-5 text-purple-500" />
-            Boost Direto — Impulsionamento Manual
+            Boost Direto — Manual
           </h2>
           <button
             onClick={() => setShowAddDirect(v => !v)}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl bg-purple-600 text-white hover:bg-purple-700 ${BTN_ELEVATION}`}
           >
-            <Plus className="w-4 h-4" />
-            Adicionar
+            {showAddDirect ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showAddDirect ? "Fechar" : "Adicionar Direto"}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mb-4">
-          Impulsione qualquer negócio por um período determinado — aparece acima de Premium e Destaque na listagem.
-        </p>
 
         {showAddDirect && (
-          <div className="bg-white rounded-2xl border border-purple-100 shadow-sm p-5 mb-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
-                <Rocket className="w-4 h-4 text-purple-500" />
-                Novo Boost Direto
-              </h3>
-              <button onClick={() => setShowAddDirect(false)} className="text-gray-400 hover:text-gray-700">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 sm:p-6 mb-4">
+            <h3 className="text-sm font-bold text-purple-800 mb-3">Novo Boost Direto</h3>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Buscar negócio</label>
                 <input
                   type="text"
-                  placeholder="Nome..."
+                  placeholder="Buscar..."
                   value={directBizSearch}
                   onChange={e => setDirectBizSearch(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl mb-2"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Negócio</label>
                 <select
                   value={directBizId}
                   onChange={e => setDirectBizId(Number(e.target.value))}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
                 >
-                  <option value="">Selecionar negócio...</option>
-                  {directAvailable.slice(0, 40).map(b => (
+                  <option value="">Selecionar...</option>
+                  {directAvailable.slice(0, 30).map(b => (
                     <option key={b.id} value={b.id}>{b.name} ({b.region})</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Duração</label>
-                <select
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Duração (dias)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
                   value={directDays}
                   onChange={e => setDirectDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
-                >
-                  <option value={7}>7 dias</option>
-                  <option value={14}>14 dias</option>
-                  <option value={30}>30 dias</option>
-                  <option value={60}>60 dias</option>
-                  <option value={90}>90 dias</option>
-                </select>
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
+                />
               </div>
               <button
                 onClick={handleAddDirect}
-                disabled={saving || !directBizId}
-                className={`w-full py-2.5 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
+                disabled={saving || !directBizId || !directDays}
+                className={`w-full sm:w-auto py-2.5 px-6 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
               >
-                {saving ? "Salvando..." : "Aplicar Boost Direto"}
+                {saving ? "Salvando..." : "Ativar Boost Direto"}
               </button>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-left">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-32">Expira</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Restante</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={4} className="text-center py-10 text-gray-400">Carregando...</td></tr>
-              ) : directActiveBoosted.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-10 text-gray-400">Nenhum boost direto ativo.</td></tr>
-              ) : (
-                directActiveBoosted.map(b => (
-                  <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-gray-800">{b.name}</span>
-                      <span className="text-gray-400 ml-2 text-xs">{b.region}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {formatDate((b as any).boostedUntil)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
-                        <Clock className="w-3 h-3" />
-                        {daysRemaining((b as any).boostedUntil)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleRemoveDirect(b.id)}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remover boost"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        {directActiveBoosted.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Nenhum boost direto ativo.</div>
+        ) : (
+          <div className="space-y-3">
+            {directActiveBoosted.map(b => {
+              const expStr = (b as any).boostedUntil;
+              const remaining = daysRemaining(expStr);
+              return (
+                <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-800 text-sm truncate">{b.name}</p>
+                      <p className="text-[10px] text-gray-400">{b.region}</p>
+                    </div>
+                    <span className={`flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${remaining === "Expirado" ? "text-red-600 bg-red-50" : "text-purple-700 bg-purple-50"}`}>
+                      {remaining}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-50 pt-2 mt-2">
+                    <p className="text-xs text-gray-400">Expira: {formatDate(expStr)}</p>
+                    <button
+                      onClick={() => handleRemoveDirect(b.id)}
+                      className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                    >
+                      <Trash2 className="w-3 h-3 inline mr-1" />Remover
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
