@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { searchBoostsTable } from "@workspace/db/schema";
+import { searchBoostsTable, businessesTable, homeBannersTable } from "@workspace/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
@@ -32,8 +32,46 @@ async function expireBoosts() {
   }
 }
 
+async function expireDirectBoosts() {
+  try {
+    const cleared = await db
+      .update(businessesTable)
+      .set({ boostedUntil: null })
+      .where(sql`${businessesTable.boostedUntil} IS NOT NULL AND ${businessesTable.boostedUntil} < NOW()`)
+      .returning({ id: businessesTable.id });
+
+    if (cleared.length > 0) {
+      logger.info(`${cleared.length} boost(s) direto(s) expirado(s)`);
+    }
+  } catch (err) {
+    logger.error({ err }, "Erro ao expirar boosts diretos");
+  }
+}
+
+async function expireHomeBanners() {
+  try {
+    const cleared = await db
+      .update(homeBannersTable)
+      .set({ active: false })
+      .where(sql`${homeBannersTable.active} = true AND ${homeBannersTable.endsAt} IS NOT NULL AND ${homeBannersTable.endsAt} < NOW()`)
+      .returning({ id: homeBannersTable.id });
+
+    if (cleared.length > 0) {
+      logger.info(`${cleared.length} banner(s) da home desativado(s) por vencimento`);
+    }
+  } catch (err) {
+    logger.error({ err }, "Erro ao expirar banners da home");
+  }
+}
+
+async function runExpirationCycle() {
+  await expireBoosts();
+  await expireDirectBoosts();
+  await expireHomeBanners();
+}
+
 export function startBoostExpirationJob() {
-  expireBoosts();
-  setInterval(expireBoosts, 60 * 60 * 1000);
-  logger.info("Job de expiração de boosts iniciado (intervalo: 1h)");
+  runExpirationCycle();
+  setInterval(runExpirationCycle, 60 * 60 * 1000);
+  logger.info("Job de expiração iniciado (boosts, boostedUntil, banners — intervalo: 1h)");
 }
