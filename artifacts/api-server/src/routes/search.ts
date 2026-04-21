@@ -204,11 +204,15 @@ router.get("/search", async (req, res) => {
   }
 
   monthlyBoosted.sort((a: any, b: any) => (a._boostPosition || 99) - (b._boostPosition || 99));
-  avulsoBoosted.sort((a: any, b: any) => (b.rating ?? 0) - (a.rating ?? 0));
-  directBoosted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  premium.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  destaque.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  free.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  const sortFallback = (a: any, b: any) =>
+    (b.rating ?? 0) - (a.rating ?? 0) ||
+    (b.completeness ?? 0) - (a.completeness ?? 0) ||
+    (b.clicks ?? 0) - (a.clicks ?? 0);
+  avulsoBoosted.sort(sortFallback);
+  directBoosted.sort(sortFallback);
+  premium.sort(sortFallback);
+  destaque.sort(sortFallback);
+  free.sort(sortFallback);
 
   res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...directBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 });
 });

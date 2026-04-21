@@ -25,7 +25,7 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
   const [, navigate] = useLocation();
   const bemAvaliado = getBemAvaliado(biz);
   const maisAvaliado = getMaisAvaliado(biz);
-  const semReclamacoes = getSemReclamacoes(biz) && !bemAvaliado;
+  const semReclamacoes = getSemReclamacoes(biz) && !bemAvaliado && !maisAvaliado;
 
   return (
     <div

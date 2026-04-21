@@ -166,7 +166,7 @@ export default function Negocio() {
     category: business?.categorySlug,
   });
 
-  const reviews: Review[] = (business?.reviews ?? []).filter((_r: Review, idx: number) => idx >= 0) as Review[];
+  const reviews: Review[] = (business?.reviews ?? []) as Review[];
   const ratingDist = getRatingDistribution(reviews);
   const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 4);
 

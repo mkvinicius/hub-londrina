@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { validatePagination } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, searchBoostsTable } from "@workspace/db/schema";
-import { eq, and, ne, desc, sql, or } from "drizzle-orm";
+import { eq, and, ne, desc, asc, sql, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -24,6 +24,12 @@ const ZONE_COLORS: Record<ZoneSlug, string> = {
   oeste: "#7c3aed",
   centro: "#dc2626",
 };
+
+const PLAN_ORDER = sql<number>`CASE ${businessesTable.planType}
+  WHEN 'premium' THEN 1
+  WHEN 'destaque' THEN 2
+  ELSE 3
+END`;
 
 function zoneCondition(zone: ZoneSlug) {
   return and(
@@ -87,8 +93,9 @@ router.get("/zones/:zone/stats", async (req: Request, res: Response) => {
       .from(businessesTable)
       .where(zoneCondition(zone))
       .orderBy(
-        sql`CASE ${businessesTable.planType} WHEN 'premium' THEN 1 WHEN 'destaque' THEN 2 ELSE 3 END`,
-        desc(businessesTable.rating)
+        asc(PLAN_ORDER),
+        desc(businessesTable.rating),
+        desc(businessesTable.clicks)
       )
       .limit(4);
 
@@ -138,8 +145,9 @@ router.get("/zones/:zone/businesses", validatePagination, async (req: Request, r
       .from(businessesTable)
       .where(whereClause)
       .orderBy(
-        sql`CASE ${businessesTable.planType} WHEN 'premium' THEN 1 WHEN 'destaque' THEN 2 ELSE 3 END`,
-        desc(businessesTable.rating)
+        asc(PLAN_ORDER),
+        desc(businessesTable.rating),
+        desc(businessesTable.clicks)
       )
       .limit(limit)
       .offset(offset);

@@ -132,6 +132,7 @@ export default function Busca() {
     region && region !== "todas",
     categoria,
   ].filter(Boolean).length;
+  const selectedRegionLabel = region && region !== "todas" ? region : "";
 
   return (
     <Layout>
@@ -213,7 +214,7 @@ export default function Busca() {
                 <>
                   <span className="text-[#d97706] font-black">{sorted.length}</span>{" "}
                   {sorted.length === 1 ? "negócio encontrado" : "negócios encontrados"}
-                  {region && region !== "todas" && ` em ${region}`}
+                  {selectedRegionLabel && ` em ${selectedRegionLabel}`}
                   {query && ` para "${query}"`}
                 </>
               )}
@@ -318,6 +319,7 @@ export default function Busca() {
                         const Icon = getCategoryIcon(cat.icon);
                         const colorClasses = getCategoryColorClasses(cat.color);
                         const isSelected = categoria === cat.slug;
+                        const countLabel = cat.businessCount !== undefined ? cat.businessCount : undefined;
                         return (
                           <button
                             key={cat.id}
@@ -330,8 +332,10 @@ export default function Busca() {
                               <Icon className={`h-4 w-4 ${isSelected ? "text-white" : colorClasses.split(" ")[1]}`} />
                               {cat.name}
                             </span>
-                            {cat.businessCount !== undefined && (
-                              <span className={`text-xs ${isSelected ? "text-white/80" : "text-gray-400"}`}>{cat.businessCount}</span>
+                            {countLabel !== undefined && (
+                              <span className={`text-xs ${isSelected ? "text-white/80" : "text-gray-400"}`}>
+                                {countLabel}
+                              </span>
                             )}
                           </button>
                         );
