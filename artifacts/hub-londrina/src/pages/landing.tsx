@@ -366,7 +366,7 @@ export default function Landing() {
               </div>
             )}
             <div className="absolute top-2 right-3 text-[10px] text-white/70 font-medium bg-black/30 px-2 py-0.5 rounded-full">
-              Parceiro
+              Publicidade
             </div>
           </div>
         </div>

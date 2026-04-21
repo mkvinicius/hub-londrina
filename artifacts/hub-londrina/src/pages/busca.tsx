@@ -133,6 +133,7 @@ export default function Busca() {
     categoria,
   ].filter(Boolean).length;
   const selectedRegionLabel = region && region !== "todas" ? region : "";
+  const selectedCategoryLabel = categoria ? categories.find(c => c.slug === categoria)?.name ?? categoria : "";
 
   return (
     <Layout>
@@ -215,6 +216,7 @@ export default function Busca() {
                   <span className="text-[#d97706] font-black">{sorted.length}</span>{" "}
                   {sorted.length === 1 ? "negócio encontrado" : "negócios encontrados"}
                   {selectedRegionLabel && ` em ${selectedRegionLabel}`}
+                  {selectedCategoryLabel && ` na categoria ${selectedCategoryLabel}`}
                   {query && ` para "${query}"`}
                 </>
               )}
