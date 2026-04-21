@@ -160,6 +160,18 @@ export default function Negocio() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [reviewKey, setReviewKey] = useState(0);
   const id = params?.id ? parseInt(params.id) : 0;
+  const [activeTab, setActiveTab] = useState("sobre");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("review") !== "1") return;
+    setActiveTab("avaliacoes");
+    const t = setTimeout(() => {
+      const el = document.getElementById("review-form");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 400);
+    return () => clearTimeout(t);
+  }, []);
 
   const { data: business, isLoading, isError, refetch } = useGetBusinessById(id);
   const { data: similarData } = useListBusinesses({
@@ -343,7 +355,7 @@ export default function Negocio() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left — Tabs */}
             <div className="lg:col-span-2 space-y-6">
-              <Tabs defaultValue="sobre" className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
                   <TabsTrigger value="sobre" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Sobre
@@ -528,10 +540,12 @@ export default function Negocio() {
                       </div>
                     )}
 
-                    <ReviewForm
-                      businessId={id}
-                      onSuccess={() => { setReviewKey(k => k + 1); refetch(); }}
-                    />
+                    <div id="review-form">
+                      <ReviewForm
+                        businessId={id}
+                        onSuccess={() => { setReviewKey(k => k + 1); refetch(); }}
+                      />
+                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
