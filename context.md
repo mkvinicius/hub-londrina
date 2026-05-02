@@ -104,6 +104,16 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 
 ### 3.6 Sistema de boost na busca
 - Tabela `search_boosts` com 5 vagas mensais + avulso
+- Schema atualizado:
+  - `boostType` — pgEnum ("monthly" | "avulso") — antes era text livre
+  - `boostContext` — pgEnum ("search" | "zone" | "home_search"), default "search"
+  - `zone` — text nullable, preenchido quando boostContext = "zone"
+  - uniqueIndex condicional `search_boosts_business_not_expired` removido
+  - Índices novos: `search_boosts_context_idx`, `search_boosts_zone_idx`
+- Três contextos de boost suportados:
+  - `search` — boost na busca geral e autocomplete (comportamento atual)
+  - `zone` — destaque fixo na página da zona do negócio
+  - `home_search` — destaque na home principal e página de busca geral
 - Ordenação: mensal (posição fixa) > avulso > premium > destaque > free
 - Badge "Patrocinado" discreto (cinza) nos cards
 - Job de expiração rodando a cada hora
@@ -291,6 +301,8 @@ cnpj, ownerName, ownerEmail, ownerPhone, logoUrl, bannerUrl,
 photos (array), cep, street, number, neighborhood, city, state,
 lat, lng, instagram, website, paymentMethods (array), tags (array),
 videoUrl, boostedUntil, homeFeatured,
+zoneFeatured (boolean, NOT NULL, default false),
+zoneFeaturedExpiresAt (timestamp, nullable),
 status (pending|active|rejected), rejectionReason
 ```
 
@@ -404,6 +416,27 @@ Subdomínio           | R$29/mês   | ex: negocio.hublondrina.com.br
 SEO Boost            | R$49/mês   | schema.org avançado
 ```
 
+### 5.5.1 Regras detalhadas dos novos contextos de boost
+
+**Destaque de Zona (R$79/mês):**
+- 6 vagas por zona
+- Aparece fixo no topo da página da zona
+- Aparece fixo em qualquer categoria filtrada dentro da zona
+- Exclusivo para empresas da própria zona
+- Disponível para planos Base e Premium
+
+**Destaque Home + Busca (R$149/mês):**
+- 6 vagas globais
+- Aparece na home principal
+- Aparece na página de busca geral
+- Aparece no autocomplete patrocinado
+- Disponível apenas para Premium
+
+**Banner Home (R$299/mês):**
+- 2 vagas
+- Apenas na home principal
+- Disponível apenas para Premium
+
 ---
 
 ## 5.6 Preços exibidos na plataforma (não alterar)
@@ -449,7 +482,7 @@ RESEND_API_KEY            — re_...
 [x] Tabela subscriptions (ciclo de vida da assinatura)
 [ ] Notificação pós-clique para solicitar avaliação
 [x] Páginas de zona (/norte, /sul, /leste, /oeste, /centro)
-[ ] Destaque de Zona (slot pago por categoria)
+[~] Destaque de Zona — schema preparado, backend e frontend pendentes
 [ ] Subdomínios personalizados
 [ ] SEO Boost (schema.org avançado)
 [ ] Relatório mensal PDF para Premium
