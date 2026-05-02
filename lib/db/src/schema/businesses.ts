@@ -60,6 +60,8 @@ export const businessesTable = pgTable(
     videoUrl: text("video_url"),
     boostedUntil: timestamp("boosted_until"),
     homeFeatured: boolean("home_featured").notNull().default(false),
+    zoneFeatured: boolean("zone_featured").notNull().default(false),
+    zoneFeaturedExpiresAt: timestamp("zone_featured_expires_at"),
     status: text("status").notNull().default("active"),
     rejectionReason: text("rejection_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
