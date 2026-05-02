@@ -1,5 +1,5 @@
 # Hub Londrina — Contexto Completo do Projeto
-# Atualizado: Abril 2026
+# Atualizado: Maio 2026
 # LEIA ESTE ARQUIVO ANTES DE QUALQUER ALTERAÇÃO
 
 ---
