@@ -72,7 +72,7 @@ export default function LojistaLogin() {
           <button
             type="submit"
             disabled={loading || !email || !password}
-            className="w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
+            className="w-full bg-[#f97316] hover:bg-[#ea6c0a] text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-40"
           >
             {loading ? "Entrando..." : "Entrar"}
           </button>

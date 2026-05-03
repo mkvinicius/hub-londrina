@@ -128,41 +128,22 @@ export default function LojistaDocumentacao() {
           </p>
         </div>
 
-        {data && data.documentationStatus !== "approved" && (
-          <div
-            className={`mb-6 rounded-xl p-4 border ${
-              data.documentationStatus === "expired"
-                ? "bg-red-50 border-red-200 text-red-800"
-                : data.documentationStatus === "rejected"
-                  ? "bg-red-50 border-red-200 text-red-800"
-                  : data.documentationTimerPaused
-                    ? "bg-yellow-50 border-yellow-200 text-yellow-800"
-                    : "bg-orange-50 border-orange-200 text-orange-800"
-            }`}
-          >
-            <p className="font-semibold">
-              Status: <span className="capitalize">{data.documentationStatus}</span>
-              {!data.documentationTimerPaused &&
-                data.documentationStatus !== "expired" &&
-                ` — ${data.documentationRemainingDays} dia${data.documentationRemainingDays === 1 ? "" : "s"} restantes`}
-            </p>
-            {data.documentationTimerPaused && data.documentationStatus === "submitted" && (
-              <p className="text-sm mt-1">
-                Documentos em análise. O contador foi pausado e voltará a correr apenas se algum
-                documento for rejeitado.
-              </p>
-            )}
-          </div>
-        )}
-
-        {data && data.documentationStatus === "approved" && (
-          <div className="mb-6 rounded-xl p-4 border bg-green-50 border-green-200 text-green-800">
-            <p className="font-semibold flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5" />
-              Documentação aprovada — sua loja está ativa
-            </p>
-          </div>
-        )}
+        {data && (() => {
+          const s = data.documentationStatus;
+          const statusMap: Record<string, { cls: string; msg: string }> = {
+            expired:   { cls: "bg-red-50 border-red-200 text-red-800",       msg: "⏰ Prazo encerrado. Sua loja está offline. Envie a documentação para reativar." },
+            submitted: { cls: "bg-blue-50 border-blue-200 text-blue-800",    msg: "📋 Documentação em análise. Sua loja será ativada em até 24h." },
+            approved:  { cls: "bg-green-50 border-green-200 text-green-800", msg: "✅ Documentação aprovada. Sua loja está ativa!" },
+            rejected:  { cls: "bg-red-50 border-red-200 text-red-800",       msg: "❌ Documentação rejeitada. Corrija e reenvie os documentos abaixo." },
+            pending:   { cls: "bg-amber-50 border-amber-200 text-amber-800", msg: "📎 Envie os 3 documentos abaixo para validar sua loja." },
+          };
+          const entry = statusMap[s] ?? statusMap["pending"];
+          return (
+            <div className={`mb-6 rounded-xl p-4 border ${entry.cls}`}>
+              <p className="font-semibold">{entry.msg}</p>
+            </div>
+          );
+        })()}
 
         {error && (
           <div className="mb-4 rounded-xl p-3 bg-red-50 border border-red-200 text-red-700 text-sm">

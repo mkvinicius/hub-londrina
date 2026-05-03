@@ -349,11 +349,7 @@ export default function LojistaPlano() {
                 </div>
               )}
 
-              {!isUpgrade && !isCurrent && (
-                <div className="w-full py-3 rounded-xl font-bold text-sm text-center bg-gray-50 text-gray-400">
-                  Plano inferior
-                </div>
-              )}
+              {!isUpgrade && !isCurrent && null}
             </div>
           );
         })}

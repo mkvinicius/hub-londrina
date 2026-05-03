@@ -45,23 +45,27 @@ function DocumentationBanner() {
   const isRejected = status.documentationStatus === "rejected";
   const isSubmitted = status.documentationStatus === "submitted" && status.documentationTimerPaused;
 
-  let bg = "bg-red-50 border-red-200 text-red-800";
-  let icon = "🔴";
+  let bg = "bg-amber-50 border-amber-200 text-amber-900";
+  let icon = "📋";
   let message = "";
   let cta = "Enviar documentação →";
 
   if (isExpired) {
-    message = "Sua loja está offline por falta de documentação.";
+    bg = "bg-red-50 border-red-200 text-red-800";
+    icon = "⚠️";
+    message = "Sua loja está temporariamente offline. Regularize sua documentação para voltar a aparecer.";
     cta = "Regularizar agora →";
   } else if (isRejected) {
-    message = `Documentação rejeitada. Corrija e reenvie. Você tem ${days} dia${days === 1 ? "" : "s"} restante${days === 1 ? "" : "s"}.`;
+    bg = "bg-orange-50 border-orange-200 text-orange-900";
+    icon = "⚠️";
+    message = "Revise sua documentação — encontramos uma inconsistência.";
     cta = "Corrigir documentação →";
   } else if (isSubmitted) {
     bg = "bg-yellow-50 border-yellow-200 text-yellow-900";
-    icon = "🟡";
+    icon = "📋";
     message = "Documentação enviada! Aguardando análise da equipe Hub Londrina.";
   } else {
-    message = `Você tem ${days} dia${days === 1 ? "" : "s"} para enviar sua documentação. Sem isso sua loja ficará offline.`;
+    message = `📋 Complete sua documentação para validar sua loja. ${days} dia${days === 1 ? "" : "s"} restante${days === 1 ? "" : "s"}.`;
   }
 
   return (
