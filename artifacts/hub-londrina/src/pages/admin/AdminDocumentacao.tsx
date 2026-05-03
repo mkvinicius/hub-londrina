@@ -72,7 +72,7 @@ export default function AdminDocumentacao() {
   async function load() {
     setLoading(true);
     try {
-      const r = (await adminFetch("/admin/documents")) as { items: AdminItem[] };
+      const r = (await adminFetch("/api/admin/documents")) as { items: AdminItem[] };
       setItems(r.items || []);
       setError(null);
     } catch (e: any) {
@@ -99,7 +99,7 @@ export default function AdminDocumentacao() {
     }
     setActionLoading(docId);
     try {
-      await adminFetch(`/admin/documents/${docId}`, {
+      await adminFetch(`/api/admin/documents/${docId}`, {
         method: "PATCH",
         body: JSON.stringify({ action, reason }),
       });
