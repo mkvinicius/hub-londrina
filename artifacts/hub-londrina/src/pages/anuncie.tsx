@@ -116,7 +116,7 @@ export default function Anuncie() {
                 Milhares de londrinenses buscam o que você oferece. Seja encontrado.
               </p>
               <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start mb-6">
-                <Button onClick={() => navigate("/cadastro")} className="w-full sm:w-auto bg-[#FF9800] hover:bg-[#e68a00] text-white text-lg py-7 px-10 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all flex items-center gap-2">
+                <Button onClick={() => navigate("/cadastro?plano=gratuito")} className="w-full sm:w-auto bg-[#FF9800] hover:bg-[#e68a00] text-white text-lg py-7 px-10 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all flex items-center gap-2">
                   Cadastrar meu negócio grátis <ArrowRight className="w-5 h-5" />
                 </Button>
                 <a href="#planos">
@@ -266,8 +266,8 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button onClick={() => navigate("/cadastro")} variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl py-6 font-bold text-lg">
-                Começar Grátis
+              <Button onClick={() => navigate("/cadastro?plano=gratuito")} variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl py-6 font-bold text-lg">
+                Começar com este plano
               </Button>
             </div>
 
@@ -308,8 +308,8 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button onClick={() => navigate("/cadastro")} className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg flex items-center justify-center gap-2">
-                Assinar Destaque <ArrowRight className="w-5 h-5" />
+              <Button onClick={() => navigate("/cadastro?plano=destaque")} className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg flex items-center justify-center gap-2">
+                Começar com este plano <ArrowRight className="w-5 h-5" />
               </Button>
             </div>
 
@@ -347,8 +347,8 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button onClick={() => navigate("/cadastro")} className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0 flex items-center justify-center gap-2">
-                Assinar Premium <ArrowRight className="w-5 h-5" />
+              <Button onClick={() => navigate("/cadastro?plano=premium")} className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0 flex items-center justify-center gap-2">
+                Começar com este plano <ArrowRight className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function Anuncie() {
             Mais de 500 negócios locais já estão no Hub Londrina. Cadastre o seu agora — é grátis para começar.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button onClick={() => navigate("/cadastro")} className="bg-white hover:bg-gray-100 text-[#FF9800] text-lg py-8 px-12 rounded-full font-black shadow-xl hover:shadow-2xl transition-all">
+            <Button onClick={() => navigate("/cadastro?plano=gratuito")} className="bg-white hover:bg-gray-100 text-[#FF9800] text-lg py-8 px-12 rounded-full font-black shadow-xl hover:shadow-2xl transition-all">
               Criar Conta Grátis
             </Button>
             <a href="#planos">

@@ -64,6 +64,8 @@ export const businessesTable = pgTable(
     zoneFeaturedExpiresAt: timestamp("zone_featured_expires_at"),
     status: text("status").notNull().default("active"),
     rejectionReason: text("rejection_reason"),
+    razaoSocial: text("razao_social"),
+    nomeFantasia: text("nome_fantasia"),
     planFrozen: boolean("plan_frozen").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },

@@ -139,6 +139,20 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 - "Sem Reclamações" — rating ≥ 4.5 com 5+ avaliações
 - "Patrocinado" — boost ativo (cinza, discreto)
 
+### 3.29 Fluxo plano → cadastro → Stripe
+- /anuncie: botões dos cards de plano levam para /cadastro?plano=gratuito|destaque|premium
+- /cadastro?plano=: lê o query param e exibe badge do plano selecionado no topo
+- Passo 2 obrigatório: Razão Social (com tooltip) e Nome Fantasia opcional (com tooltip)
+- Após cadastro com plano pago: frontend usa o JWT retornado para chamar POST /api/stripe/checkout automaticamente e redirecionar para Stripe
+- Após cadastro com plano gratuito: tela de sucesso com link para login
+- Job 7 dias past_due: artifacts/api-server/src/lib/subscription-job.ts
+  - Roda 5 minutos após startup, depois a cada 24h
+  - Busca subscriptions com status='past_due' e updatedAt < 7 dias atrás
+  - Faz downgrade do business para planType='free'
+  - Marca subscription como status='canceled'
+  - Envia email downgradeAssinatura (template adicionado em services/email.ts)
+- Email template: downgradeAssinatura (assunto: "Sua assinatura foi cancelada — Hub Londrina")
+
 ### 3.13 Integração Stripe (pagamento)
 - Tabela subscriptions no banco
 - POST /api/stripe/checkout → cria sessão de checkout
@@ -181,10 +195,13 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 
 ### 3.11 Cadastro público
 - POST /api/auth/register com validações completas
-- Validação CNPJ único, telefone único, email único
+- Validação CNPJ único, telefone único, email único, razão social única (LOWER ILIKE)
 - Validação CNPJ via ReceitaWS (não bloqueia se API falhar)
 - Negócio criado com status='pending' e isVisible=false
-- Página /cadastro com formulário de 4 passos
+- Retorna JWT token (7d) no sucesso para possibilitar redirect automático ao Stripe
+- Campos novos: razaoSocial (obrigatório, único) e nomeFantasia (opcional)
+- Página /cadastro com formulário de 4 passos + campo Razão Social + Nome Fantasia com tooltips
+- Erro inline no campo razão social se já cadastrada (volta ao passo 2 automaticamente)
 - Admin: /admin/cadastros (aprovar/rejeitar)
 - CTA "Reivindicar Página" aponta para /cadastro
 - Rotas públicas filtram status='active' AND isVisible=true
@@ -320,7 +337,9 @@ lat, lng, instagram, website, paymentMethods (array), tags (array),
 videoUrl, boostedUntil, homeFeatured,
 zoneFeatured (boolean, NOT NULL, default false),
 zoneFeaturedExpiresAt (timestamp, nullable),
-status (pending|active|rejected), rejectionReason
+status (pending|active|rejected), rejectionReason,
+razaoSocial (text, nullable) — validação de unicidade no registro,
+nomeFantasia (text, nullable) — nome público do negócio
 ```
 
 ### 4.3 Dados seed

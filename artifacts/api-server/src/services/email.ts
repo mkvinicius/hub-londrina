@@ -219,6 +219,21 @@ export const emails = {
     };
   },
 
+  downgradeAssinatura: (nome: string) => ({
+    subject: `Sua assinatura foi cancelada — Hub Londrina`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#dc2626">Assinatura cancelada por falta de pagamento</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Seu plano voltou para o <strong>Gratuito</strong> após 7 dias com pagamento pendente.</p>
+        <p>Seus dados e perfil continuam salvos. Reative quando quiser para voltar ao topo das buscas.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/plano" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Reativar meu plano</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `,
+  }),
+
   recuperacaoSenha: (nome: string, token: string) => ({
     subject: `Redefinir sua senha — Hub Londrina`,
     html: `

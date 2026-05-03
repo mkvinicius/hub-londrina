@@ -1,13 +1,17 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { randomBytes } from "crypto";
 import { registerLimiter, cnpjLimiter } from "../middleware/rateLimiter";
 import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { generateCsrfToken, csrfProtection } from "../middleware/csrf";
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for auth routes");
 
 const router: IRouter = Router();
 
@@ -78,7 +82,7 @@ router.get("/auth/validate-cnpj", cnpjLimiter, async (req: Request, res: Respons
 });
 
 router.post("/auth/register", registerLimiter, csrfProtection, async (req: Request, res: Response) => {
-  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep } = req.body;
+  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep, razaoSocial, nomeFantasia } = req.body;
 
   if (!name || !email || !password || !businessName || !cnpj || !phone || !categorySlug || !zone || !cep) {
     res.status(400).json({ error: "Todos os campos são obrigatórios" });
@@ -119,6 +123,17 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
   if (existingPhone) {
     res.status(400).json({ error: "Telefone já cadastrado", code: "PHONE_DUPLICATE" });
     return;
+  }
+
+  if (razaoSocial && razaoSocial.trim()) {
+    const [existingRazao] = await db
+      .select({ id: businessesTable.id })
+      .from(businessesTable)
+      .where(sql`LOWER(${businessesTable.razaoSocial}) = LOWER(${razaoSocial.trim()})`);
+    if (existingRazao) {
+      res.status(400).json({ error: "Razão social já cadastrada na plataforma.", code: "RAZAO_SOCIAL_DUPLICATE", field: "razaoSocial" });
+      return;
+    }
   }
 
   const digits = stripCnpj(cnpj);
@@ -187,6 +202,8 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     status: "pending",
     description: "",
     address: street ? `${street}, ${neighborhood}` : "",
+    razaoSocial: razaoSocial ? razaoSocial.trim() : null,
+    nomeFantasia: nomeFantasia ? nomeFantasia.trim() : null,
   }).returning();
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -215,9 +232,16 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     `);
   } catch {}
 
+  const lojistaToken = jwt.sign(
+    { role: "lojista", businessId: business.id, email: normalizedEmail },
+    JWT_SECRET!,
+    { expiresIn: "7d" }
+  );
+
   res.status(201).json({
     message: "Cadastro recebido! Nossa equipe vai revisar em até 24h.",
     businessId: business.id,
+    token: lojistaToken,
   });
 });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
-import { CheckCircle2, ArrowLeft, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Link, useSearch } from "wouter";
+import { CheckCircle2, ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Info, Star, Zap } from "lucide-react";
 import { csrfFetch } from "@/lib/csrf";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -57,15 +57,29 @@ const ERROR_MESSAGES: Record<string, string> = {
   CNPJ_DUPLICATE: "Este CNPJ já está cadastrado na plataforma.",
   PHONE_DUPLICATE: "Este telefone já está cadastrado.",
   CNPJ_INVALID: "CNPJ inválido ou empresa inativa na Receita Federal.",
+  RAZAO_SOCIAL_DUPLICATE: "Razão social já cadastrada na plataforma.",
+};
+
+const PLAN_LABELS: Record<string, { label: string; color: string; icon: string }> = {
+  gratuito: { label: "Gratuito", color: "bg-gray-100 text-gray-700 border-gray-200", icon: "🆓" },
+  destaque: { label: "Destaque — R$59,90/mês", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
+  premium: { label: "Premium — R$89,90/mês", color: "bg-amber-50 text-amber-800 border-amber-300", icon: "🏆" },
 };
 
 export default function Cadastro() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const planoParam = params.get("plano") || "gratuito";
+  const isPaidPlan = planoParam === "destaque" || planoParam === "premium";
+  const planInfo = PLAN_LABELS[planoParam] || PLAN_LABELS["gratuito"];
+
   const [step, setStep] = useState(1);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState<Record<string, string>>({});
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -73,6 +87,8 @@ export default function Cadastro() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
 
   const [businessName, setBusinessName] = useState("");
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [phone, setPhone] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
@@ -136,7 +152,7 @@ export default function Cadastro() {
   }
 
   const step1Valid = name.trim() && email.trim() && /\S+@\S+\.\S+/.test(email) && password.length >= 8 && password === passwordConfirm;
-  const step2Valid = businessName.trim() && cnpj.replace(/\D/g, "").length === 14 && phone.replace(/\D/g, "").length >= 10 && categorySlug && zone;
+  const step2Valid = businessName.trim() && razaoSocial.trim() && cnpj.replace(/\D/g, "").length === 14 && phone.replace(/\D/g, "").length >= 10 && categorySlug && zone;
   const step3Valid = cep.replace(/\D/g, "").length === 8 && numero.trim();
   const step4Valid = termos;
 
@@ -147,6 +163,7 @@ export default function Cadastro() {
 
   async function handleSubmit() {
     setError("");
+    setFieldError({});
     setSubmitting(true);
     try {
       const resp = await csrfFetch(`${API}/api/auth/register`, {
@@ -156,6 +173,8 @@ export default function Cadastro() {
           email: email.trim().toLowerCase(),
           password,
           businessName: businessName.trim(),
+          razaoSocial: razaoSocial.trim(),
+          nomeFantasia: nomeFantasia.trim() || undefined,
           cnpj: cnpj.trim(),
           phone: phone.trim(),
           categorySlug,
@@ -166,9 +185,40 @@ export default function Cadastro() {
       const data = await resp.json();
       if (!resp.ok) {
         const code = data.code as string | undefined;
+        if (data.field === "razaoSocial") {
+          setFieldError({ razaoSocial: data.error });
+          setStep(2);
+          return;
+        }
         setError(code && ERROR_MESSAGES[code] ? ERROR_MESSAGES[code] : data.error || "Erro ao processar cadastro. Tente novamente.");
         return;
       }
+
+      if (isPaidPlan && data.token) {
+        localStorage.setItem("hub_lojista_token", data.token);
+        try {
+          const cfgResp = await fetch(`${API}/api/stripe/config`);
+          const cfg = await cfgResp.json();
+          const priceId = planoParam === "destaque" ? cfg.prices.base_monthly : cfg.prices.premium_monthly;
+          if (priceId) {
+            const checkoutResp = await fetch(`${API}/api/stripe/checkout`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${data.token}`,
+              },
+              body: JSON.stringify({ priceId }),
+            });
+            const checkoutData = await checkoutResp.json();
+            if (checkoutData.url) {
+              window.location.href = checkoutData.url;
+              return;
+            }
+          }
+        } catch {
+        }
+      }
+
       setSuccess(true);
     } catch {
       setError("Erro ao processar cadastro. Tente novamente.");
@@ -189,11 +239,17 @@ export default function Cadastro() {
             <p className="text-gray-600 mb-2">
               Nossa equipe vai analisar seu cadastro em até 24h.
             </p>
-            <p className="text-gray-500 text-sm mb-8">
+            <p className="text-gray-500 text-sm mb-4">
               Você receberá uma confirmação no email <span className="font-semibold text-gray-700">{email}</span>.
             </p>
-            <Link href="/" className="inline-block text-[#d97706] font-semibold hover:underline">
-              Voltar para a página inicial
+            {isPaidPlan && (
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 text-sm text-left">
+                <p className="font-semibold text-orange-800 mb-1">Próximo passo: ativar seu plano</p>
+                <p className="text-orange-700">Acesse o painel e clique em "Plano" para assinar o plano {planoParam === "destaque" ? "Destaque" : "Premium"} quando sua conta for aprovada.</p>
+              </div>
+            )}
+            <Link href="/lojista/login" className="inline-block bg-[#d97706] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#b45309] transition-colors">
+              Ir para o login
             </Link>
           </div>
         </div>
@@ -217,6 +273,13 @@ export default function Cadastro() {
           </a>
           <h1 className="text-white font-bold text-xl mt-3">Cadastrar meu negócio</h1>
           <p className="text-white/50 text-sm mt-1">Preencha os dados abaixo em 4 passos simples.</p>
+        </div>
+
+        {/* Plano selecionado */}
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold mb-4 ${planInfo.color}`}>
+          <span>{planInfo.icon}</span>
+          <span>Plano selecionado: <strong>{planInfo.label}</strong></span>
+          {isPaidPlan && <span className="ml-auto text-xs font-normal opacity-70">Pagamento após o cadastro</span>}
         </div>
 
         <div className="flex items-center gap-1 mb-6">
@@ -281,6 +344,46 @@ export default function Cadastro() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nome do negócio *</label>
                 <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Ex: Padaria do João" className={inputClass} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Razão Social *</label>
+                  <div className="group relative">
+                    <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                    <div className="hidden group-hover:block absolute left-0 top-5 z-20 w-64 bg-gray-800 text-white text-xs rounded-lg p-3 shadow-xl">
+                      Nome oficial registrado na Receita Federal.<br/>Ex: João Silva Restaurante LTDA
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={razaoSocial}
+                  onChange={e => { setRazaoSocial(e.target.value); setFieldError(prev => ({ ...prev, razaoSocial: "" })); }}
+                  placeholder="Ex: João Silva Restaurante LTDA"
+                  className={`${inputClass} ${fieldError.razaoSocial ? "border-red-400 ring-1 ring-red-300" : ""}`}
+                />
+                {fieldError.razaoSocial && (
+                  <p className="text-xs text-red-500 mt-1">{fieldError.razaoSocial}</p>
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Nome Fantasia</label>
+                  <span className="text-xs text-gray-400">(opcional)</span>
+                  <div className="group relative">
+                    <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                    <div className="hidden group-hover:block absolute left-0 top-5 z-20 w-64 bg-gray-800 text-white text-xs rounded-lg p-3 shadow-xl">
+                      Nome pelo qual seu negócio é conhecido pelo público.<br/>Ex: Restaurante do João
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={nomeFantasia}
+                  onChange={e => setNomeFantasia(e.target.value)}
+                  placeholder="Ex: Restaurante do João (se diferente da razão social)"
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">CNPJ *</label>
