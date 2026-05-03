@@ -1,14 +1,23 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getMetrics } from "@/lib/lojista-api";
-import { Eye, MessageCircle, Phone } from "lucide-react";
+import { getProfile, getMetrics, getLojistaToken } from "@/lib/lojista-api";
+import { Eye, MessageCircle, Phone, FileDown, Loader2 } from "lucide-react";
 import { LockedFeature } from "@/components/LockedFeature";
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+function getCurrentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
 
 export default function LojistaMetricas() {
   const [metrics, setMetrics] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
   useEffect(() => {
     async function load() {
@@ -27,6 +36,34 @@ export default function LojistaMetricas() {
     }
     load();
   }, []);
+
+  async function handleDownloadPdf() {
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      const token = getLojistaToken();
+      const res = await fetch(`${API_BASE}/api/lojista/report/pdf?month=${selectedMonth}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Erro ao gerar relatório");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hub-londrina-relatorio-${selectedMonth}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setPdfError(e.message || "Erro ao baixar relatório");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   if (loading) {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
@@ -60,7 +97,35 @@ export default function LojistaMetricas() {
 
   return (
     <LojistaLayout>
-      <h1 className="text-2xl font-black text-gray-800 mb-6">Métricas</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-black text-gray-800">Métricas</h1>
+
+        {isPremium && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input
+              type="month"
+              value={selectedMonth}
+              max={getCurrentMonth()}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#d97706]/30"
+            />
+            <button
+              onClick={handleDownloadPdf}
+              disabled={pdfLoading}
+              className="flex items-center justify-center gap-2 bg-[#d97706] hover:bg-[#b45309] disabled:opacity-60 text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors"
+            >
+              {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              {pdfLoading ? "Gerando PDF..." : "Baixar Relatório PDF"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {pdfError && (
+        <div className="mb-4 rounded-xl p-3 bg-red-50 border border-red-200 text-red-700 text-sm">
+          {pdfError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {cards.map((card) => {

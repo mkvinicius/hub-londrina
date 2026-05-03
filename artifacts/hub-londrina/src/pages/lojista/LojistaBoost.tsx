@@ -147,7 +147,7 @@ export default function LojistaBoost() {
           Destaques Especiais
         </h2>
 
-        <div className="grid md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* CARD 1 — DESTAQUE DE ZONA */}
           {availability && (() => {
             const z = availability.zoneAvailability;

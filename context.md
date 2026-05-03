@@ -661,3 +661,45 @@ No 1º login (`!user.firstLoginAt`): set firstLoginAt=now, deadline=+10d, remain
 - **Path traversal guard**: `resolveDocAbsPath` verifica que o caminho resolvido está sob DOCS_DIR e businessId/businessDir; businessId castado para Number e validado.
 - **Pause de timer só com 3 docs**: `recomputeDocumentationStatus` só pausa timer quando os 3 tipos (`personal_id`, `cnpj_card`, `address_proof`) estão presentes E nenhum rejeitado. Evita burlar o prazo enviando 1 doc qualquer.
 - **Limpeza de arquivos antigos**: ao reenviar mesmo tipo, arquivo físico anterior é removido via `safeUnlink`.
+
+---
+
+## 12. MELHORIAS DE PRODUTO — MAIO 2026 (03/05/2026)
+
+### Relatório PDF Premium (`GET /api/lojista/report/pdf?month=YYYY-MM`)
+- Apenas plano **Premium** (retorna 403 para destaque/free)
+- Gerado via **pdfkit** (puro Node.js, sem puppeteer/chromium)
+- Conteúdo: métricas do mês (visualizações, WhatsApp, telefone, avaliação), gráfico de barras de cliques diários, status de impulsionamento, recomendações automáticas (até 4)
+- Cache de 1 hora em `/tmp/hub-reports/{businessId}-{month}.pdf`
+- **pdfkit é external no esbuild** (`build.mjs` — também externalized: fontkit, linebreak, unicode-properties, unicode-trie)
+- Frontend: botão "Baixar Relatório PDF" + seletor de mês em `LojistaMetricas.tsx` (só aparece para Premium)
+- Lib: `artifacts/api-server/src/lib/pdf-report.ts`
+
+### Email Resend — Status
+- **Domínio `hublondrina.com.br` NÃO verificado** no Resend. FROM usa `onboarding@resend.dev` (sandbox Resend).
+- Quota atual: 3 emails/dia, 3/mês (plano free Resend).
+- Para produção: verificar domínio em https://resend.com/domains e atualizar FROM em `email.ts` para `noreply@hublondrina.com.br`.
+
+### Responsividade Mobile
+- `LojistaBoost.tsx`: `grid md:grid-cols-2` → `grid grid-cols-1 md:grid-cols-2` (cards de destaque especial)
+- `zona.tsx`: barra de busca hero `flex` → `flex flex-col sm:flex-row` (empilha verticalmente em mobile)
+- `busca.tsx`: drawer de filtros mobile **já estava implementado** (`mobileFiltersOpen` state, `fixed inset-0 z-[60]`, botão "Filtrar" visível só em mobile)
+- `LojistaDocumentacao.tsx`: já era `grid gap-4 md:grid-cols-3` (1 coluna em mobile — sem alteração)
+- `BusinessCard.tsx`: já responsivo (layout flex-col, w-full)
+
+### Checklist de Segurança (auditoria)
+- Nenhum secret hardcoded no código (grep confirmado)
+- Rate limiting ativo em `/api/lojista/login` (retorna 401 para credenciais inválidas)
+- `/api/private/uploads/` retorna 404 (endpoint não exposto publicamente) ✅
+- JWT lojista: `{ businessId, email, role: "lojista" }`, expira em 7 dias
+
+### Testes de Pagamento (`artifacts/api-server/src/scripts/test-payments.ts`)
+- Script TypeScript de testes E2E para o fluxo Stripe
+- Testa: config PRICE_IDs, checkout sem auth (401), PRICE_ID inválido (400), subscription status
+- Executar com: `pnpm --filter @workspace/api-server run test:payments`
+- Validações confirmadas: ✅ Auth 401, ✅ PRICE_ID inválido 400, ✅ Config Stripe PRICE_IDs corretos
+
+### Build Final (03/05/2026)
+- `api-server`: build limpo em ~2.7s, dist/index.mjs = 3.8MB
+- `hub-londrina`: build limpo em ~8.4s, 721KB JS (gzip: 196KB)
+- SSR build: entry-server.js = 205KB

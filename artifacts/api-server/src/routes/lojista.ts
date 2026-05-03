@@ -4,11 +4,14 @@ import bcrypt from "bcryptjs";
 import { loginLimiter } from "../middleware/rateLimiter";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import os from "os";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable } from "@workspace/db/schema";
-import { eq, sql, and, gte, desc, asc, or } from "drizzle-orm";
+import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
+import { generatePdfReport } from "../lib/pdf-report.js";
 
 const router: IRouter = Router();
 
@@ -796,6 +799,117 @@ router.patch("/lojista/password", async (req: Request, res: Response) => {
     .where(eq(businessUsersTable.id, user.id));
 
   res.json({ success: true });
+});
+
+router.get("/lojista/report/pdf", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+
+  const [biz] = await db
+    .select({
+      name: businessesTable.name,
+      planType: businessesTable.planType,
+      zone: businessesTable.zone,
+      rating: businessesTable.rating,
+      reviewsCount: businessesTable.reviewsCount,
+      clicks: businessesTable.clicks,
+      whatsappClicks: businessesTable.whatsappClicks,
+    })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+
+  if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+  if (biz.planType !== "premium") {
+    res.status(403).json({ error: "Relatório PDF disponível apenas para o plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium" });
+    return;
+  }
+
+  const monthParam = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+    res.status(400).json({ error: "Parâmetro 'month' inválido. Use o formato YYYY-MM" });
+    return;
+  }
+
+  const [year, month] = monthParam.split("-").map(Number);
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 1);
+
+  const cacheDir = path.join(os.tmpdir(), "hub-reports");
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+  const cacheFile = path.join(cacheDir, `${businessId}-${monthParam}.pdf`);
+
+  const cacheAge = fs.existsSync(cacheFile)
+    ? Date.now() - fs.statSync(cacheFile).mtimeMs
+    : Infinity;
+  const CACHE_TTL = 3600 * 1000;
+
+  if (cacheAge > CACHE_TTL) {
+    const [clicksByType, dailyClicks, activeBoost] = await Promise.all([
+      db
+        .select({
+          type: businessClicksTable.type,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(businessClicksTable)
+        .where(and(
+          eq(businessClicksTable.businessId, businessId),
+          gte(businessClicksTable.createdAt, monthStart),
+          lte(businessClicksTable.createdAt, monthEnd),
+        ))
+        .groupBy(businessClicksTable.type),
+
+      db
+        .select({
+          date: sql<string>`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`,
+          clicks: sql<number>`count(*)::int`,
+        })
+        .from(businessClicksTable)
+        .where(and(
+          eq(businessClicksTable.businessId, businessId),
+          gte(businessClicksTable.createdAt, monthStart),
+          lte(businessClicksTable.createdAt, monthEnd),
+        ))
+        .groupBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`)
+        .orderBy(sql`to_char(${businessClicksTable.createdAt}, 'YYYY-MM-DD')`),
+
+      db
+        .select({ boostType: searchBoostsTable.boostContext, expiresAt: searchBoostsTable.expiresAt })
+        .from(searchBoostsTable)
+        .where(and(
+          eq(searchBoostsTable.businessId, businessId),
+          eq(searchBoostsTable.status, "active"),
+          or(
+            sql`${searchBoostsTable.expiresAt} IS NULL`,
+            sql`${searchBoostsTable.expiresAt} > NOW()`,
+          )
+        ))
+        .limit(1),
+    ]);
+
+    const byType: Record<string, number> = {};
+    for (const r of clicksByType) byType[r.type] = r.count;
+
+    await generatePdfReport({
+      businessId,
+      businessName: biz.name,
+      planType: biz.planType,
+      zone: biz.zone,
+      month: monthParam,
+      totalClicks: biz.clicks ?? 0,
+      whatsappClicks: biz.whatsappClicks ?? 0,
+      phoneClicks: byType["phone"] ?? 0,
+      profileViews: byType["profile"] ?? 0,
+      rating: biz.rating ?? 0,
+      reviewsCount: biz.reviewsCount ?? 0,
+      boostActive: activeBoost.length > 0,
+      boostType: activeBoost[0]?.boostType ?? null,
+      dailyClicks,
+    }, cacheFile);
+  }
+
+  const filename = `hub-londrina-relatorio-${biz.name.replace(/\s+/g, "-").toLowerCase()}-${monthParam}.pdf`;
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  fs.createReadStream(cacheFile).pipe(res);
 });
 
 export default router;

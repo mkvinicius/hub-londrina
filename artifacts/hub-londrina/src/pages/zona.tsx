@@ -86,7 +86,7 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
           </p>
 
           {/* Barra de busca */}
-          <div className="flex gap-2 max-w-xl mx-auto">
+          <div className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
             <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-white shadow-sm border border-gray-100">
               <Search className="h-4 w-4 flex-shrink-0" style={{ color: cfg.color }} />
               <input
