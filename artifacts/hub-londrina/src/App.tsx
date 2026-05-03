@@ -32,6 +32,8 @@ import LojistaPlano from "@/pages/lojista/LojistaPlano";
 import LojistaSenha from "@/pages/lojista/LojistaSenha";
 import LojistaAvaliacoes from "@/pages/lojista/LojistaAvaliacoes";
 import LojistaBoost from "@/pages/lojista/LojistaBoost";
+import LojistaDocumentacao from "@/pages/lojista/LojistaDocumentacao";
+import AdminDocumentacao from "@/pages/admin/AdminDocumentacao";
 import ZonePage from "@/pages/zona";
 import { isAuthenticated } from "@/lib/admin-api";
 import { isLojistaAuthenticated } from "@/lib/lojista-api";
@@ -71,6 +73,7 @@ function Router() {
       <Route path="/admin/negocios">{() => <PrivateRoute component={AdminNegocios} />}</Route>
       <Route path="/admin/lojistas">{() => <PrivateRoute component={AdminLojistas} />}</Route>
       <Route path="/admin/cadastros">{() => <PrivateRoute component={AdminCadastros} />}</Route>
+      <Route path="/admin/documentacao">{() => <PrivateRoute component={AdminDocumentacao} />}</Route>
       <Route path="/admin/assinaturas">{() => <PrivateRoute component={AdminAssinaturas} />}</Route>
       <Route path="/admin/impulsionamento">{() => <PrivateRoute component={AdminImpulsionamento} />}</Route>
       <Route path="/admin/zonas">{() => <PrivateRoute component={AdminZonas} />}</Route>
@@ -87,6 +90,7 @@ function Router() {
       <Route path="/lojista/metricas">{() => <LojistaPrivateRoute component={LojistaMetricas} />}</Route>
       <Route path="/lojista/avaliacoes">{() => <LojistaPrivateRoute component={LojistaAvaliacoes} />}</Route>
       <Route path="/lojista/boost">{() => <LojistaPrivateRoute component={LojistaBoost} />}</Route>
+      <Route path="/lojista/documentacao">{() => <LojistaPrivateRoute component={LojistaDocumentacao} />}</Route>
       <Route path="/lojista/plano">{() => <LojistaPrivateRoute component={LojistaPlano} />}</Route>
       <Route path="/lojista/senha">{() => <LojistaPrivateRoute component={LojistaSenha} />}</Route>
       <Route path="/lojista">{() => <LojistaPrivateRoute component={LojistaDashboard} />}</Route>

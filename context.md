@@ -578,3 +578,51 @@ Não altere copy, regras de negócio ou stack sem instrução explícita.
 
 ## Ao finalizar, execute os 4 testes da seção 9 e confirme os resultados.
 ```
+
+---
+
+## 11. SISTEMA DE VALIDAÇÃO DE DOCUMENTAÇÃO + EXPIRAÇÃO PLANO FREE (03/05/2026)
+
+### Schema novo
+- `business_users.firstLoginAt` (timestamp) — registrado no 1º login
+- `business_users.documentationDeadline` (timestamp) — firstLoginAt + 10 dias
+- `business_users.documentationStatus` (text) — pending|submitted|approved|rejected|expired
+- `business_users.documentationRemainingDays` (integer, default 10)
+- `business_users.documentationTimerPaused` (boolean, default false)
+- `businesses.planFrozen` (boolean, default false) — congela cobrança quando docs expiram
+- `business_documents` (tabela): id, businessId(FK), documentType, fileUrl, status, rejectionReason, submittedAt, reviewedAt
+
+### Endpoints
+- `POST /api/lojista/documents` (multipart: documentType + file) — upload local em `/public/uploads/documents/{bid}/{type}-{ts}.ext` (JPG/PNG/WebP/PDF, 10MB). Pausa timer, status=submitted. Para `cnpj_card` chama ReceitaWS (alerta admin via log se inválido, não bloqueia).
+- `GET /api/lojista/documents` — retorna documents[] + documentationStatus/RemainingDays/TimerPaused/Deadline
+- `GET /api/admin/documents` — lista lojistas pendentes/submetidos/rejeitados/expirados, ordenado por urgência (menos dias)
+- `PATCH /api/admin/documents/:id` `{action: "approve"|"reject", reason?}` — quando os 3 docs (personal_id, cnpj_card, address_proof) aprovados: documentationStatus=approved, isVisible=true, planFrozen=false. Rejeição: timer despausado, email com motivo.
+
+### Jobs (artifacts/api-server/src/lib/documentation-job.ts)
+Roda 1x ao iniciar e a cada 24h. Dois ciclos:
+1. **Documentação**: decrementa remainingDays para usuários com firstLoginAt e timer despausado e status≠approved. Se chegar a 0 → status=expired, businesses.isVisible=false, planFrozen=true.
+2. **Plano free 30d**: businesses com planType=free, isVisible=true e firstLoginAt < hoje-30d → isVisible=false, email "planoGratuitoExpirando".
+
+### Login (lojista.ts:147)
+No 1º login (`!user.firstLoginAt`): set firstLoginAt=now, deadline=+10d, remainingDays=10, status=pending, timerPaused=false.
+
+### Frontend
+- `pages/lojista/LojistaDocumentacao.tsx` — 3 cards (Documento Pessoal, Cartão CNPJ, Comprovante Endereço), upload + status + motivo de rejeição
+- `pages/lojista/LojistaLayout.tsx` — banner topo (4 estados: pending vermelho, submitted amarelo+pausado, rejected, expired) + link "Documentação" no menu
+- `pages/admin/AdminDocumentacao.tsx` — filtros (todos/pendentes/submetidos/rejeitados/expirados), expansível por lojista, aprovar/rejeitar com motivo
+- `pages/admin/AdminLayout.tsx` — link "Documentação" entre "Cadastros Pendentes" e "Assinaturas"
+- Rotas registradas em `App.tsx`: `/lojista/documentacao` e `/admin/documentacao`
+
+### 5 templates de email (services/email.ts)
+- `documentacaoPendente(nome, dias)` — countdown
+- `documentacaoExpirada(nome)` — loja offline
+- `documentacaoAprovada(nome)` — loja ativa
+- `documentacaoRejeitada(nome, motivo)` — corrija e reenvie
+- `planoGratuitoExpirando(nome)` — assine Base
+
+### Correções de segurança (auditoria pós-implementação)
+- **Storage privado**: documentos salvos em `private/uploads/documents/{bid}/...` (FORA de `public/`, não servido estaticamente). Evita IDOR via URL pública.
+- **URLs assinadas**: download via `GET /api/documents/signed/:token` (JWT 1h). Backend retorna `signedUrl` por documento — `fileUrl` interno nunca exposto.
+- **Path traversal guard**: `resolveDocAbsPath` verifica que o caminho resolvido está sob DOCS_DIR e businessId/businessDir; businessId castado para Number e validado.
+- **Pause de timer só com 3 docs**: `recomputeDocumentationStatus` só pausa timer quando os 3 tipos (`personal_id`, `cnpj_card`, `address_proof`) estão presentes E nenhum rejeitado. Evita burlar o prazo enviando 1 doc qualquer.
+- **Limpeza de arquivos antigos**: ao reenviar mesmo tipo, arquivo físico anterior é removido via `safeUnlink`.

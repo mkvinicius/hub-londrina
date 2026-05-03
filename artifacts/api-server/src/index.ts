@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startup-seed";
 import { startBoostExpirationJob } from "./lib/boost-expiration";
+import { startDocumentationJob } from "./lib/documentation-job";
 import fs from "fs";
 import path from "path";
 
@@ -43,5 +44,6 @@ runStartupSeed().then(() => {
 
     logger.info({ port }, "Server listening");
     startBoostExpirationJob();
+    startDocumentationJob();
   });
 });

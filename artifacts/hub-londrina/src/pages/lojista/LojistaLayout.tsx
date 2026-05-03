@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, User, Image, ShoppingBag, BarChart3, Lock, CreditCard, Star, Zap, LogOut, Menu, X } from "lucide-react";
-import { clearToken } from "@/lib/lojista-api";
-import { useState } from "react";
+import { LayoutDashboard, User, Image, ShoppingBag, BarChart3, Lock, CreditCard, Star, Zap, LogOut, Menu, X, FileText, AlertTriangle } from "lucide-react";
+import { clearToken, lojistaFetch } from "@/lib/lojista-api";
+import { useEffect, useState } from "react";
 
 const links = [
   { href: "/lojista", label: "Dashboard", icon: LayoutDashboard },
   { href: "/lojista/perfil", label: "Perfil", icon: User },
   { href: "/lojista/fotos", label: "Fotos", icon: Image },
+  { href: "/lojista/documentacao", label: "Documentação", icon: FileText },
   { href: "/lojista/produtos", label: "Produtos", icon: ShoppingBag },
   { href: "/lojista/metricas", label: "Métricas", icon: BarChart3 },
   { href: "/lojista/avaliacoes", label: "Avaliações", icon: Star },
@@ -14,6 +15,73 @@ const links = [
   { href: "/lojista/plano", label: "Plano", icon: CreditCard },
   { href: "/lojista/senha", label: "Senha", icon: Lock },
 ];
+
+interface DocStatus {
+  documentationStatus: string;
+  documentationRemainingDays: number;
+  documentationTimerPaused: boolean;
+}
+
+function DocumentationBanner() {
+  const [status, setStatus] = useState<DocStatus | null>(null);
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    let mounted = true;
+    lojistaFetch("/lojista/documents")
+      .then((r: any) => {
+        if (mounted) setStatus(r);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (!status || status.documentationStatus === "approved") return null;
+
+  const days = status.documentationRemainingDays;
+  const isExpired = status.documentationStatus === "expired";
+  const isRejected = status.documentationStatus === "rejected";
+  const isSubmitted = status.documentationStatus === "submitted" && status.documentationTimerPaused;
+
+  let bg = "bg-red-50 border-red-200 text-red-800";
+  let icon = "🔴";
+  let message = "";
+  let cta = "Enviar documentação →";
+
+  if (isExpired) {
+    message = "Sua loja está offline por falta de documentação.";
+    cta = "Regularizar agora →";
+  } else if (isRejected) {
+    message = `Documentação rejeitada. Corrija e reenvie. Você tem ${days} dia${days === 1 ? "" : "s"} restante${days === 1 ? "" : "s"}.`;
+    cta = "Corrigir documentação →";
+  } else if (isSubmitted) {
+    bg = "bg-yellow-50 border-yellow-200 text-yellow-900";
+    icon = "🟡";
+    message = "Documentação enviada! Aguardando análise da equipe Hub Londrina.";
+  } else {
+    message = `Você tem ${days} dia${days === 1 ? "" : "s"} para enviar sua documentação. Sem isso sua loja ficará offline.`;
+  }
+
+  return (
+    <div className={`border-b px-6 py-3 flex items-center justify-between gap-4 ${bg}`}>
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <span aria-hidden>{icon}</span>
+        <AlertTriangle className="w-4 h-4 hidden sm:block" />
+        <span>{message}</span>
+      </div>
+      {!isSubmitted && (
+        <button
+          onClick={() => navigate("/lojista/documentacao")}
+          className="text-sm font-semibold underline whitespace-nowrap hover:no-underline"
+        >
+          {cta}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function LojistaLayout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
@@ -77,6 +145,7 @@ export function LojistaLayout({ children }: { children: React.ReactNode }) {
           </button>
           <span className="font-bold text-gray-800">Hub Lojista</span>
         </header>
+        <DocumentationBanner />
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>

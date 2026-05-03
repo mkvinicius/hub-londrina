@@ -4,6 +4,7 @@ import {
   integer,
   text,
   timestamp,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { businessesTable } from "./businesses";
@@ -21,6 +22,11 @@ export const businessUsersTable = pgTable(
     passwordResetExpiresAt: timestamp("password_reset_expires_at"),
     emailVerified: text("email_verified").notNull().default("false"),
     emailVerificationToken: text("email_verification_token"),
+    firstLoginAt: timestamp("first_login_at"),
+    documentationDeadline: timestamp("documentation_deadline"),
+    documentationStatus: text("documentation_status").default("pending"),
+    documentationRemainingDays: integer("documentation_remaining_days").default(10),
+    documentationTimerPaused: boolean("documentation_timer_paused").default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("business_users_email_idx").on(t.email)],

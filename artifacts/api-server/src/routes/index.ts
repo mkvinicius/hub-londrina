@@ -10,6 +10,7 @@ import authRouter from "./auth";
 import stripeRouter from "./stripe";
 import zonesRouter from "./zones";
 import storageRouter from "./storage";
+import documentsRouter from "./documents";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(authRouter);
 router.use(stripeRouter);
 router.use(zonesRouter);
 router.use(storageRouter);
+router.use(documentsRouter);
 
 export default router;

@@ -141,6 +141,20 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
     return;
   }
 
+  // Primeiro login: iniciar timer de documentação (10 dias)
+  if (!user.firstLoginAt) {
+    await db
+      .update(businessUsersTable)
+      .set({
+        firstLoginAt: new Date(),
+        documentationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+        documentationRemainingDays: 10,
+        documentationStatus: "pending",
+        documentationTimerPaused: false,
+      })
+      .where(eq(businessUsersTable.id, user.id));
+  }
+
   const token = jwt.sign(
     { businessId: user.businessId, email: user.email, role: "lojista" },
     JWT_SECRET!,
