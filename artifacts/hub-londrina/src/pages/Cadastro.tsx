@@ -123,9 +123,9 @@ export default function Cadastro() {
     try {
       const resp = await fetch(`${API}/api/lojista/cep/${digits}`);
       const data = await resp.json();
-      if (data.logradouro || data.bairro) {
-        setStreet(data.logradouro || "");
-        setNeighborhood(data.bairro || "");
+      if (resp.ok && (data.street || data.neighborhood)) {
+        setStreet(data.street || "");
+        setNeighborhood(data.neighborhood || "");
         setCepStatus("found");
       } else {
         setCepStatus("notfound");
