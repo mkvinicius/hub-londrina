@@ -148,9 +148,25 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 - Webhook: pagamento confirmado → planType muda para destaque/premium
 - Webhook: assinatura cancelada → planType volta para free
 - Webhook: pagamento falhou → status past_due
+- Webhook: payment_intent.succeeded → cria boost de zona/home_search com status active (se há vaga) ou waitlist (se 6 vagas ocupadas)
 - Frontend: /lojista/plano com toggle mensal/anual (17% desconto)
 - Cartão de teste: 4242 4242 4242 4242
 - Job diário: downgrade para free após 7 dias past_due
+
+### 3.13.1 Boosts especiais com pagamento integrado (Maio 2026)
+- Produtos Stripe criados:
+  - "Destaque de Zona" — R$79,00 (price_1TT5lsDto2NkIN2Dl9Mztpl3) → STRIPE_ZONE_BOOST_PRICE_ID
+  - "Destaque Home + Busca" — R$149,00 (price_1TT5lsDto2NkIN2DUyYwnjQk) → STRIPE_HOME_BOOST_PRICE_ID
+- GET /api/lojista/boosts/availability → retorna vagas (6/contexto), preço, elegibilidade pelo plano e boost atual
+- POST /api/lojista/boosts/checkout → cria Stripe Checkout mode='payment' (não recorrente) com metadata { businessId, boostContext, zone }
+- Regras de elegibilidade:
+  - boostContext='zone' → plano Destaque ou Premium
+  - boostContext='home_search' → apenas Premium
+- Sistema de fila: se 6 vagas ocupadas no momento do payment_intent.succeeded, boost é criado com status='waitlist'
+- Atomicidade: webhook usa db.transaction + pg_advisory_xact_lock por (contexto,zona) para garantir no máximo 6 ativos simultâneos
+- Promoção automática: job de expiração (lib/boost-expiration.ts, intervalo 1h) chama promoteWaitlist() que após expirar boosts ativos promove o waitlist mais antigo (FIFO por createdAt) e dispara email boostAtivado
+- Email transacional: boostAtivado (vaga conseguida ou promovido da fila) ou boostWaitlist (entrou na fila)
+- Frontend: /lojista/boost ganhou seção "Destaques Especiais" com 2 cards (zona + home_search), banner de retorno via ?boost_success=1 / ?boost_cancelled=1
 
 ### 3.12 Enforcement das regras de plano
 - Middleware requirePlan() em api-server/src/middleware/checkPlan.ts

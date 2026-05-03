@@ -182,6 +182,43 @@ export const emails = {
     `,
   }),
 
+  boostAtivado: (nome: string, contexto: string, expiresAt: Date) => {
+    const ctxLabel = contexto === "zone" ? "Destaque de Zona" : "Destaque Home + Busca";
+    const dataExp = expiresAt.toLocaleDateString("pt-BR");
+    return {
+      subject: `🚀 Seu ${ctxLabel} está ativo!`,
+      html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Destaque ativado!</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Seu <strong>${ctxLabel}</strong> está ativo e seu negócio já está aparecendo em destaque para milhares de londrinenses.</p>
+        <p style="background:#f9f9f9;padding:12px;border-radius:6px"><strong>Validade:</strong> até ${dataExp}</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/impulsionamento" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Ver meus destaques</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `,
+    };
+  },
+
+  boostWaitlist: (nome: string, contexto: string) => {
+    const ctxLabel = contexto === "zone" ? "Destaque de Zona" : "Destaque Home + Busca";
+    return {
+      subject: `📋 Você entrou na fila do ${ctxLabel}`,
+      html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#d97706">Fila de espera</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Recebemos seu pagamento, mas as 6 vagas do <strong>${ctxLabel}</strong> estão atualmente ocupadas.</p>
+        <p>Você foi adicionado à <strong>fila de espera</strong>. Assim que uma vaga for liberada, ativaremos seu destaque automaticamente por 30 dias e você receberá um email de confirmação.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/impulsionamento" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Acompanhar status</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `,
+    };
+  },
+
   recuperacaoSenha: (nome: string, token: string) => ({
     subject: `Redefinir sua senha — Hub Londrina`,
     html: `

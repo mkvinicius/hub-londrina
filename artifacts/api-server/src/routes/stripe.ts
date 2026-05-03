@@ -2,8 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { subscriptionsTable, businessesTable, businessUsersTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable } from "@workspace/db/schema";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 
 const router: IRouter = Router();
@@ -321,6 +321,87 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         await syncSubscription(sub.id);
+        break;
+      }
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const { businessId, boostContext, zone } = pi.metadata || {};
+        if (!businessId || !boostContext) break;
+        if (boostContext !== "zone" && boostContext !== "home_search") break;
+
+        const bizId = parseInt(businessId, 10);
+        if (!Number.isFinite(bizId) || bizId <= 0) break;
+
+        // Aloca vaga atomicamente: lock por contexto+zona via pg_advisory_xact_lock
+        // Hash determinístico do par (ctx,zone) para a chave de lock
+        const lockKey = boostContext === "zone"
+          ? `boost:zone:${zone || ""}`
+          : `boost:home_search`;
+        // Hash 32-bit simples
+        let hash = 0;
+        for (let i = 0; i < lockKey.length; i++) hash = ((hash << 5) - hash + lockKey.charCodeAt(i)) | 0;
+
+        const result = await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(${hash})`);
+
+          // Idempotência: se já existe boost active/waitlist deste biz/contexto, ignora
+          const existing = await tx.select().from(searchBoostsTable)
+            .where(and(
+              eq(searchBoostsTable.businessId, bizId),
+              eq(searchBoostsTable.boostContext, boostContext as any),
+              or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+            ));
+          if (existing.length > 0) {
+            return { skipped: true as const };
+          }
+
+          // Conta vagas ocupadas dentro da transação (max 6)
+          const slotConditions = [
+            eq(searchBoostsTable.boostContext, boostContext as any),
+            eq(searchBoostsTable.status, "active"),
+            or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+          ];
+          if (boostContext === "zone" && zone) slotConditions.push(eq(searchBoostsTable.zone, zone));
+          const occupied = await tx.select({ id: searchBoostsTable.id })
+            .from(searchBoostsTable).where(and(...slotConditions));
+
+          const status: "active" | "waitlist" = occupied.length < 6 ? "active" : "waitlist";
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+          await tx.insert(searchBoostsTable).values({
+            businessId: bizId,
+            boostType: "avulso",
+            boostContext: boostContext as any,
+            zone: boostContext === "zone" ? (zone || null) : null,
+            monthlyBid: "0",
+            status,
+            durationDays: 30,
+            startsAt: status === "active" ? new Date() : null,
+            expiresAt: status === "active" ? expiresAt : null,
+            price: boostContext === "zone" ? "79" : "149",
+          });
+
+          return { skipped: false as const, status, expiresAt };
+        });
+
+        if (result.skipped) {
+          console.log(`[Stripe Webhook] Boost ${boostContext} já existe para biz ${bizId}, ignorando duplicata`);
+          break;
+        }
+
+        console.log(`[Stripe Webhook] Boost ${boostContext} ${result.status} criado para biz ${bizId}`);
+
+        try {
+          const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, bizId));
+          if (biz?.ownerEmail) {
+            const tpl = result.status === "active"
+              ? emails.boostAtivado(biz.ownerName || "Lojista", boostContext, result.expiresAt)
+              : emails.boostWaitlist(biz.ownerName || "Lojista", boostContext);
+            await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+          }
+        } catch (emailErr) {
+          console.error("[Stripe Webhook] Erro enviando email de boost:", emailErr);
+        }
         break;
       }
     }
