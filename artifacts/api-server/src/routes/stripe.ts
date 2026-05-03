@@ -196,6 +196,16 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
     const status = statusMap[stripeSub.status] ?? "cancelled";
     const isActive = status === "active" || status === "trialing";
 
+    // current_period_start/end foram movidos do Subscription raiz para o item
+    // na API 2025-03-31.basil. Lemos de ambos os lugares com fallback em billing_cycle_anchor.
+    const s = stripeSub as any;
+    const item0 = s.items?.data?.[0];
+    const rawStart: unknown = s.current_period_start ?? item0?.current_period_start;
+    const rawEnd: unknown   = s.current_period_end   ?? item0?.current_period_end;
+    const anchor: number    = s.billing_cycle_anchor ?? Math.floor(Date.now() / 1000);
+    const periodStart = new Date((typeof rawStart === "number" ? rawStart : anchor) * 1000);
+    const periodEnd   = new Date((typeof rawEnd   === "number" ? rawEnd   : anchor + 30 * 24 * 60 * 60) * 1000);
+
     await db
       .insert(subscriptionsTable)
       .values({
@@ -205,8 +215,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         stripePriceId: priceId,
         plan: planType,
         status,
-        currentPeriodStart: new Date((stripeSub as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
         cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
       })
       .onConflictDoUpdate({
@@ -216,8 +226,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           stripePriceId: priceId,
           plan: planType,
           status,
-          currentPeriodStart: new Date((stripeSub as any).current_period_start * 1000),
-          currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
           updatedAt: new Date(),
         },
