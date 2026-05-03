@@ -126,6 +126,21 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
     return;
   }
 
+  // Bloqueio: cadastros pendentes criados a partir de 03/05/2026 não logam até aprovação
+  const PENDING_BLOCK_START = new Date("2026-05-03T00:00:00Z");
+  const [business] = await db
+    .select({ status: businessesTable.status, createdAt: businessesTable.createdAt })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, user.businessId));
+
+  if (business && business.status !== "active" && business.createdAt && business.createdAt >= PENDING_BLOCK_START) {
+    res.status(403).json({
+      error: "Seu cadastro está em análise pela nossa equipe. Você receberá um email assim que for aprovado (em até 24h).",
+      code: "PENDING_APPROVAL",
+    });
+    return;
+  }
+
   const token = jwt.sign(
     { businessId: user.businessId, email: user.email, role: "lojista" },
     JWT_SECRET!,

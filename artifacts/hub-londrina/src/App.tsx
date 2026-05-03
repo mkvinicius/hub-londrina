@@ -15,6 +15,7 @@ import AdminNegocios from "@/pages/admin/AdminNegocios";
 import AdminLojistas from "@/pages/admin/AdminLojistas";
 import AdminCategorias from "@/pages/admin/AdminCategorias";
 import AdminImpulsionamento from "@/pages/admin/AdminImpulsionamento";
+import AdminZonas from "@/pages/admin/AdminZonas";
 import AdminHomeBanners from "@/pages/admin/AdminHomeBanners";
 import AdminCadastros from "@/pages/admin/AdminCadastros";
 import AdminAssinaturas from "@/pages/admin/AdminAssinaturas";
@@ -72,6 +73,7 @@ function Router() {
       <Route path="/admin/cadastros">{() => <PrivateRoute component={AdminCadastros} />}</Route>
       <Route path="/admin/assinaturas">{() => <PrivateRoute component={AdminAssinaturas} />}</Route>
       <Route path="/admin/impulsionamento">{() => <PrivateRoute component={AdminImpulsionamento} />}</Route>
+      <Route path="/admin/zonas">{() => <PrivateRoute component={AdminZonas} />}</Route>
       <Route path="/admin/home-banners">{() => <PrivateRoute component={AdminHomeBanners} />}</Route>
       <Route path="/admin/categorias">{() => <PrivateRoute component={AdminCategorias} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>

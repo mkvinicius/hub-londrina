@@ -139,6 +139,12 @@ export default function LojistaPlano() {
       const { url } = await createCheckoutSession(priceId);
       window.location.href = url;
     } catch (err: any) {
+      if (err.redirectToPortal) {
+        alert(err.message || "Você já possui uma assinatura ativa. Abrindo portal de gerenciamento...");
+        setCheckingOut(null);
+        await handlePortal();
+        return;
+      }
       alert(err.message || "Erro ao iniciar pagamento");
       setCheckingOut(null);
     }

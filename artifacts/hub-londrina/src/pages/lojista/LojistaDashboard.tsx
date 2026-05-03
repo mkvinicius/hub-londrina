@@ -48,7 +48,11 @@ export default function LojistaDashboard() {
               <span className={`text-xs font-bold text-white px-3 py-1 rounded-full ${planColors[profile?.planType] || "bg-gray-400"}`}>
                 {planLabels[profile?.planType] || profile?.planType}
               </span>
-              <span className="text-sm text-gray-500 capitalize">Zona {profile?.zone}</span>
+              <span className="text-sm text-gray-500">
+                {profile?.zone
+                  ? `Zona ${profile.zone.charAt(0).toUpperCase()}${profile.zone.slice(1)}`
+                  : "Zona não definida"}
+              </span>
             </div>
           </div>
         </div>

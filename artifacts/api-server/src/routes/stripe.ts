@@ -15,6 +15,15 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY env var is required");
 if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for stripe routes");
 
+if (!STRIPE_WEBHOOK_SECRET) {
+  console.warn("[Stripe] AVISO: STRIPE_WEBHOOK_SECRET não definido. O webhook não funcionará até que seja configurado.");
+} else {
+  console.log("[Stripe] STRIPE_WEBHOOK_SECRET configurado — webhook habilitado");
+}
+
+const FRONTEND_URL = process.env.FRONTEND_URL
+  || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
+
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" });
 
 const PRICE_MAP: Record<string, { plan: "destaque" | "premium"; cycle: "monthly" | "annual" }> = {
@@ -70,6 +79,14 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
     .from(subscriptionsTable)
     .where(eq(subscriptionsTable.businessId, lojista.businessId));
 
+  if (existingSub && (existingSub.status === "active" || existingSub.status === "trialing")) {
+    return res.status(400).json({
+      error: "Você já possui uma assinatura ativa. Use o portal do cliente para fazer upgrade, downgrade ou alterar o plano.",
+      code: "SUBSCRIPTION_ACTIVE",
+      redirectToPortal: true,
+    });
+  }
+
   let customerId = existingSub?.stripeCustomerId;
 
   if (!customerId) {
@@ -81,17 +98,13 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
     customerId = customer.id;
   }
 
-  const appUrl = process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : "http://localhost:3000";
-
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${appUrl}/lojista/plano?success=1`,
-    cancel_url: `${appUrl}/lojista/plano?cancelled=1`,
+    success_url: `${FRONTEND_URL}/lojista/plano?success=1`,
+    cancel_url: `${FRONTEND_URL}/lojista/plano?cancelled=1`,
     metadata: { businessId: String(lojista.businessId) },
     subscription_data: {
       metadata: { businessId: String(lojista.businessId) },
@@ -115,13 +128,9 @@ router.post("/stripe/portal", async (req: Request, res: Response) => {
     return res.status(404).json({ error: "Nenhuma assinatura encontrada" });
   }
 
-  const appUrl = process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : "http://localhost:3000";
-
   const portal = await stripe.billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
-    return_url: `${appUrl}/lojista/plano`,
+    return_url: `${FRONTEND_URL}/lojista/plano`,
   });
 
   res.json({ url: portal.url });
@@ -149,14 +158,19 @@ router.get("/stripe/subscription", async (req: Request, res: Response) => {
 
 router.post("/stripe/webhook", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
+  console.log("[Stripe Webhook] Recebido. Signature header:", sig ? "presente" : "AUSENTE");
+
   if (!sig || !STRIPE_WEBHOOK_SECRET) {
+    console.error("[Stripe Webhook] Falha: signature ou secret ausente. STRIPE_WEBHOOK_SECRET configurado:", !!STRIPE_WEBHOOK_SECRET);
     return res.status(400).json({ error: "Missing signature" });
   }
 
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(req.body as Buffer, sig, STRIPE_WEBHOOK_SECRET);
+    console.log("[Stripe Webhook] Evento recebido:", event.type, "id:", event.id);
   } catch (err: any) {
+    console.error("[Stripe Webhook] Falha na verificação da assinatura:", err.message);
     return res.status(400).json({ error: `Webhook error: ${err.message}` });
   }
 
@@ -219,6 +233,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        console.log("[Stripe Webhook] checkout.session.completed — session:", session.id, "subscription:", session.subscription);
         if (session.subscription) {
           await syncSubscription(String(session.subscription));
           try {
@@ -227,6 +242,21 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             });
             if (sub) {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
+
+              // Auto-aprovar negócio pending após pagamento bem-sucedido
+              if (biz && biz.status === "pending") {
+                await db.update(businessesTable)
+                  .set({ status: "active", isVisible: true })
+                  .where(eq(businessesTable.id, sub.businessId));
+                console.log(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) auto-aprovado após pagamento`);
+                try {
+                  const tpl = emails.cadastroAprovado(biz.ownerName || "Lojista", biz.name);
+                  if (biz.ownerEmail) await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+                } catch (emailErr) {
+                  console.error("[Stripe Webhook] Erro enviando email de aprovação:", emailErr);
+                }
+              }
+
               if (biz?.ownerEmail) {
                 const planLabel = sub.plan === "premium" ? "Premium" : "Destaque";
                 const valor = sub.plan === "premium" ? "R$89,90" : "R$49,90";
@@ -234,7 +264,9 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                 await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
               }
             }
-          } catch {}
+          } catch (e) {
+            console.error("[Stripe Webhook] Erro no pós-processamento checkout.session.completed:", e);
+          }
         }
         break;
       }

@@ -156,10 +156,28 @@ export async function getStripeConfig() {
 }
 
 export async function createCheckoutSession(priceId: string): Promise<{ url: string }> {
-  return lojistaFetch("/stripe/checkout", {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}/api/stripe/checkout`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ priceId }),
   });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = import.meta.env.BASE_URL + "lojista/login";
+    throw new Error("Não autorizado");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({} as any));
+    const err: any = new Error(body.error || `Erro ${res.status}`);
+    err.code = body.code;
+    err.redirectToPortal = body.redirectToPortal === true;
+    throw err;
+  }
+  return res.json();
 }
 
 export async function createPortalSession(): Promise<{ url: string }> {

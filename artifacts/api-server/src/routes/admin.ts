@@ -693,6 +693,161 @@ router.delete("/admin/boosts/:id", validateId, async (req: Request, res: Respons
   res.json({ success: true });
 });
 
+// ─── Boosts EXTRA: por zona e Home+Busca ────────────────────────────────────────
+const VALID_ZONES = ["norte", "sul", "leste", "oeste", "centro"];
+const MAX_SLOTS_PER_CONTEXT = 6;
+
+router.get("/admin/boosts-extra", async (_req: Request, res: Response) => {
+  const rows = await db
+    .select({
+      id: searchBoostsTable.id,
+      businessId: searchBoostsTable.businessId,
+      boostType: searchBoostsTable.boostType,
+      boostContext: searchBoostsTable.boostContext,
+      zone: searchBoostsTable.zone,
+      status: searchBoostsTable.status,
+      durationDays: searchBoostsTable.durationDays,
+      price: searchBoostsTable.price,
+      startsAt: searchBoostsTable.startsAt,
+      expiresAt: searchBoostsTable.expiresAt,
+      createdAt: searchBoostsTable.createdAt,
+      businessName: businessesTable.name,
+      businessRegion: businessesTable.region,
+      businessCategory: businessesTable.categorySlug,
+      businessPlanType: businessesTable.planType,
+    })
+    .from(searchBoostsTable)
+    .innerJoin(businessesTable, eq(searchBoostsTable.businessId, businessesTable.id))
+    .where(or(
+      eq(searchBoostsTable.boostContext, "zone"),
+      eq(searchBoostsTable.boostContext, "home_search"),
+    ))
+    .orderBy(desc(searchBoostsTable.createdAt));
+
+  const now = new Date();
+  const isLive = (b: typeof rows[number]) =>
+    b.status === "active" && (!b.expiresAt || new Date(b.expiresAt) > now);
+
+  const map = (b: typeof rows[number]) => ({
+    id: b.id,
+    business: { id: b.businessId, name: b.businessName, planType: b.businessPlanType, region: b.businessRegion, category: b.businessCategory },
+    zone: b.zone,
+    boostType: b.boostType,
+    status: b.status,
+    durationDays: b.durationDays,
+    price: b.price ? Number(b.price) : null,
+    startsAt: b.startsAt,
+    expiresAt: b.expiresAt,
+    createdAt: b.createdAt,
+  });
+
+  const zones: Record<string, ReturnType<typeof map>[]> = { norte: [], sul: [], leste: [], oeste: [], centro: [] };
+  for (const z of VALID_ZONES) {
+    zones[z] = rows.filter(r => r.boostContext === "zone" && r.zone === z && isLive(r)).map(map);
+  }
+  const homeSearch = rows.filter(r => r.boostContext === "home_search" && isLive(r)).map(map);
+
+  res.json({
+    zones,
+    homeSearch,
+    maxSlots: MAX_SLOTS_PER_CONTEXT,
+  });
+});
+
+router.post("/admin/boosts-extra", async (req: Request, res: Response) => {
+  const { businessId, boostContext, zone, durationDays, price } = req.body;
+
+  const parsedBusinessId = parseId(String(businessId));
+  if (!parsedBusinessId) {
+    res.status(400).json({ error: "businessId inválido", code: "INVALID_ID" });
+    return;
+  }
+
+  if (!["zone", "home_search"].includes(boostContext)) {
+    res.status(400).json({ error: "boostContext deve ser 'zone' ou 'home_search'" });
+    return;
+  }
+
+  if (boostContext === "zone" && !VALID_ZONES.includes(zone)) {
+    res.status(400).json({ error: `zone deve ser uma de: ${VALID_ZONES.join(", ")}` });
+    return;
+  }
+
+  const days = Number(durationDays);
+  if (!days || ![7, 15, 30].includes(days)) {
+    res.status(400).json({ error: "durationDays deve ser 7, 15 ou 30" });
+    return;
+  }
+
+  const [biz] = await db.select({ planType: businessesTable.planType, name: businessesTable.name }).from(businessesTable).where(eq(businessesTable.id, parsedBusinessId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const now = new Date();
+  const slotConditions = [
+    eq(searchBoostsTable.boostContext, boostContext),
+    eq(searchBoostsTable.status, "active"),
+    or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > ${now}`),
+  ];
+  if (boostContext === "zone") slotConditions.push(eq(searchBoostsTable.zone, zone));
+
+  const activeSlots = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(...slotConditions));
+  if (activeSlots.length >= MAX_SLOTS_PER_CONTEXT) {
+    res.status(400).json({
+      error: boostContext === "zone"
+        ? `Zona ${zone} já tem ${MAX_SLOTS_PER_CONTEXT} slots ocupados`
+        : `Home + Busca já tem ${MAX_SLOTS_PER_CONTEXT} slots ocupados`,
+      code: "SLOTS_FULL",
+    });
+    return;
+  }
+
+  const existing = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(
+    and(
+      eq(searchBoostsTable.businessId, parsedBusinessId),
+      eq(searchBoostsTable.boostContext, boostContext),
+      eq(searchBoostsTable.status, "active"),
+      or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > ${now}`),
+    )
+  );
+  if (existing.length > 0) {
+    res.status(400).json({ error: "Este negócio já tem um boost ativo neste contexto" });
+    return;
+  }
+
+  const expiresAt = new Date(Date.now() + days * 86_400_000);
+
+  const [boost] = await db.insert(searchBoostsTable).values({
+    businessId: parsedBusinessId,
+    monthlyBid: "0",
+    position: null,
+    boostType: "avulso",
+    boostContext,
+    zone: boostContext === "zone" ? zone : null,
+    status: "active",
+    durationDays: days,
+    price: price != null ? String(price) : null,
+    startsAt: now,
+    expiresAt,
+  }).returning();
+
+  res.status(201).json({ boost });
+});
+
+router.delete("/admin/boosts-extra/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const [existing] = await db.select().from(searchBoostsTable).where(eq(searchBoostsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Boost não encontrado" }); return; }
+  if (!["zone", "home_search"].includes(existing.boostContext)) {
+    res.status(400).json({ error: "Este endpoint trata apenas boosts de zona ou home+busca" });
+    return;
+  }
+  await db.update(searchBoostsTable).set({ status: "expired" }).where(eq(searchBoostsTable.id, id));
+  res.json({ success: true });
+});
+
 router.get("/admin/cadastros", async (req: Request, res: Response) => {
   const statusFilter = req.query.status as string | undefined;
   const conditions = [];

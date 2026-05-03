@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket, Home } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -81,6 +81,17 @@ export default function AdminImpulsionamento() {
   const [showAddMonthly, setShowAddMonthly] = useState<number | null>(null);
   const [showAddAvulso, setShowAddAvulso] = useState(false);
   const [showAddDirect, setShowAddDirect] = useState(false);
+  const [showAddHomeSearch, setShowAddHomeSearch] = useState(false);
+  const [homeSearch, setHomeSearch] = useState<any[]>([]);
+  const [hsBizId, setHsBizId] = useState<number | "">("");
+  const [hsBizSearch, setHsBizSearch] = useState("");
+  const [hsDays, setHsDays] = useState(7);
+  const HS_MAX = 6;
+  const HS_OPTIONS = [
+    { days: 7, label: "7 dias", price: 39 },
+    { days: 15, label: "15 dias", price: 69 },
+    { days: 30, label: "30 dias", price: 119 },
+  ];
   const [addBusinessId, setAddBusinessId] = useState<number | "">("");
   const [addDays, setAddDays] = useState(7);
   const [directDays, setDirectDays] = useState(7);
@@ -92,15 +103,17 @@ export default function AdminImpulsionamento() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [boostRes, bizRes] = await Promise.all([
+      const [boostRes, bizRes, extraRes] = await Promise.all([
         adminFetch("/api/admin/boosts"),
         adminFetch("/api/admin/businesses?limit=200"),
+        adminFetch("/api/admin/boosts-extra"),
       ]);
       setMonthly(boostRes.monthly || []);
       setAvulso(boostRes.avulso || []);
       setWaitlist(boostRes.waitlist || []);
       setAvailablePositions(boostRes.availablePositions || []);
       setBusinesses(bizRes.data || []);
+      setHomeSearch(extraRes.homeSearch || []);
     } finally {
       setLoading(false);
     }
@@ -216,6 +229,46 @@ export default function AdminImpulsionamento() {
       setSaving(false);
     }
   }
+
+  async function handleAddHomeSearch() {
+    if (!hsBizId) return;
+    const opt = HS_OPTIONS.find(o => o.days === hsDays)!;
+    setSaving(true);
+    try {
+      await adminFetch("/api/admin/boosts-extra", {
+        method: "POST",
+        body: JSON.stringify({
+          businessId: hsBizId,
+          boostContext: "home_search",
+          durationDays: hsDays,
+          price: opt.price,
+        }),
+      });
+      setShowAddHomeSearch(false);
+      setHsBizId("");
+      setHsBizSearch("");
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao criar destaque Home+Busca");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemoveHomeSearch(id: number) {
+    if (!confirm("Remover este destaque Home+Busca?")) return;
+    try {
+      await adminFetch(`/api/admin/boosts-extra/${id}`, { method: "DELETE" });
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao remover");
+    }
+  }
+
+  const hsAvailableBiz = businesses.filter(b =>
+    !homeSearch.some(h => h.business?.id === b.id) &&
+    (!hsBizSearch || b.name.toLowerCase().includes(hsBizSearch.toLowerCase()))
+  );
 
   async function handleRemoveDirect(bizId: number) {
     if (!confirm("Remover boost direto deste negócio?")) return;
@@ -502,6 +555,124 @@ export default function AdminImpulsionamento() {
                 className={`w-full py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
               >
                 {saving ? "Salvando..." : "Criar Boost Avulso"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DESTAQUE HOME + BUSCA ─────────────────────── */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <Home className="w-5 h-5 text-indigo-500" />
+            Destaque Home + Busca — {homeSearch.length}/{HS_MAX} ocupados
+          </h2>
+          {homeSearch.length < HS_MAX && (
+            <button
+              onClick={() => { setShowAddHomeSearch(true); setHsBizId(""); setHsBizSearch(""); setHsDays(7); }}
+              className={`px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl ${BTN_ELEVATION}`}
+            >
+              <Plus className="w-4 h-4 inline mr-1" />Adicionar
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
+        ) : homeSearch.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">
+            Nenhum destaque Home+Busca ativo. Esses 6 slots aparecem na home e em todas as buscas.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {homeSearch.map((h, idx) => {
+              const remaining = daysRemaining(h.expiresAt);
+              return (
+                <div key={h.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-lg font-black text-indigo-700 text-xs flex-shrink-0">{idx + 1}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 text-sm truncate">{h.business?.name}</p>
+                        <p className="text-[10px] text-gray-400">{h.business?.region} · {h.business?.category}</p>
+                      </div>
+                    </div>
+                    <span className={`flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${remaining === "Expirado" ? "text-red-600 bg-red-50" : "text-indigo-700 bg-indigo-50"}`}>
+                      {remaining}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-50 pt-2 mt-1">
+                    <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Expira em {formatDate(h.expiresAt)}
+                      {h.price && <span>· R${h.price}</span>}
+                    </p>
+                    <button
+                      onClick={() => handleRemoveHomeSearch(h.id)}
+                      className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                    >
+                      <Trash2 className="w-3 h-3 inline mr-1" />Remover
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showAddHomeSearch && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">Novo Destaque Home + Busca</h3>
+              <button onClick={() => setShowAddHomeSearch(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Negócio</label>
+                <input
+                  type="text"
+                  placeholder="Buscar negócio..."
+                  value={hsBizSearch}
+                  onChange={e => setHsBizSearch(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl mb-2"
+                />
+                <select
+                  value={hsBizId}
+                  onChange={e => setHsBizId(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                >
+                  <option value="">Selecionar...</option>
+                  {hsAvailableBiz.slice(0, 30).map(b => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.region})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Duração</label>
+                <select
+                  value={hsDays}
+                  onChange={e => setHsDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                >
+                  {HS_OPTIONS.map(o => (
+                    <option key={o.days} value={o.days}>{o.label} (R${o.price})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-800">
+                Este destaque aparece na home e em todas as buscas (limite global de 6 slots).
+              </div>
+              <button
+                onClick={handleAddHomeSearch}
+                disabled={saving || !hsBizId}
+                className={`w-full py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
+              >
+                {saving ? "Salvando..." : "Confirmar"}
               </button>
             </div>
           </div>
