@@ -115,15 +115,23 @@ export default function Anuncie() {
               <p className="text-xl md:text-2xl text-white/80 mb-10 font-light max-w-2xl mx-auto lg:mx-0">
                 Milhares de londrinenses buscam o que você oferece. Seja encontrado.
               </p>
-              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start mb-12">
-                <Button onClick={() => navigate("/cadastro")} className="w-full sm:w-auto bg-[#FF9800] hover:bg-[#e68a00] text-white text-lg py-7 px-10 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all">
-                  Começar Grátis
+              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start mb-6">
+                <Button onClick={() => navigate("/cadastro")} className="w-full sm:w-auto bg-[#FF9800] hover:bg-[#e68a00] text-white text-lg py-7 px-10 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all flex items-center gap-2">
+                  Cadastrar meu negócio grátis <ArrowRight className="w-5 h-5" />
                 </Button>
                 <a href="#planos">
                   <Button variant="outline" className="w-full sm:w-auto border-white/30 text-white hover:bg-white/10 hover:text-white text-lg py-7 px-10 rounded-full font-bold backdrop-blur-sm">
                     Ver planos e preços
                   </Button>
                 </a>
+              </div>
+              <div className="flex flex-col gap-2 justify-center lg:justify-start mb-10">
+                {["Apareça para milhares de londrinenses", "Cadastro gratuito em 5 minutos", "Cancele quando quiser"].map(b => (
+                  <div key={b} className="flex items-center gap-2 text-white/90 text-sm font-medium">
+                    <Check className="w-4 h-4 text-[#FF9800] flex-shrink-0" />
+                    {b}
+                  </div>
+                ))}
               </div>
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-8 text-white/90">
                 <div className="flex flex-col items-center lg:items-start">

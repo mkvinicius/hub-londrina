@@ -72,7 +72,7 @@ function DocumentationBanner() {
     <div className={`border-b px-6 py-3 flex items-center justify-between gap-4 ${bg}`}>
       <div className="flex items-center gap-2 text-sm font-medium">
         <span aria-hidden>{icon}</span>
-        <AlertTriangle className="w-4 h-4 hidden sm:block" />
+        <AlertTriangle className={`w-4 h-4 hidden sm:block ${isExpired ? "text-red-700" : isRejected ? "text-orange-700" : "text-amber-700"}`} />
         <span>{message}</span>
       </div>
       {!isSubmitted && (
