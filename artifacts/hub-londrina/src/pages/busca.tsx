@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
   Search, MapPin, SlidersHorizontal,
-  ChevronDown, ChevronUp, X, ChevronLeft, ChevronRight, Navigation, Loader2
+  ChevronDown, ChevronUp, X, ChevronLeft, ChevronRight, Navigation, Loader2, Star, Zap
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layout } from "@/components/Layout";
 import { useSearch, useListCategories } from "@workspace/api-client-react";
@@ -17,6 +15,8 @@ const PAGE_SIZE = 8;
 const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
 
 const BTN_ELEVATION = "transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm";
+
+interface AcItem { id: number; name: string; categorySlug: string }
 
 export default function Busca() {
   const [, navigate] = useLocation();
@@ -35,6 +35,52 @@ export default function Busca() {
   const [nearbyError, setNearbyError] = useState("");
   const [catOpen, setCatOpen] = useState(true);
   const [regOpen, setRegOpen] = useState(true);
+
+  // Autocomplete state
+  const [acSponsored, setAcSponsored] = useState<AcItem[]>([]);
+  const [acSuggestions, setAcSuggestions] = useState<AcItem[]>([]);
+  const [acOpen, setAcOpen] = useState(false);
+  const [acLoading, setAcLoading] = useState(false);
+  const acRef = useRef<HTMLDivElement>(null);
+  const acTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Home featured businesses
+  const [homeFeatured, setHomeFeatured] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/home-featured`)
+      .then(r => r.json())
+      .then(d => setHomeFeatured(d.data || []))
+      .catch(() => {});
+  }, []);
+
+  const fetchAutocomplete = useCallback((q: string) => {
+    if (q.length < 2) { setAcSponsored([]); setAcSuggestions([]); setAcOpen(false); return; }
+    if (acTimer.current) clearTimeout(acTimer.current);
+    acTimer.current = setTimeout(async () => {
+      setAcLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setAcSponsored(data.sponsored || []);
+        setAcSuggestions(data.suggestions || []);
+        setAcOpen((data.sponsored?.length || data.suggestions?.length) > 0);
+      } catch {
+        setAcOpen(false);
+      } finally {
+        setAcLoading(false);
+      }
+    }, 250);
+  }, []);
+
+  // Close autocomplete on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (acRef.current && !acRef.current.contains(e.target as Node)) setAcOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const { data: searchData, isLoading } = useSearch({
     q: query || undefined,
@@ -84,8 +130,7 @@ export default function Busca() {
 
   const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
   useEffect(() => {
-    const BASE = import.meta.env.VITE_API_URL || "";
-    fetch(`${BASE}/api/regions`)
+    fetch(`${API_BASE}/api/regions`)
       .then(r => r.json())
       .then(d => setDynamicRegions(d.data || []))
       .catch(() => {});
@@ -110,8 +155,19 @@ export default function Busca() {
 
   function handleSearch() {
     setQuery(localQuery);
+    setAcOpen(false);
     const params = new URLSearchParams();
     if (localQuery) params.set("q", localQuery);
+    if (region && region !== "todas") params.set("regiao", region);
+    if (categoria) params.set("categoria", categoria);
+    navigate(`/busca?${params.toString()}`);
+  }
+
+  function selectAcItem(name: string) {
+    setLocalQuery(name);
+    setAcOpen(false);
+    setQuery(name);
+    const params = new URLSearchParams({ q: name });
     if (region && region !== "todas") params.set("regiao", region);
     if (categoria) params.set("categoria", categoria);
     navigate(`/busca?${params.toString()}`);
@@ -135,78 +191,156 @@ export default function Busca() {
   const selectedRegionLabel = region && region !== "todas" ? region : "";
   const selectedCategoryLabel = categoria ? categories.find(c => c.slug === categoria)?.name ?? categoria : "";
 
+  const showHomeFeatured = homeFeatured.length > 0 && !query && !region && !categoria && !nearbyMode;
+
   return (
     <Layout>
       <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors">
         <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-5 px-4 transition-colors">
           <div className="max-w-3xl mx-auto">
-            <div
-              className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5"
-              style={{
-                background: "rgba(255,255,255,0.97)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
-                border: "1px solid rgba(0,0,0,0.06)",
-              }}
-            >
-              <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
-                <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
-                <input
-                  type="text"
-                  value={localQuery}
-                  onChange={(e) => setLocalQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="Restaurante, salão, mecânica..."
-                  className="flex-1 text-base text-gray-700 dark:text-gray-100 placeholder:text-gray-400 outline-none bg-transparent font-medium"
-                />
-              </div>
-
-              <div className="relative flex-shrink-0">
-                <Select value={region} onValueChange={setRegion}>
-                  <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-100 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full border-0 shadow-none focus:ring-0">
-                    <SelectValue placeholder="Selecione a Região" />
-                    <ChevronDown className="h-4 w-4 text-gray-500" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-0 shadow-xl" style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
-                    <SelectItem value="todas">Todas as regiões</SelectItem>
-                    {dynamicRegions.map(r => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSearch}
-                className="flex items-center justify-center gap-2 text-white font-bold text-base px-7 py-3 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5 flex-shrink-0"
+            {/* Search bar with autocomplete */}
+            <div ref={acRef} className="relative">
+              <div
+                className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5"
                 style={{
-                  borderRadius: "999px",
-                  background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
-                  boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  transform: "translateY(-1px)",
-                }}
-                onMouseEnter={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.style.background = "linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%)";
-                  btn.style.boxShadow = "0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2)";
-                  btn.style.transform = "translateY(-3px)";
-                }}
-                onMouseLeave={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.style.background = "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)";
-                  btn.style.boxShadow = "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)";
-                  btn.style.transform = "translateY(-1px)";
+                  background: "rgba(255,255,255,0.97)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
+                  border: "1px solid rgba(0,0,0,0.06)",
                 }}
               >
-                <Search className="h-4 w-4" />
-                Buscar
-              </button>
+                <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
+                  <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={localQuery}
+                    onChange={(e) => { setLocalQuery(e.target.value); fetchAutocomplete(e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); if (e.key === "Escape") setAcOpen(false); }}
+                    onFocus={() => { if (localQuery.length >= 2 && (acSponsored.length || acSuggestions.length)) setAcOpen(true); }}
+                    placeholder="Restaurante, salão, mecânica..."
+                    className="flex-1 text-base text-gray-700 dark:text-gray-100 placeholder:text-gray-400 outline-none bg-transparent font-medium"
+                    autoComplete="off"
+                  />
+                  {acLoading && <Loader2 className="h-4 w-4 text-gray-400 animate-spin flex-shrink-0" />}
+                  {localQuery && !acLoading && (
+                    <button onClick={() => { setLocalQuery(""); setAcOpen(false); }} className="flex-shrink-0 text-gray-400 hover:text-gray-600">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative flex-shrink-0">
+                  <Select value={region} onValueChange={setRegion}>
+                    <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-100 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full border-0 shadow-none focus:ring-0">
+                      <SelectValue placeholder="Selecione a Região" />
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-0 shadow-xl" style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
+                      <SelectItem value="todas">Todas as regiões</SelectItem>
+                      {dynamicRegions.map(r => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  className="flex items-center justify-center gap-2 text-white font-bold text-base px-7 py-3 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5 flex-shrink-0"
+                  style={{
+                    borderRadius: "999px",
+                    background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
+                    boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                    transform: "translateY(-1px)",
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                  Buscar
+                </button>
+              </div>
+
+              {/* Autocomplete dropdown */}
+              {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
+                <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
+                  style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
+                  {acSponsored.length > 0 && (
+                    <>
+                      <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
+                        <Zap className="h-3 w-3 text-amber-500" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Patrocinados</span>
+                      </div>
+                      {acSponsored.map(item => {
+                        const Icon = getCategoryIcon(item.categorySlug);
+                        return (
+                          <button key={`sp-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
+                            <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                  {acSponsored.length > 0 && acSuggestions.length > 0 && (
+                    <div className="mx-4 border-t border-gray-100" />
+                  )}
+                  {acSuggestions.length > 0 && (
+                    <>
+                      {acSponsored.length > 0 && (
+                        <div className="px-4 pt-2 pb-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Sugestões</span>
+                        </div>
+                      )}
+                      {acSuggestions.map(item => {
+                        const Icon = getCategoryIcon(item.categorySlug);
+                        return (
+                          <button key={`sg-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                            <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
+                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                  <div className="h-2" />
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6">
+
+          {/* ─── HOME FEATURED SECTION ─────────────────────────────────────── */}
+          {showHomeFeatured && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-700">Destaques para você</span>
+                </div>
+                <span className="text-xs text-gray-400">{homeFeatured.length} negócio{homeFeatured.length !== 1 ? "s" : ""} em destaque</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {homeFeatured.map((biz: any) => (
+                  <div key={biz.id} className="relative">
+                    <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
+                      <Star className="h-2.5 w-2.5 fill-white" />
+                      Patrocinado
+                    </div>
+                    <BusinessCard business={biz} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 border-t border-gray-200" />
+            </div>
+          )}
+
+          {/* Results header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
             <h1 className="font-bold text-xl text-[#3a2512] dark:text-gray-100">
               {isLoading ? (
@@ -228,11 +362,7 @@ export default function Busca() {
                 disabled={nearbyLoading}
                 className={`flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl border ${BTN_ELEVATION} ${nearbyMode ? "bg-[#4CAF50] text-white border-[#4CAF50] shadow-md" : "bg-white dark:bg-gray-800 text-[#3a2512] dark:text-gray-100 border-gray-200 dark:border-gray-700 hover:border-[#4CAF50] hover:text-[#4CAF50]"}`}
               >
-                {nearbyLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Navigation className="h-4 w-4" />
-                )}
+                {nearbyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
                 {nearbyMode ? "Ver todos" : "Perto de mim"}
               </button>
               <button
@@ -424,7 +554,15 @@ export default function Busca() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                     {paginated.map((biz) => (
-                      <BusinessCard key={biz.id} business={biz} showDistance={nearbyMode} />
+                      <div key={biz.id} className="relative">
+                        {(biz as any)._boostBadge && (
+                          <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
+                            <Zap className="h-2.5 w-2.5" />
+                            {(biz as any)._boostBadge}
+                          </div>
+                        )}
+                        <BusinessCard business={biz} showDistance={nearbyMode} />
+                      </div>
                     ))}
                   </div>
 
