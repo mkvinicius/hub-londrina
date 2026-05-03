@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { getAdminToken } from "@/lib/admin-api";
-import { CreditCard, TrendingUp, AlertTriangle, XCircle, ExternalLink } from "lucide-react";
+import { CreditCard, TrendingUp, AlertTriangle, XCircle, ExternalLink, RefreshCw, Clock } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -18,6 +18,7 @@ interface Subscription {
   stripeCustomerId: string;
   cancelAtPeriodEnd: boolean | null;
   updatedAt: string | null;
+  daysUntilDowngrade: number | null;
 }
 
 interface SubData {
@@ -30,7 +31,7 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     active: "bg-green-100 text-green-700",
     trialing: "bg-blue-100 text-blue-700",
-    past_due: "bg-orange-100 text-orange-700",
+    past_due: "bg-red-100 text-red-700",
     cancelled: "bg-gray-100 text-gray-500",
   };
   const label: Record<string, string> = {
@@ -58,21 +59,52 @@ function PlanBadge({ plan }: { plan: string }) {
   );
 }
 
+function DowngradeCountdown({ days }: { days: number | null }) {
+  if (days === null) return null;
+  if (days <= 0) return <span className="text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Hoje</span>;
+  if (days === 1) return <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">1 dia</span>;
+  return <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">{days} dias</span>;
+}
+
 export default function AdminAssinaturas() {
   const [data, setData] = useState<SubData | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [extending, setExtending] = useState<number | null>(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     const token = getAdminToken();
-    fetch(`${API_BASE}/api/admin/subscriptions`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/subscriptions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      setData(json);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function handleExtend(id: number) {
+    setExtending(id);
+    const token = getAdminToken();
+    try {
+      await fetch(`${API_BASE}/api/admin/subscriptions/${id}/extend`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchData();
+    } catch {
+      alert("Erro ao estender prazo");
+    } finally {
+      setExtending(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -96,9 +128,14 @@ export default function AdminAssinaturas() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-800">Assinaturas</h1>
-        <p className="text-sm text-gray-500 mt-1">Receita recorrente e status das assinaturas Stripe</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-gray-800">Assinaturas</h1>
+          <p className="text-sm text-gray-500 mt-1">Receita recorrente e status das assinaturas Stripe</p>
+        </div>
+        <button onClick={fetchData} className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-[#d97706] shadow-sm transition-all">
+          <RefreshCw className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -121,7 +158,7 @@ export default function AdminAssinaturas() {
         </div>
 
         <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center mb-3">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center mb-3">
             <AlertTriangle className="w-4 h-4 text-white" />
           </div>
           <p className="text-2xl font-black text-gray-800">{data.byStatus.past_due}</p>
@@ -141,7 +178,7 @@ export default function AdminAssinaturas() {
         <div className="mb-8">
           <h2 className="text-base font-bold text-red-700 mb-3 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
-            Inadimplentes ({pastDue.length})
+            Inadimplentes com risco de downgrade ({pastDue.length})
           </h2>
           <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
@@ -150,30 +187,46 @@ export default function AdminAssinaturas() {
                   <th className="px-4 py-3">Negócio</th>
                   <th className="px-4 py-3">Plano</th>
                   <th className="px-4 py-3 hidden md:table-cell">Email</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Atualizado em</th>
-                  <th className="px-4 py-3">Ação</th>
+                  <th className="px-4 py-3">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Downgrade em</span>
+                  </th>
+                  <th className="px-4 py-3 hidden md:table-cell">Desde</th>
+                  <th className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {pastDue.map(s => (
-                  <tr key={s.id} className="border-b border-red-100 last:border-0">
+                  <tr key={s.id} className="border-b border-red-100 last:border-0 bg-red-50 hover:bg-red-100/60 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-800">{s.businessName || "—"}</td>
                     <td className="px-4 py-3"><PlanBadge plan={s.plan} /></td>
                     <td className="px-4 py-3 hidden md:table-cell text-gray-500 text-xs">{s.ownerEmail || "—"}</td>
+                    <td className="px-4 py-3">
+                      <DowngradeCountdown days={s.daysUntilDowngrade} />
+                    </td>
                     <td className="px-4 py-3 hidden md:table-cell text-gray-400 text-xs">
                       {s.updatedAt ? new Date(s.updatedAt).toLocaleDateString("pt-BR") : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {s.stripeCustomerId && (
-                        <a
-                          href={`https://dashboard.stripe.com/customers/${s.stripeCustomerId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 font-medium"
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleExtend(s.id)}
+                          disabled={extending === s.id}
+                          className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                          title="Reinicia o contador de 7 dias"
                         >
-                          Ver no Stripe <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
+                          {extending === s.id ? "..." : "Estender prazo"}
+                        </button>
+                        {s.stripeCustomerId && (
+                          <a
+                            href={`https://dashboard.stripe.com/customers/${s.stripeCustomerId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 font-medium"
+                          >
+                            Stripe <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -215,6 +268,7 @@ export default function AdminAssinaturas() {
                   <th className="px-4 py-3">Plano</th>
                   <th className="px-4 py-3">Valor/mês</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 hidden md:table-cell">Downgrade em</th>
                   <th className="px-4 py-3 hidden lg:table-cell">Renova em</th>
                   <th className="px-4 py-3 hidden lg:table-cell">Stripe ID</th>
                   <th className="px-4 py-3"></th>
@@ -222,7 +276,10 @@ export default function AdminAssinaturas() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(s => (
-                  <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={s.id}
+                    className={`hover:bg-gray-50 transition-colors ${s.status === "past_due" ? "bg-red-50/40" : ""}`}
+                  >
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-800">{s.businessName || "—"}</p>
                       <p className="text-xs text-gray-400">{s.ownerEmail || ""}</p>
@@ -232,6 +289,11 @@ export default function AdminAssinaturas() {
                       {s.plan === "premium" ? "R$ 89,90" : "R$ 49,90"}
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {s.status === "past_due"
+                        ? <DowngradeCountdown days={s.daysUntilDowngrade} />
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 hidden lg:table-cell text-gray-400 text-xs">
                       {s.currentPeriodEnd
                         ? new Date(s.currentPeriodEnd).toLocaleDateString("pt-BR")
@@ -246,16 +308,28 @@ export default function AdminAssinaturas() {
                       ) : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {s.stripeCustomerId && (
-                        <a
-                          href={`https://dashboard.stripe.com/customers/${s.stripeCustomerId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {s.status === "past_due" && (
+                          <button
+                            onClick={() => handleExtend(s.id)}
+                            disabled={extending === s.id}
+                            className="text-xs font-bold text-amber-600 hover:text-amber-800 disabled:opacity-50"
+                            title="Estender prazo de 7 dias"
+                          >
+                            {extending === s.id ? "..." : "Estender"}
+                          </button>
+                        )}
+                        {s.stripeCustomerId && (
+                          <a
+                            href={`https://dashboard.stripe.com/customers/${s.stripeCustomerId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

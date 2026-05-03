@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, updateProfile, lookupCep, updateLocation } from "@/lib/lojista-api";
-import { Save, Search, MapPin, Lock } from "lucide-react";
+import { Save, Search, MapPin, Lock, Info } from "lucide-react";
 
 const PAYMENT_OPTIONS = ["Dinheiro", "PIX", "Cartão de crédito", "Cartão de débito", "Vale refeição"];
 const ZONE_OPTIONS = ["centro", "norte", "sul", "leste", "oeste"];
@@ -55,6 +55,8 @@ export default function LojistaPerfil() {
         categorySlug: profile.categorySlug,
         paymentMethods: profile.paymentMethods || [],
         tags: profile.tags || [],
+        razaoSocial: profile.razaoSocial || undefined,
+        nomeFantasia: profile.nomeFantasia || undefined,
       };
       if (!isFree) {
         payload.instagram = profile.instagram;
@@ -156,6 +158,37 @@ export default function LojistaPerfil() {
 
       <div className="space-y-6">
         <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-1">Dados Jurídicos</h2>
+          <p className="text-xs text-gray-500 mb-4 flex items-center gap-1">
+            <Info className="w-3.5 h-3.5 text-gray-400" />
+            A razão social deve ser idêntica ao cadastro na Receita Federal
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Razão Social <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={profile.razaoSocial || ""}
+                onChange={e => update("razaoSocial", e.target.value)}
+                placeholder="Nome conforme Receita Federal"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Nome Fantasia
+                <span className="ml-1 text-xs font-normal text-gray-400">(opcional)</span>
+              </label>
+              <input
+                value={profile.nomeFantasia || ""}
+                onChange={e => update("nomeFantasia", e.target.value)}
+                placeholder="Nome pelo qual é conhecido"
+                className={inputCls}
+              />
+            </div>
+          </div>
+
           <h2 className="text-lg font-bold text-gray-800 mb-4">Dados da Empresa</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

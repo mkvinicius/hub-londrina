@@ -859,6 +859,8 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
   const businesses = await db.select({
     id: businessesTable.id,
     name: businessesTable.name,
+    razaoSocial: businessesTable.razaoSocial,
+    nomeFantasia: businessesTable.nomeFantasia,
     cnpj: businessesTable.cnpj,
     phone: businessesTable.phone,
     zone: businessesTable.zone,
@@ -917,7 +919,7 @@ router.patch("/admin/businesses/:id/home-featured", validateId, async (req: Requ
 });
 
 router.get("/admin/subscriptions", async (_req: Request, res: Response) => {
-  const subs = await db
+  const rawSubs = await db
     .select({
       id: subscriptionsTable.id,
       businessId: subscriptionsTable.businessId,
@@ -937,6 +939,16 @@ router.get("/admin/subscriptions", async (_req: Request, res: Response) => {
     .leftJoin(businessesTable, eq(subscriptionsTable.businessId, businessesTable.id))
     .orderBy(desc(subscriptionsTable.updatedAt));
 
+  const now = Date.now();
+  const subs = rawSubs.map(s => {
+    if (s.status === "past_due" && s.updatedAt) {
+      const elapsed = now - new Date(s.updatedAt).getTime();
+      const daysUntilDowngrade = 7 - Math.floor(elapsed / 86400000);
+      return { ...s, daysUntilDowngrade };
+    }
+    return { ...s, daysUntilDowngrade: null };
+  });
+
   const planPrices: Record<string, number> = { destaque: 49.9, premium: 89.9 };
   const activeSubs = subs.filter(s => s.status === "active");
   const mrr = activeSubs.reduce((sum, s) => sum + (planPrices[s.plan] ?? 0), 0);
@@ -949,6 +961,21 @@ router.get("/admin/subscriptions", async (_req: Request, res: Response) => {
   };
 
   res.json({ mrr, byStatus, subscriptions: subs });
+});
+
+router.patch("/admin/subscriptions/:id/extend", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.id, id));
+  if (!sub) {
+    res.status(404).json({ error: "Assinatura não encontrada" });
+    return;
+  }
+  const [updated] = await db
+    .update(subscriptionsTable)
+    .set({ updatedAt: new Date() })
+    .where(eq(subscriptionsTable.id, id))
+    .returning();
+  res.json({ success: true, updatedAt: updated.updatedAt });
 });
 
 router.get("/admin/home-banners", async (_req: Request, res: Response) => {

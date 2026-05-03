@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { ClipboardList, CheckCircle2, XCircle, Clock, RefreshCw, X, MailCheck, MailX } from "lucide-react";
+import { ClipboardList, CheckCircle2, XCircle, Clock, RefreshCw, X, MailCheck, MailX, Info } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
 interface Cadastro {
   id: number;
   name: string;
+  razaoSocial: string | null;
+  nomeFantasia: string | null;
   cnpj: string;
   phone: string;
   zone: string;
@@ -40,7 +42,7 @@ export default function AdminCadastros() {
   const [pendingCount, setPendingCount] = useState(0);
   const [filter, setFilter] = useState<string>("pending");
   const [loading, setLoading] = useState(true);
-  const [rejectModal, setRejectModal] = useState<number | null>(null);
+  const [rejectModal, setRejectModal] = useState<Cadastro | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -77,7 +79,7 @@ export default function AdminCadastros() {
     if (!rejectModal) return;
     setSaving(true);
     try {
-      await adminFetch(`/api/admin/businesses/${rejectModal}`, {
+      await adminFetch(`/api/admin/businesses/${rejectModal.id}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "rejected", rejectionReason: rejectReason.trim() || null }),
       });
@@ -136,6 +138,7 @@ export default function AdminCadastros() {
           <thead>
             <tr className="bg-gray-50 text-left">
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negócio</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">Razão Social</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">CNPJ</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Zona</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Categoria</th>
@@ -147,9 +150,9 @@ export default function AdminCadastros() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="text-center py-10 text-gray-400">Carregando...</td></tr>
+              <tr><td colSpan={9} className="text-center py-10 text-gray-400">Carregando...</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-10 text-gray-400">Nenhum cadastro encontrado.</td></tr>
+              <tr><td colSpan={9} className="text-center py-10 text-gray-400">Nenhum cadastro encontrado.</td></tr>
             ) : data.map(c => {
               const st = STATUS_LABELS[c.status] || STATUS_LABELS.pending;
               return (
@@ -157,6 +160,16 @@ export default function AdminCadastros() {
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-800">{c.name}</div>
                     <div className="text-[10px] text-gray-400">{c.ownerName} · {c.ownerEmail}</div>
+                    {c.nomeFantasia && c.nomeFantasia !== c.razaoSocial && (
+                      <div className="text-[10px] text-amber-600 font-medium mt-0.5">Fantasia: {c.nomeFantasia}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 hidden xl:table-cell">
+                    {c.razaoSocial ? (
+                      <div className="text-xs text-gray-700 font-medium">{c.razaoSocial}</div>
+                    ) : (
+                      <span className="text-[10px] text-gray-300">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-600 font-mono">{c.cnpj || "—"}</td>
                   <td className="px-4 py-3 text-xs text-gray-600">{ZONE_LABELS[c.zone] || c.zone}</td>
@@ -191,7 +204,7 @@ export default function AdminCadastros() {
                           <CheckCircle2 className="w-3 h-3 inline mr-1" />Aprovar
                         </button>
                         <button
-                          onClick={() => { setRejectModal(c.id); setRejectReason(""); }}
+                          onClick={() => { setRejectModal(c); setRejectReason(""); }}
                           className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
                         >
                           <XCircle className="w-3 h-3 inline mr-1" />Rejeitar
@@ -215,6 +228,20 @@ export default function AdminCadastros() {
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
+
+            {rejectModal.razaoSocial && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Info className="w-3.5 h-3.5 text-blue-500" />
+                  <span className="text-[11px] font-bold text-blue-600 uppercase">Razão Social (Receita Federal)</span>
+                </div>
+                <p className="text-sm font-semibold text-gray-800">{rejectModal.razaoSocial}</p>
+                {rejectModal.nomeFantasia && rejectModal.nomeFantasia !== rejectModal.razaoSocial && (
+                  <p className="text-xs text-gray-500 mt-0.5">Nome Fantasia: {rejectModal.nomeFantasia}</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Motivo da rejeição</label>

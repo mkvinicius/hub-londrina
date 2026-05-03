@@ -229,6 +229,7 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
     "cep", "street", "number", "neighborhood",
     "instagram", "website", "zone", "categorySlug",
     "paymentMethods", "tags", "videoUrl",
+    "razaoSocial", "nomeFantasia",
   ];
 
   const updates: Record<string, unknown> = {};
@@ -250,6 +251,20 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
   if (!business) {
     res.status(404).json({ error: "Negócio não encontrado" });
     return;
+  }
+
+  if (updates.razaoSocial) {
+    const [existing] = await db
+      .select({ id: businessesTable.id })
+      .from(businessesTable)
+      .where(and(
+        sql`LOWER(${businessesTable.razaoSocial}) = LOWER(${updates.razaoSocial as string})`,
+        sql`${businessesTable.id} != ${businessId}`
+      ));
+    if (existing) {
+      res.status(400).json({ error: "Já existe um negócio cadastrado com essa razão social.", field: "razaoSocial" });
+      return;
+    }
   }
 
   const plan = business.planType;
