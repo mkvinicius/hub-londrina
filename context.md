@@ -261,6 +261,7 @@ POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
 
 ### 3.16 Segurança implementada
 - JWT_SECRET sem fallback hardcoded — servidor recusa iniciar se variável ausente
+- JWT_SECRET rotacionado em 03/05/2026 — chave anterior estava exposta no .replit. Nova chave configurada apenas via Replit Secrets Manager.
 - Rate limiting em todos os endpoints sensíveis:
   login admin/lojista: 5 tentativas/15min
   cadastro: 3/hora, CNPJ: 20/hora, avaliações: 10/hora
