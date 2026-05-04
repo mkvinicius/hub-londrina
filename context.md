@@ -1,14 +1,14 @@
 # Hub Londrina — Contexto Completo do Projeto
-# Atualizado: Maio 2026
+# Atualizado: 03/05/2026
 # LEIA ESTE ARQUIVO ANTES DE QUALQUER ALTERAÇÃO
 
 ---
 
 ## 1. IDENTIDADE DO PRODUTO
 
-**Nome:** Hub Londrina  
-**Domínio:** https://www.hublondrina.com.br  
-**Tagline:** Feito por londrinense. Para londrinense.  
+**Nome:** Hub Londrina
+**Domínio:** https://www.hublondrina.com.br
+**Tagline:** Feito por londrinense. Para londrinense.
 **Descrição:** Diretório SaaS de negócios locais para Londrina, PR. Conecta consumidores a negócios locais organizados por zona geográfica, com perfis completos, avaliações verificadas e contato direto pelo WhatsApp.
 
 ---
@@ -26,6 +26,10 @@ Linguagem      | TypeScript em todo o projeto
 Banco          | PostgreSQL + Drizzle ORM
 Monorepo       | pnpm workspaces
 SSR            | server.mjs (Node puro, sem Next.js)
+Email          | Resend (onboarding@resend.dev sandbox)
+Pagamentos     | Stripe (checkout + webhooks + portal)
+Upload         | GCS (Google Cloud Storage) via uploadBufferToGCS
+PDF            | pdfkit (puro Node.js — sem puppeteer)
 Domínio        | hublondrina.com.br
 Hospedagem     | Replit
 ```
@@ -36,16 +40,29 @@ workspace/
 ├── artifacts/
 │   ├── hub-londrina/          ← Frontend React + Vite
 │   │   └── src/
-│   │       ├── pages/         → landing, categorias, busca, negocio, anuncie
-│   │       │                    lojista/*, admin/*
+│   │       ├── pages/         → landing, categorias, busca, negocio, anuncie,
+│   │       │                    Cadastro, zona, lojista/*, admin/*
 │   │       ├── components/    → Layout, BusinessCard, AdminLayout,
 │   │       │                    LojistaLayout, ui/
-│   │       └── lib/           → icons, theme, utils
+│   │       └── lib/           → icons, theme, utils, lojista-api, admin-api
 │   └── api-server/            ← Backend Express
-│       └── src/routes/        → businesses, categories, reviews,
-│                                search, health, admin, lojista
+│       └── src/
+│           ├── routes/        → index.ts, health.ts, businesses.ts,
+│           │                    categories.ts, reviews.ts, search.ts,
+│           │                    admin.ts, lojista.ts, auth.ts, stripe.ts,
+│           │                    zones.ts, storage.ts, documents.ts, boosts.ts
+│           ├── lib/           → boost-expiration.ts, documentation-job.ts,
+│           │                    subscription-job.ts, pdf-report.ts,
+│           │                    gcsUpload.ts, objectStorage.ts, logger.ts
+│           ├── middleware/    → rateLimiter.ts, validateId.ts
+│           └── services/      → email.ts
 └── lib/
     ├── db/                    ← Schema Drizzle + conexão Postgres
+    │   └── src/schema/        → businesses.ts, business-users.ts,
+    │                            subscriptions.ts, search-boosts.ts,
+    │                            business-documents.ts, reviews.ts,
+    │                            business-clicks.ts, home-banners.ts,
+    │                            categories.ts, products.ts
     ├── api-spec/              ← Tipos compartilhados
     ├── api-zod/               ← Validações Zod
     └── api-client-react/      ← Hooks React Query gerados
@@ -53,557 +70,729 @@ workspace/
 
 ---
 
-## 3. O QUE ESTÁ FUNCIONANDO — NÃO QUEBRAR
+## 3. BANCO DE DADOS — SCHEMA COMPLETO
 
-### 3.1 SSR (Server-Side Rendering)
-- `server.mjs` serve HTML completo para home, /negocio/:id e /norte /sul /leste /oeste /centro
-- Em dev (Vite) as páginas de zona são SPA — SSR só ativa em produção via server.mjs
-- GET /api/stats incluído no SSR (totalBusinesses, totalCategories, totalZones)
-- Stats da home carregam no servidor, sem flickering no cliente
-- `curl https://www.hublondrina.com.br/ | wc -c` retorna ~82.000 bytes
-- `entry-server.tsx` renderiza React no servidor com dados prefetchados
-- `window.__SSR_QUERIES__` injeta cache do React Query no cliente
+### Tabela `businesses`
+```
+id                      serial PK
+name                    text NOT NULL
+categorySlug            text NOT NULL
+region                  text NOT NULL
+description             text NOT NULL
+address                 text NOT NULL
+phone                   text
+whatsapp                text
+rating                  real DEFAULT 0
+reviewsCount            integer DEFAULT 0
+planType                enum(free|destaque|premium) DEFAULT 'free'
+verified                boolean DEFAULT false
+photoUrl                text
+hours                   text
+clicks                  integer DEFAULT 0
+whatsappClicks          integer DEFAULT 0
+isVisible               boolean DEFAULT true
+zone                    text DEFAULT 'centro'
+cnpj                    text
+ownerName               text
+ownerEmail              text
+ownerPhone              text
+logoUrl                 text
+bannerUrl               text
+photos                  text[] DEFAULT []
+cep / street / number / neighborhood / city / state
+lat / lng               numeric (para geolocalização Haversine)
+instagram / website     text
+paymentMethods          text[] DEFAULT []
+tags                    text[] DEFAULT []
+videoUrl                text
+boostedUntil            timestamp (boost direto pelo admin)
+homeFeatured            boolean DEFAULT false
+zoneFeatured            boolean DEFAULT false
+zoneFeaturedExpiresAt   timestamp
+status                  text DEFAULT 'active' (active|pending|rejected)
+rejectionReason         text
+razaoSocial             text (único por LOWER — validado no PATCH)
+nomeFantasia            text
+planFrozen              boolean DEFAULT false (congela plano quando docs expiram)
+createdAt               timestamp DEFAULT now()
+```
+Índices: categorySlug, region, rating, zone, status, isVisible, planType, (lat,lng), (status,isVisible,planType)
+
+### Tabela `business_users`
+```
+id                          serial PK
+businessId                  FK → businesses.id CASCADE
+email                       text UNIQUE
+passwordHash                text
+passwordResetToken          text
+passwordResetExpiresAt      timestamp
+emailVerified               text DEFAULT 'false'
+emailVerificationToken      text
+firstLoginAt                timestamp (iniciado no 1º login)
+documentationDeadline       timestamp (firstLoginAt + 10 dias)
+documentationStatus         text DEFAULT 'pending'
+                              (pending|submitted|approved|rejected|expired)
+documentationRemainingDays  integer DEFAULT 10
+documentationTimerPaused    boolean DEFAULT false
+createdAt                   timestamp DEFAULT now()
+```
+
+### Tabela `subscriptions`
+```
+id                    serial PK
+businessId            FK → businesses.id UNIQUE
+stripeCustomerId      text NOT NULL
+stripeSubscriptionId  text
+stripePriceId         text
+plan                  text NOT NULL (free|destaque|premium)
+status                text NOT NULL (active|past_due|canceled|trialing...)
+currentPeriodStart    timestamp
+currentPeriodEnd      timestamp
+cancelAtPeriodEnd     boolean DEFAULT false
+createdAt / updatedAt timestamp
+```
+
+### Tabela `search_boosts`
+```
+id            serial PK
+businessId    FK → businesses.id
+monthlyBid    numeric NOT NULL
+position      integer
+boostType     enum(monthly|avulso) NOT NULL
+boostContext  enum(search|zone|home_search) DEFAULT 'search'
+zone          text (nullable — usada para boostContext='zone')
+status        text DEFAULT 'active' (active|expired|waitlist)
+durationDays  integer
+price         numeric
+startsAt      timestamp DEFAULT now()
+expiresAt     timestamp
+createdAt     timestamp DEFAULT now()
+```
+Índices: status, expiresAt, boostContext, zone
+
+### Tabela `business_documents`
+```
+id              serial PK
+businessId      FK → businesses.id CASCADE
+documentType    text (personal_id|cnpj_card|address_proof)
+fileUrl         text (formato: "private://documents/{bid}/{type}-{ts}.ext")
+status          text DEFAULT 'submitted' (submitted|approved|rejected)
+rejectionReason text
+submittedAt     timestamp DEFAULT now()
+reviewedAt      timestamp
+```
+Índices: businessId, status
+
+### Tabela `reviews`
+```
+id          serial PK
+businessId  FK → businesses.id CASCADE
+author      text NOT NULL
+rating      integer NOT NULL
+text        text DEFAULT ''
+visitorId   text (fingerprint do visitante)
+verified    boolean DEFAULT false
+ownerResponse text (resposta pública do dono)
+createdAt   timestamp DEFAULT now()
+```
+
+### Tabela `home_banners`
+```
+id          serial PK
+businessId  FK → businesses.id SET NULL
+title       text NOT NULL
+imageUrl    text NOT NULL
+linkUrl     text
+active      boolean DEFAULT true
+endsAt      timestamp (auto-desativado pelo job)
+createdAt   timestamp DEFAULT now()
+```
+
+### Tabela `business_clicks`
+```
+id          serial PK
+businessId  FK → businesses.id CASCADE
+type        text (profile|whatsapp|phone)
+visitorId   text
+createdAt   timestamp DEFAULT now()
+```
+Índices: businessId, createdAt
+
+### Tabela `categories`
+```
+id / name / slug / icon / color / businessCount
+```
+
+### Tabela `products`
+```
+id / businessId / name / description / price / imageUrl / videoUrl / order / active
+```
+
+---
+
+## 4. BACKEND — TODOS OS ENDPOINTS
+
+### 4.1 Públicos
+
+#### Negócios (`businesses.ts`)
+```
+GET  /api/businesses              Lista com filtros (category, region, zone, sort)
+                                   Ordenação hierárquica:
+                                   monthly boosted (pos) > avulso boosted >
+                                   boostedUntil > premium > destaque > free
+GET  /api/businesses/nearby       Geolocalização Haversine (?lat=&lng=&radius=5)
+GET  /api/businesses/:id          Perfil completo + incrementa clicks
+GET  /api/businesses/:id/reviews  Lista de avaliações
+POST /api/businesses/:id/review   Enviar avaliação (CSRF + rate limit)
+POST /api/businesses/:id/click-whatsapp  Incrementa whatsappClicks
+GET  /api/regions                 Lista de regiões distintas
+GET  /api/stats                   totalBusinesses, totalCategories, totalZones (SSR)
+GET  /api/autocomplete?q=         Patrocinados (boostContext=search) + sugestões
+GET  /api/home-featured           Negócios em destaque na home (homeFeatured=true)
+GET  /api/home-banners            Banners ativos da home
+```
+
+#### Busca (`search.ts`)
+```
+GET  /api/search?q=&category=&region=&sort=
+     Ordenação: PLAN_ORDER (premium>destaque>free) + rating + completeness + clicks
+     Filtros: sinonímia de categorias, normalização de acentos
+     Retorna: _boostBadge (Patrocinado|Impulsionado)
+```
+
+#### Zonas (`zones.ts`)
+```
+GET  /api/zones/:zone/stats       Estatísticas da zona
+GET  /api/zones/:zone/businesses  Negócios da zona com paginação
+```
+
+#### Categorias, Healthz, Storage
+```
+GET  /api/categories                     Lista de categorias
+GET  /api/healthz                        Health check
+GET  /api/storage/objects/*filePath      Serve arquivos de object storage
+GET  /api/documents/signed/:token        Download de documento por JWT 1h
+```
+
+---
+
+### 4.2 Lojista (`/api/lojista/*`)
+
+**Auth:** JWT Bearer token `hub_lojista_token` (localStorage), payload `{businessId, email, role:"lojista"}`, expira 7d.
+
+**Registro e Login**
+```
+POST /api/lojista/register           Cadastro novo lojista (cria business + user)
+POST /api/lojista/login              Login (loginLimiter)
+                                      1º login: inicia timer de 10 dias de documentação
+```
+
+**Perfil**
+```
+GET   /api/lojista/profile           Perfil completo + boost ativo
+PATCH /api/lojista/profile           Atualiza: nome, razaoSocial (único), nomeFantasia,
+                                      cnpj, ownerName, phone, whatsapp, description,
+                                      address, hours, instagram, website, paymentMethods, tags
+GET   /api/lojista/cep/:cep          Lookup ViaCEP → {street, neighborhood, city, state}
+PATCH /api/lojista/location          Geocodificação via Nominatim (lat/lng)
+PATCH /api/lojista/password          Troca de senha (bcrypt)
+```
+
+**Uploads (GCS)**
+```
+POST   /api/lojista/upload/logo          Logo (JPG/PNG/WebP/GIF)
+POST   /api/lojista/upload/banner        Banner
+POST   /api/lojista/upload/photo         Fotos adicionais
+DELETE /api/lojista/photos/:index        Remove foto por índice
+POST   /api/lojista/upload/product-media Mídia de produto
+```
+
+**Produtos**
+```
+GET    /api/lojista/products             Lista produtos
+POST   /api/lojista/products             Cria produto
+PATCH  /api/lojista/products/reorder     Reordena (drag-and-drop)
+PATCH  /api/lojista/products/:id         Edita produto
+DELETE /api/lojista/products/:id         Remove produto
+```
+
+**Métricas**
+```
+GET /api/lojista/metrics              Destaque+: totalClicks, whatsappClicks,
+                                       phoneClicks, profileViews, planType
+                                       Premium+: last30Days (daily clicks array)
+GET /api/lojista/report/pdf?month=    Premium apenas — gera PDF com pdfkit
+                                       Conteúdo: métricas, gráfico diário,
+                                       boost status, recomendações automáticas
+                                       Cache 1h em /tmp/hub-reports/{id}-{month}.pdf
+```
+
+**Avaliações**
+```
+GET    /api/lojista/reviews                    Lista avaliações do negócio
+POST   /api/lojista/reviews/:id/respond        Resposta pública do dono
+DELETE /api/lojista/reviews/:id/respond        Remove resposta
+```
+
+**Documentação (`documents.ts`)**
+```
+POST /api/lojista/documents   Upload documento (personal_id|cnpj_card|address_proof)
+                               Salvo em private://documents/{bid}/{type}-{ts}.ext
+                               Pausa timer se 3 docs enviados + nenhum rejeitado
+                               cnpj_card: valida via ReceitaWS (alerta admin, não bloqueia)
+GET  /api/lojista/documents   Lista documentos + documentationStatus/RemainingDays/etc
+```
+
+**Impulsionamento (`boosts.ts`)**
+```
+GET  /api/lojista/boosts/availability   Verifica vagas (max 6) por contexto/zona
+                                         Retorna: plan, zone, zoneAvailability, homeSearchAvailability
+POST /api/lojista/boosts/checkout       Inicia checkout Stripe para zone ou home_search
+                                         Se vagas cheias → status=waitlist
+GET  /api/lojista/boost-positions       Lista posições disponíveis (busca patrocinada)
+```
+
+---
+
+### 4.3 Admin (`/api/admin/*`)
+
+**Auth:** JWT Bearer + ADMIN_PASSWORD (24h)
+
+**Negócios**
+```
+GET    /api/admin/businesses             Lista (filtros: status, zone, planType)
+GET    /api/admin/businesses/:id         Detalhe (inclui razaoSocial, nomeFantasia)
+PATCH  /api/admin/businesses/:id         Edição completa
+DELETE /api/admin/businesses/:id         Remoção
+POST   /api/admin/businesses/:id/boost          Ativar boostedUntil (dias)
+DELETE /api/admin/businesses/:id/boost          Remover boost direto
+PATCH  /api/admin/businesses/:id/home-featured  Toggle homeFeatured
+```
+
+**Lojistas / Assinaturas**
+```
+GET   /api/admin/lojistas                  Lista lojistas
+POST  /api/admin/lojistas/:id/reset-password  Reset de senha
+GET   /api/admin/subscriptions             Lista assinaturas Stripe
+PATCH /api/admin/subscriptions/:id/extend  Estender período
+```
+
+**Categorias**
+```
+GET    /api/admin/categories
+POST   /api/admin/categories
+PATCH  /api/admin/categories/:id
+DELETE /api/admin/categories/:id
+```
+
+**Boosts (busca patrocinada)**
+```
+GET    /api/admin/boosts             Lista boosts context=search
+POST   /api/admin/boosts             Criar boost mensal
+PATCH  /api/admin/boosts/:id         Editar
+DELETE /api/admin/boosts/:id         Remover
+GET    /api/admin/boosts-extra       Boosts zone + home_search
+POST   /api/admin/boosts-extra       Criar boost especial
+DELETE /api/admin/boosts-extra/:id   Remover boost especial
+```
+
+**Cadastros Pendentes**
+```
+GET  /api/admin/cadastros   Negócios com status=pending, ordenados por urgência
+```
+
+**Documentação**
+```
+GET   /api/admin/documents           Lista lojistas pending/submitted/rejected/expired
+PATCH /api/admin/documents/:id       {action:"approve"|"reject", reason?}
+                                      Aprovar todos 3 docs → documentationStatus=approved,
+                                      isVisible=true, planFrozen=false
+                                      Rejeitar → timer despausado, email com motivo
+```
+
+**Home Banners**
+```
+GET    /api/admin/home-banners
+POST   /api/admin/home-banners       Cria banner (título, imageUrl, linkUrl, endsAt)
+PATCH  /api/admin/home-banners/:id   Edita
+DELETE /api/admin/home-banners/:id   Remove
+```
+
+**Stats**
+```
+GET /api/admin/stats   Dashboard: totalBusinesses, totalPremium, totalDestaque,
+                        recentSignups, boostRevenue, etc.
+```
+
+---
+
+### 4.4 Stripe (`/api/stripe/*`)
+
+**Auth:** JWT lojista (mesmo token do painel)
+
+```
+GET  /api/stripe/config        PRICE_IDs por plano/ciclo:
+                                base_monthly   → STRIPE_BASE_PRICE_ID
+                                base_annual    → STRIPE_BASE_ANNUAL_PRICE_ID
+                                premium_monthly → STRIPE_PREMIUM_PRICE_ID
+                                premium_annual → STRIPE_PREMIUM_ANNUAL_PRICE_ID
+
+POST /api/stripe/checkout      Cria sessão Stripe Checkout (mode=subscription)
+                                Bloqueia se já há assinatura ativa
+                                metadata.businessId para sync no webhook
+
+POST /api/stripe/portal        Cria sessão do portal de faturamento Stripe
+
+GET  /api/stripe/subscription  Retorna status atual da assinatura
+
+POST /api/stripe/webhook       Webhook Stripe (raw body, STRIPE_WEBHOOK_SECRET)
+                                Eventos: checkout.session.completed,
+                                customer.subscription.updated,
+                                customer.subscription.deleted,
+                                invoice.payment_failed
+                                Sincroniza: plan, status, periodStart/End, cancelAtPeriodEnd
+```
+
+---
+
+### 4.5 Auth (`auth.ts`)
+
+```
+POST /api/auth/forgot-password   Envia link de reset (JWT 1h, email.resetSenha)
+POST /api/auth/reset-password    Valida token + salva nova senha (bcrypt)
+```
+
+---
+
+## 5. BACKGROUND JOBS
+
+### Job 1 — Boost Expiration (`boost-expiration.ts`)
+**Intervalo:** 1 hora (roda imediatamente ao iniciar)
+1. **expireBoosts()** — marca como `expired` os `search_boosts` do tipo `avulso` com `expiresAt < NOW()`
+2. **expireDirectBoosts()** — limpa `businesses.boostedUntil` vencidos
+3. **expireHomeBanners()** — desativa `home_banners` com `endsAt < NOW()`
+4. **promoteWaitlist()** — para cada contexto/zona (zone por zona + home_search), conta vagas ativas (max 6). Se houver vaga, promove o mais antigo do waitlist: status→active, startsAt=now, expiresAt=+30d. Envia email `boostAtivado`.
+
+### Job 2 — Documentation Job (`documentation-job.ts`)
+**Intervalo:** 24 horas (roda imediatamente ao iniciar)
+1. **tickDocumentationTimers()** — para cada lojista com `firstLoginAt` e timer não pausado e status ≠ approved:
+   - `remainingDays > 0`: decrementa 1 dia, envia `documentacaoPendente(nome, dias)`
+   - `remainingDays = 0`: status→`expired`, `businesses.isVisible=false`, `planFrozen=true`, envia `documentacaoExpirada`
+2. **tickFreePlanExpiration()** — planos free com `firstLoginAt < hoje-30d` e `isVisible=true` → `isVisible=false`, envia `planoGratuitoExpirando`
+
+### Job 3 — Subscription Job (`subscription-job.ts`)
+**Intervalo:** 24 horas (começa 5 min após o start)
+- **runPastDueDowngradeJob()** — assinaturas com `status=past_due` há mais de 7 dias:
+  - `businesses.planType → 'free'`
+  - `subscriptions.status → 'canceled'`
+  - Envia email `downgradeAssinatura`
+
+---
+
+## 6. SERVIÇO DE EMAIL
+
+**Provider:** Resend SDK (`resend` npm)
+**FROM atual:** `Hub Londrina <onboarding@resend.dev>` ← sandbox Resend
+**⚠️ ATENÇÃO:** Domínio `hublondrina.com.br` NÃO verificado no Resend
+- Para produção: verificar em https://resend.com/domains
+- Depois: alterar `FROM` em `email.ts` para `noreply@hublondrina.com.br`
+- Quota free: 3 emails/dia, 3/mês
+
+**Templates disponíveis (`emails` object em `services/email.ts`):**
+```
+boasVindas(nome, negocio)              Cadastro recebido — aguardando análise
+cadastroAprovado(nome, negocio)        Perfil aprovado pela equipe
+cadastroRejeitado(nome, negocio, motivo)  Perfil rejeitado com motivo
+documentacaoPendente(nome, diasRestantes)  Countdown do timer (enviado diariamente)
+documentacaoExpirada(nome)             Loja offline — docs expirados
+documentacaoAprovada(nome)             Documentação aprovada — loja ativa
+documentacaoRejeitada(nome, motivo)    Documentação rejeitada — corrigir e reenviar
+planoGratuitoExpirando(nome)           Plano gratuito vencido após 30 dias
+downgradeAssinatura(nome)              Downgrade por past_due > 7 dias
+resetSenha(link)                       Link de reset de senha (JWT 1h)
+boostAtivado(nome, ctx, expiresAt)     Boost promovido da fila de espera
+```
+
+---
+
+## 7. PLANOS E MONETIZAÇÃO
+
+### Hierarquia de Ordenação (search + businesses)
+```
+1. monthly boosted   (search_boosts, boostType=monthly, ordenado por position)
+2. avulso boosted    (search_boosts, boostType=avulso, ordenado por rating)
+3. direct boosted    (businesses.boostedUntil, ordenado por rating)
+4. premium           (planType=premium, ordenado por rating)
+5. destaque          (planType=destaque, ordenado por rating)
+6. free              (planType=free, ordenado por rating)
+```
+Critério de desempate: rating DESC → completeness score → clicks DESC
+
+### Planos Stripe
+| Variável de ambiente         | Plano     | Ciclo   |
+|------------------------------|-----------|---------|
+| STRIPE_BASE_PRICE_ID         | destaque  | mensal  |
+| STRIPE_BASE_ANNUAL_PRICE_ID  | destaque  | anual   |
+| STRIPE_PREMIUM_PRICE_ID      | premium   | mensal  |
+| STRIPE_PREMIUM_ANNUAL_PRICE_ID | premium | anual   |
+
+### Impulsionamentos Especiais (boosts.ts)
+- **Destaque de Zona** (`boostContext=zone`): destaque na página de zona por 30 dias. Máximo 6 vagas por zona. Fila de espera automática.
+- **Destaque Home/Busca** (`boostContext=home_search`): aparece em `/busca` e home. Máximo 6 vagas. Fila de espera automática.
+- **Busca Patrocinada** (`boostContext=search`): posição fixa na busca (mensal). Gerenciado pelo admin.
+- **Boost Direto Admin** (`businesses.boostedUntil`): admin define período manualmente.
+
+### Features por Plano
+| Feature                        | Free | Destaque | Premium |
+|-------------------------------|------|----------|---------|
+| Perfil básico                 | ✅   | ✅       | ✅      |
+| Fotos adicionais              | ✅   | ✅       | ✅      |
+| Produtos/serviços             | ✅   | ✅       | ✅      |
+| Avaliações verificadas        | ✅   | ✅       | ✅      |
+| Responder avaliações          | ✅   | ✅       | ✅      |
+| Métricas básicas              | ❌   | ✅       | ✅      |
+| Gráfico diário de cliques     | ❌   | ❌       | ✅      |
+| Relatório PDF mensal          | ❌   | ❌       | ✅      |
+| Impulsionamento de zona       | ❌   | ✅       | ✅      |
+| Impulsionamento home/busca    | ❌   | ✅       | ✅      |
+| Posição privilegiada na busca | ❌   | ✅       | ✅      |
+| Visibilidade após 30 dias     | ❌   | ✅       | ✅      |
+
+---
+
+## 8. FRONTEND — ROTAS E PÁGINAS
+
+### Públicas
+```
+/               Landing page (SSR + React Query hydration)
+/categorias     Lista de categorias com contagem
+/busca          Busca + filtros (drawer mobile) + perto de mim (Haversine)
+/negocio/:id    Perfil completo + avaliações + resposta do dono
+/anuncie        Página de planos e preços
+/cadastro       Formulário de cadastro de lojista (com busca de CEP ViaCEP)
+/norte          Zona Norte (SSR)
+/sul            Zona Sul (SSR)
+/leste          Zona Leste (SSR)
+/oeste          Zona Oeste (SSR)
+/centro         Zona Centro (SSR)
+```
+
+### Painel do Lojista (`/lojista/*`)
+```
+/lojista/login          Login
+/lojista/esqueci-senha  Solicitar reset de senha
+/lojista/nova-senha     Nova senha via token
+/lojista/verificar-email  Verificação de email
+/lojista/dashboard      Dashboard com métricas rápidas
+/lojista/perfil         Editar perfil (razaoSocial + nomeFantasia inclusos)
+/lojista/fotos          Gerenciar fotos (logo, banner, galeria)
+/lojista/produtos       Produtos/serviços com drag-and-drop
+/lojista/metricas       Métricas + botão PDF (Premium) + seletor de mês
+/lojista/plano          Status da assinatura + checkout Stripe
+/lojista/senha          Alterar senha
+/lojista/avaliacoes     Ver e responder avaliações
+/lojista/impulsionar    LojistaBoost.tsx — compra destaques especiais
+/lojista/documentacao   Upload e status dos 3 documentos obrigatórios
+```
+
+### Painel Admin (`/admin/*`)
+```
+/admin/login           Login admin (ADMIN_PASSWORD)
+/admin                 Dashboard
+/admin/negocios        CRUD de negócios
+/admin/lojistas        Gestão de usuários lojistas
+/admin/cadastros       Aprovação de cadastros pendentes
+/admin/categorias      CRUD de categorias
+/admin/impulsionamento Gestão de boosts
+/admin/zonas           Visualização por zona
+/admin/home-banners    Banners da home
+/admin/assinaturas     Assinaturas Stripe
+/admin/documentacao    Revisão de documentos dos lojistas
+```
+
+---
+
+## 9. SSR (SERVER-SIDE RENDERING)
+
+- `server.mjs` serve HTML completo para: `/`, `/negocio/:id`, `/norte`, `/sul`, `/leste`, `/oeste`, `/centro`
+- `entry-server.tsx` renderiza React no servidor com dados prefetchados do React Query
+- `window.__SSR_QUERIES__` injeta o cache do React Query no cliente
 - `main.tsx` usa `hydrateRoot()` quando SSR data está presente
+- Em desenvolvimento (Vite dev server): zonas funcionam como SPA
 - **NUNCA substituir o server.mjs por vite preview ou servidor estático**
-
-### 3.2 Painel Administrativo (/admin)
-- Protegido por JWT com role admin
-- Senha via variável de ambiente `ADMIN_PASSWORD`
-- Token expira em 24h
-- Módulos funcionando: dashboard, gestão de negócios, categorias
-- Rotas backend: `/api/admin/*` todas com middleware de autenticação
-
-### 3.3 Painel do Lojista (/lojista)
-- Protegido por JWT com role lojista
-- Login via email + senha (bcrypt)
-- Token expira em 7 dias, salvo em localStorage como "hub_lojista_token"
-- Módulos: dashboard, perfil, fotos, produtos, métricas, senha
-- Upload de imagens em `/public/uploads/` (logos, banners, fotos)
-- Busca de CEP via ViaCEP
-- Geocodificação via Nominatim (OpenStreetMap)
-- Rotas backend: `/api/lojista/*` todas com middleware de autenticação
-
-### 3.4 Rotas públicas funcionando
-```
-GET /                    → Landing page (SSR)
-GET /categorias          → Lista de categorias
-GET /busca               → Busca com filtros
-GET /negocio/:id         → Perfil do negócio (SSR)
-GET /anuncie             → Página de planos
-GET /api/businesses      → Lista de negócios (com filtros)
-GET /api/businesses/:id  → Negócio individual (incrementa clicks)
-GET /api/categories      → Lista de categorias
-GET /api/search          → Busca full-text
-POST /api/businesses/:id/click-whatsapp → Incrementa whatsappClicks
-```
-
-### 3.5 Tracking de cliques
-- `businesses.clicks` — incrementa em GET /api/businesses/:id
-- `businesses.whatsappClicks` — incrementa em POST /api/businesses/:id/click-whatsapp
-- Tabela `clicks` com visitorId para histórico granular
-
-### 3.6 Sistema de boost na busca
-- Tabela `search_boosts` com 5 vagas mensais + avulso
-- Schema atualizado:
-  - `boostType` — pgEnum ("monthly" | "avulso") — antes era text livre
-  - `boostContext` — pgEnum ("search" | "zone" | "home_search"), default "search"
-  - `zone` — text nullable, preenchido quando boostContext = "zone"
-  - uniqueIndex condicional `search_boosts_business_not_expired` removido
-  - Índices novos: `search_boosts_context_idx`, `search_boosts_zone_idx`
-- Três contextos de boost suportados:
-  - `search` — boost na busca geral e autocomplete (comportamento atual)
-  - `zone` — destaque fixo na página da zona do negócio
-  - `home_search` — destaque na home principal e página de busca geral
-- Ordenação: mensal (posição fixa) > avulso > premium > destaque > free
-- Badge "Patrocinado" discreto (cinza) nos cards
-- Job de expiração rodando a cada hora
-- Admin: /admin/boosts (5 posições + avulso + waitlist)
-- Lojista: /lojista/boost (estado ativo ou informativo)
-- GET /api/lojista/boost-positions disponível
-
-### 3.7 Sistema de avaliações
-- Tabela `reviews` com visitorId, verified, ownerResponse
-- GET + POST /api/reviews com verificação por cookie de visita
-- Lojista Destaque/Premium pode responder avaliações
-- Formulário de avaliação no perfil público do negócio
-- Painel lojista: /lojista/avaliacoes
-
-### 3.8 Banners da home
-- Tabela `home_banners` com CRUD completo
-- Carrossel rotativo na landing page
-- Admin: /admin/banners
-
-### 3.10 Selos automáticos nos cards
-- "Bem Avaliado" — rating ≥ 4.7 com mínimo 10 avaliações
-- "Mais Avaliado" — 20+ avaliações
-- "Sem Reclamações" — rating ≥ 4.5 com 5+ avaliações
-- "Patrocinado" — boost ativo (cinza, discreto)
-
-### 3.29 Fluxo plano → cadastro → Stripe
-- /anuncie: botões dos cards de plano levam para /cadastro?plano=gratuito|destaque|premium
-- /cadastro?plano=: lê o query param e exibe badge do plano selecionado no topo
-- Passo 2 obrigatório: Razão Social (com tooltip) e Nome Fantasia opcional (com tooltip)
-- Após cadastro com plano pago: frontend usa o JWT retornado para chamar POST /api/stripe/checkout automaticamente e redirecionar para Stripe
-- Após cadastro com plano gratuito: tela de sucesso com link para login
-- Job 7 dias past_due: artifacts/api-server/src/lib/subscription-job.ts
-  - Roda 5 minutos após startup, depois a cada 24h
-  - Busca subscriptions com status='past_due' e updatedAt < 7 dias atrás
-  - Faz downgrade do business para planType='free'
-  - Marca subscription como status='canceled'
-  - Envia email downgradeAssinatura (template adicionado em services/email.ts)
-- Email template: downgradeAssinatura (assunto: "Sua assinatura foi cancelada — Hub Londrina")
-
-### 3.13 Integração Stripe (pagamento)
-- Tabela subscriptions no banco
-- POST /api/stripe/checkout → cria sessão de checkout
-- POST /api/stripe/portal → abre Billing Portal do Stripe
-- GET /api/stripe/subscription → status da assinatura
-- POST /api/stripe/webhook → processa eventos Stripe
-- Webhook: pagamento confirmado → planType muda para destaque/premium
-- Webhook: assinatura cancelada → planType volta para free
-- Webhook: pagamento falhou → status past_due
-- Webhook: payment_intent.succeeded → cria boost de zona/home_search com status active (se há vaga) ou waitlist (se 6 vagas ocupadas)
-- Frontend: /lojista/plano com toggle mensal/anual (17% desconto)
-- Cartão de teste: 4242 4242 4242 4242
-- Job diário: downgrade para free após 7 dias past_due
-
-### 3.13.1 Boosts especiais com pagamento integrado (Maio 2026)
-- Produtos Stripe criados:
-  - "Destaque de Zona" — R$79,00 (price_1TT5lsDto2NkIN2Dl9Mztpl3) → STRIPE_ZONE_BOOST_PRICE_ID
-  - "Destaque Home + Busca" — R$149,00 (price_1TT5lsDto2NkIN2DUyYwnjQk) → STRIPE_HOME_BOOST_PRICE_ID
-- GET /api/lojista/boosts/availability → retorna vagas (6/contexto), preço, elegibilidade pelo plano e boost atual
-- POST /api/lojista/boosts/checkout → cria Stripe Checkout mode='payment' (não recorrente) com metadata { businessId, boostContext, zone }
-- Regras de elegibilidade:
-  - boostContext='zone' → plano Destaque ou Premium
-  - boostContext='home_search' → apenas Premium
-- Sistema de fila: se 6 vagas ocupadas no momento do payment_intent.succeeded, boost é criado com status='waitlist'
-- Atomicidade: webhook usa db.transaction + pg_advisory_xact_lock por (contexto,zona) para garantir no máximo 6 ativos simultâneos
-- Promoção automática: job de expiração (lib/boost-expiration.ts, intervalo 1h) chama promoteWaitlist() que após expirar boosts ativos promove o waitlist mais antigo (FIFO por createdAt) e dispara email boostAtivado
-- Email transacional: boostAtivado (vaga conseguida ou promovido da fila) ou boostWaitlist (entrou na fila)
-- Frontend: /lojista/boost ganhou seção "Destaques Especiais" com 2 cards (zona + home_search), banner de retorno via ?boost_success=1 / ?boost_cancelled=1
-
-### 3.12 Enforcement das regras de plano
-- Middleware requirePlan() em api-server/src/middleware/checkPlan.ts
-- Free: sem logo, sem banner, máx 1 foto, sem métricas, sem produtos,
-  sem Instagram/Website, sem vídeo, sem responder avaliações
-- Destaque: sem produtos, sem vídeo, sem impulsionamento
-- Premium: acesso completo
-- Frontend: componente LockedFeature mostra cadeado + link upgrade
-- Rotas protegidas: upload/logo, upload/banner, upload/photo (limite),
-  products (CRUD), metrics, reviews/respond, profile (instagram, videoUrl)
-- Resposta 403: { error, code: PLAN_REQUIRED, requiredPlan, upgradeUrl }
-
-### 3.11 Cadastro público
-- POST /api/auth/register com validações completas
-- Validação CNPJ único, telefone único, email único, razão social única (LOWER ILIKE)
-- Validação CNPJ via ReceitaWS (não bloqueia se API falhar)
-- Negócio criado com status='pending' e isVisible=false
-- Retorna JWT token (7d) no sucesso para possibilitar redirect automático ao Stripe
-- Campos novos: razaoSocial (obrigatório, único) e nomeFantasia (opcional)
-- Página /cadastro com formulário de 4 passos + campo Razão Social + Nome Fantasia com tooltips
-- Erro inline no campo razão social se já cadastrada (volta ao passo 2 automaticamente)
-- Admin: /admin/cadastros (aprovar/rejeitar)
-- CTA "Reivindicar Página" aponta para /cadastro
-- Rotas públicas filtram status='active' AND isVisible=true
-
-### 3.9 Busca por proximidade
-- Haversine implementado no backend
-- Botão "Perto de mim" na página de busca com GPS
-- Parâmetros: lat, lng, radius (padrão 5km)
-
-### 3.14 Páginas de zona
-- Rotas SSR: /norte, /sul, /leste, /oeste, /centro
-- Componente ZonePage com hero colorido, destaques, categorias, listagem
-- Config em hub-londrina/src/lib/zones.ts (cores, labels, slugs)
-- GET /api/zones/:zone/stats e /api/zones/:zone/businesses
-- Cores: norte=#3d7a28, sul=#2563eb, leste=#d97706, oeste=#7c3aed, centro=#dc2626
-- Rodapé com links diretos para páginas de zona
-- Dropdown de região na home: seção "Explorar por zona" com 5 zonas coloridas no topo, seção "Por bairro" abaixo com bairros do banco
-
-### 3.17 Email transacional (Resend)
-- Serviço em api-server/src/services/email.ts
-- Templates: boasVindas, cadastroAprovado, cadastroRejeitado, pagamentoConfirmado, pagamentoFalhou, novaAvaliacao, recuperacaoSenha
-- Disparos: cadastro, aprovação/rejeição admin, checkout Stripe, payment_failed, nova avaliação
-- Emails assíncronos — falha não bloqueia ação principal
-
-### 3.18 Recuperação de senha
-- POST /api/auth/forgot-password — gera token 32 bytes, expira em 1h
-- POST /api/auth/reset-password — valida token, atualiza senha, limpa token
-- Campos novos em business_users: passwordResetToken, passwordResetExpiresAt
-- Páginas: /lojista/esqueci-senha e /lojista/nova-senha?token=
-- Link "Esqueci minha senha" na página de login
-
-### 3.20 Índices de banco
-- Índices em businesses: zone, categorySlug, status, isVisible, planType, lat/lng, rating
-- Índice composto: status + isVisible + planType (query pública mais comum)
-- Índices em reviews: businessId
-- Índices em search_boosts: status, expiresAt
-
-### 3.21 Sitemap.xml dinâmico
-- GET /sitemap.xml — gerado dinamicamente com todas as páginas estáticas + perfis de negócios
-- GET /robots.txt — Allow /, Disallow /admin /lojista /api, aponta para sitemap
-
-### 3.22 Structured Data (JSON-LD)
-- Schema LocalBusiness em cada /negocio/:id (nome, endereço, telefone, rating, horário, geo)
-- Schema WebSite na home com SearchAction
-- Injetado no SSR antes de </head>
-
-### 3.23 Upload direto de mídia nos produtos
-- POST /api/lojista/upload/product-media (Premium only)
-- Aceita imagem (10MB) e vídeo/mp4 (50MB)
-- Salva em /public/uploads/products/
-- Frontend: toggle Upload/URL no formulário de produto com preview
-
-### 3.25 Connection pooling
-- Pool configurado com max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 2000
-- Drizzle usando Pool do pg em vez de conexão direta
-
-### 3.26 CSRF protection
-- GET /api/auth/csrf-token — gera token + cookie csrf-token (httpOnly: false, sameSite: strict)
-- Middleware csrfProtection aplicado em: POST /auth/register, POST /auth/forgot-password, POST /businesses/:id/review
-- Frontend: src/lib/csrf.ts com getCsrfToken() (cache 55min) e csrfFetch()
-- Cadastro.tsx, EsqueciSenha.tsx e negocio.tsx usam csrfFetch
-- Sem token: retorna 403 CSRF_INVALID
-
-### 3.28 Validação de IDs e proteção contra overflow
-- Middleware validateId em api-server/src/middleware/validateId.ts
-- parseId: valida isNaN, id <= 0, id > 2147483647 (limite int4 PostgreSQL)
-- Aplicado em todas as rotas com :id em businesses.ts, admin.ts, lojista.ts
-- validatePagination: limita page (max 10000) e limit (max 100)
-- Validação de :zone contra lista VALID_ZONES
-- businessViewLimiter: 60 requests/minuto por IP nas rotas públicas
-- parseId também aplicado em body fields: businessId em boosts e banners
-
-### 3.27 Uploads persistentes
-- Diretório de uploads dentro do workspace do Replit (persistente)
-- Express serve /uploads/ como estático
-- Banner informativo no sidebar do admin sobre limitação de storage local
-
-### 3.24 Confirmação de email no cadastro
-- Campos novos em business_users: emailVerified, emailVerificationToken
-- GET /api/auth/verify-email?token= — verifica e redireciona para /lojista/login?verified=1
-- Página /lojista/verificar-email
-- Banner verde no login quando ?verified=1
-- Coluna de email verificado no /admin/cadastros
-
-### 3.19 Página admin de assinaturas
-- GET /api/admin/subscriptions — MRR calculado, agrupamento por status
-- Página /admin/assinaturas com cards MRR, ativas, inadimplentes, canceladas
-- Tabela de inadimplentes com link direto ao Stripe Dashboard
-- Tabela completa com filtro por status
-
-### 3.16 Segurança implementada
-- JWT_SECRET sem fallback hardcoded — servidor recusa iniciar se variável ausente
-- JWT_SECRET rotacionado em 03/05/2026 — chave anterior estava exposta no .replit. Nova chave configurada apenas via Replit Secrets Manager.
-- Rate limiting em todos os endpoints sensíveis:
-  login admin/lojista: 5 tentativas/15min
-  cadastro: 3/hora, CNPJ: 20/hora, avaliações: 10/hora
-- invoice.payment_failed faz downgrade imediato para free
-- Diretórios de upload recriados automaticamente no restart
-- Banner de aviso no admin quando uploads estão em filesystem local
-
-### 3.15 Sistema de boost direto (admin)
-- POST /api/admin/businesses/:id/boost — seta boostedUntil com duração em dias
-- DELETE /api/admin/businesses/:id/boost — remove boost direto
-- Badge roxo Impulsionado no BusinessCard
-- Hierarquia final: boost_monthly > boost_avulso > boost_direto > premium > destaque > free
-- Duração disponível: 7, 14, 30, 60, 90 dias
+- Build: `dist/public/` (cliente) + `dist/server/entry-server.js` (SSR)
 
 ---
 
-## 4. BANCO DE DADOS — ESTADO ATUAL
+## 10. SISTEMA DE DOCUMENTAÇÃO (VALIDAÇÃO DE LOJA)
 
-### 4.1 Tabelas existentes
-```
-businesses      — negócios (20 registros reais)
-categories      — categorias (10 registros)
-reviews         — avaliações (10 registros + visitorId, verified, ownerResponse)
-business_users  — contas dos lojistas (20 registros)
-products        — vitrine de produtos (42 registros)
-search_boosts   — boost na busca (5 vagas mensais + avulso)
-home_banners    — banners rotativos da home
-clicks          — histórico granular de cliques com visitorId
-subscriptions   — assinaturas Stripe (stripeCustomerId, stripeSubscriptionId, plan, status, period)
-```
+### Fluxo Completo
+1. Lojista faz o **1º login** → `firstLoginAt=now`, `documentationDeadline=+10d`, `documentationRemainingDays=10`, `documentationStatus=pending`
+2. **Job diário** decrementa `remainingDays` e envia email de countdown
+3. Lojista envia os 3 documentos via `/lojista/documentacao`:
+   - `personal_id` — RG ou CNH
+   - `cnpj_card` — Cartão CNPJ (valida via ReceitaWS)
+   - `address_proof` — Comprovante de endereço
+4. Timer pausa quando os 3 docs estão presentes e nenhum rejeitado
+5. Admin revisa em `/admin/documentacao`:
+   - **Aprovar** todos → `documentationStatus=approved`, `isVisible=true`, `planFrozen=false`
+   - **Rejeitar** → timer despausado, email com motivo
+6. Se `remainingDays` chega a 0: `documentationStatus=expired`, `isVisible=false`, `planFrozen=true`
 
-### 4.2 Campos da tabela businesses
-```
-id, name, categorySlug, region, zone, description, address,
-phone, whatsapp, rating, reviewsCount, planType, verified,
-photoUrl, hours, createdAt, clicks, whatsappClicks, isVisible,
-cnpj, ownerName, ownerEmail, ownerPhone, logoUrl, bannerUrl,
-photos (array), cep, street, number, neighborhood, city, state,
-lat, lng, instagram, website, paymentMethods (array), tags (array),
-videoUrl, boostedUntil, homeFeatured,
-zoneFeatured (boolean, NOT NULL, default false),
-zoneFeaturedExpiresAt (timestamp, nullable),
-status (pending|active|rejected), rejectionReason,
-razaoSocial (text, nullable) — validação de unicidade no registro,
-nomeFantasia (text, nullable) — nome público do negócio
-```
+### Storage de Documentos
+- Arquivos em `private://documents/{businessId}/{type}-{timestamp}.ext`
+- **NUNCA servidos estaticamente** — apenas via `/api/documents/signed/:token` (JWT 1h)
+- Formatos aceitos: JPG, PNG, WebP, PDF (máx 10MB)
+- Reenvio remove arquivo anterior (`safeUnlink`)
 
-### 4.3 Dados seed
-- 20 negócios com endereços reais de Londrina, coordenadas lat/lng
-- 20 contas de lojistas — senha padrão: **Hub@2026**
-- 42 produtos de exemplo distribuídos entre os negócios
-- 10 categorias: Restaurantes, Salões, Academias, Mercados,
-  Cafeterias, Pet Shops, Farmácias, Serviços, Padarias, Saúde
-- Zonas: norte (4), sul (7), centro (9) — leste e oeste sem negócios no seed ainda
-- Coordenadas lat/lng preenchidas em todos os 20 negócios
-
-### 4.4 Exemplos de login de lojista (para teste)
+### Status de Documentação
 ```
-PREMIUM:
-contato@sabordosul.com.br            / Hub@2026 → Restaurante Sabor do Sul
-contato@churrascariapantanal.com.br  / Hub@2026 → Churrascaria Pantanal
-
-FREE (usar para testar enforcement):
-contato@eletricalondrina.com.br      / Hub@2026 → Elétrica Londrina Serviços
-contato@automecanica.com.br          / Hub@2026 → Auto Mecânica Confiança
-contato@minimercadofamilia.com.br    / Hub@2026 → Mini Mercado Família
-contato@drogariapopular.com.br       / Hub@2026 → Drogaria Popular
+pending   → Aguardando envio dos documentos
+submitted → Todos enviados, em análise (timer pausado)
+approved  → Aprovado, loja ativa
+rejected  → Rejeitado, timer despausado
+expired   → Prazo vencido, loja offline e planFrozen=true
 ```
 
 ---
 
-## 5. REGRAS DE NEGÓCIO FIXAS — NUNCA ALTERAR SEM INSTRUÇÃO EXPLÍCITA
+## 11. REGRAS DE NEGÓCIO IMPORTANTES
 
-### 5.1 Planos
-```
-Plano      | Preço    | Fotos | Busca          | Home
------------|----------|-------|----------------|------------------
-free       | R$0/mês  | 1     | Por último     | Não
-destaque   | R$49/mês | 10    | Prioridade     | Não
-premium    | R$89/mês | ∞     | Topo garantido | Sim (destaques)
-```
+### razaoSocial e nomeFantasia
+- `businesses.razaoSocial`: único por `LOWER()` — duplicata retorna 400 com `field:"razaoSocial"`
+- `businesses.nomeFantasia`: não tem restrição de unicidade
+- Ambos editáveis via `PATCH /api/lojista/profile` e `PATCH /api/admin/businesses/:id`
+- Exibidos no perfil lojista e na gestão admin
 
-### 5.2 O que cada plano libera (backend deve enforçar)
-```
-Recurso                  | free | destaque | premium
--------------------------|------|----------|--------
-Upload fotos             | 1    | 10       | ∞
-Logo e banner            | não  | sim      | sim
-Selo verificado          | não  | sim      | sim
-Métricas                 | não  | básica   | avançada
-Avaliações               | não  | sim      | sim
-Vitrine de produtos      | não  | não      | sim
-Vídeo                    | não  | não      | sim
-Instagram/Website        | não  | sim      | sim
-Relatório PDF            | não  | não      | sim
-Impulsionamento          | não  | não      | sim
-```
+### Plano Congelado (`planFrozen`)
+- Quando `planFrozen=true`, a cobrança Stripe não é cancelada (preserva `currentPeriodEnd`)
+- O plano permanece no DB mas a loja fica offline (`isVisible=false`)
+- Ao aprovar docs → `planFrozen=false`, `isVisible=true`
 
-### 5.3 Ordenação na busca (em ordem de prioridade)
-1. Boost ativo mensal (posição fixa pelo lance — não embaralha)
-2. Boost ativo avulso (posição fixa, entra após mensais)
-3. Plano premium (por rating DESC)
-4. Plano destaque (por rating DESC)
-5. Completude do perfil (logo + fotos + descrição)
-6. Cliques recentes (últimos 30 dias)
-7. Plano free (por último, por rating DESC)
+### Boost Especial — Lógica de Vagas
+- Máximo **6 vagas** por contexto/zona (`SLOTS = 6` em `boost-expiration.ts`)
+- Se vagas cheias: `status=waitlist`, fila FIFO por `createdAt`
+- Job de 1h promove automaticamente ao liberar vaga
+- Email `boostAtivado` ao ser promovido
 
-### 5.4 Regras do boost na busca
-```
-Vagas mensais: 5 posições fixas por lance
-  1º lugar — R$149/mês
-  2º lugar — R$119/mês
-  3º lugar — R$99/mês
-  4º lugar — R$79/mês
-  5º lugar — R$59/mês
+### Autocomplete Patrocinado
+- `GET /api/autocomplete?q=` retorna `sponsored` (boostContext=search, status=active) + `suggestions`
+- Patrocinados aparecem em destaque com badge "Patrocinado" e ícone Zap
 
-Boost avulso (para testar antes de assinar):
-  7 dias  — R$29
-  15 dias — R$49
-  30 dias — R$79
+### Plano Free — Expiração Automática
+- Após 30 dias do 1º login com `planType=free` → `isVisible=false` automaticamente
+- Email `planoGratuitoExpirando` enviado
+- Loja permanece no banco, pode ser reativada ao assinar
 
-Regras:
-- Posição é fixa enquanto estiver pagando (não rota entre buscas)
-- Avulso entra APÓS os 5 mensais na ordenação
-- Se todas as 5 vagas mensais estiverem ocupadas, avulso entra
-  em lista de espera para mensal, mas pode ativar como avulso
-- Badge "Patrocinado" discreto (cinza) exibido no card
-- Boost se aplica à categoria principal do negócio
-- Admin ativa manualmente (pagamento integrado depois)
-- Tabela no banco: search_boosts
-```
-
-### 5.4 Zoneamento
-- Cada negócio pertence a **uma** zona principal
-- Zonas: norte (4), sul (7), centro (9) — leste e oeste sem negócios no seed ainda
-- Coordenadas lat/lng preenchidas em todos os 20 negócios
-- Cores por zona:
-  - Norte: #3d7a28 (verde)
-  - Sul: #2563eb (azul)
-  - Leste: #d97706 (âmbar)
-  - Oeste: #7c3aed (roxo)
-  - Centro: #dc2626 (vermelho)
-
-### 5.5 Produtos avulsos e add-ons (ainda não implementados no código)
-```
-Boost busca mensal — 5 vagas fixas por lance:
-  1º R$149 | 2º R$119 | 3º R$99 | 4º R$79 | 5º R$59
-
-Boost busca avulso:
-  7 dias R$29 | 15 dias R$49 | 30 dias R$79
-
-Banner da Home       | R$299/mês  | máx 2 simultâneos
-Destaque de Zona     | R$79/zona  | Premium + add-on, máx 2 zonas extras
-Subdomínio           | R$29/mês   | ex: negocio.hublondrina.com.br
-SEO Boost            | R$49/mês   | schema.org avançado
-```
-
-### 5.5.1 Regras detalhadas dos novos contextos de boost
-
-**Destaque de Zona (R$79/mês):**
-- 6 vagas por zona
-- Aparece fixo no topo da página da zona
-- Aparece fixo em qualquer categoria filtrada dentro da zona
-- Exclusivo para empresas da própria zona
-- Disponível para planos Base e Premium
-
-**Destaque Home + Busca (R$149/mês):**
-- 6 vagas globais
-- Aparece na home principal
-- Aparece na página de busca geral
-- Aparece no autocomplete patrocinado
-- Disponível apenas para Premium
-
-**Banner Home (R$299/mês):**
-- 2 vagas
-- Apenas na home principal
-- Disponível apenas para Premium
+### Past Due — Downgrade
+- Stripe marca `status=past_due` em caso de falha de pagamento
+- Após 7 dias em `past_due`: downgrade para `planType=free`, `status=canceled`
+- Email `downgradeAssinatura` enviado
 
 ---
 
-## 5.6 Preços exibidos na plataforma (não alterar)
-
-
-## 6. COPY E POSICIONAMENTO — NÃO ALTERAR
+## 12. VARIÁVEIS DE AMBIENTE (SECRETS)
 
 ```
-Headline principal: "Feito por londrinense. Para londrinense."
-Subtítulo: "Aqui você encontra negócios de verdade — da sua cidade,
-            do seu bairro, de gente que vive do mesmo lado que você."
-Tagline do rodapé: "O guia de negócios locais feito por quem é de Londrina."
-Meta description: "Feito por londrinense, para londrinense. Encontre
-                   restaurantes, salões, clínicas e serviços locais
-                   em Londrina, PR."
-CTA principal: "Cadastrar meu negócio — é grátis"
-CTA secundário: "Ver planos a partir de R$49/mês"
+JWT_SECRET                      Assina tokens lojista e admin
+SESSION_SECRET                  Express session
+ADMIN_PASSWORD                  Senha do painel admin
+STRIPE_SECRET_KEY               API key Stripe
+STRIPE_WEBHOOK_SECRET           Secret para verificar webhooks
+STRIPE_BASE_PRICE_ID            price_... destaque mensal
+STRIPE_BASE_ANNUAL_PRICE_ID     price_... destaque anual
+STRIPE_PREMIUM_PRICE_ID         price_... premium mensal
+STRIPE_PREMIUM_ANNUAL_PRICE_ID  price_... premium anual
+RESEND_API_KEY                  API key Resend
+DEFAULT_OBJECT_STORAGE_BUCKET_ID  GCS bucket ID
+PRIVATE_OBJECT_DIR              Diretório local para arquivos privados
+PUBLIC_OBJECT_SEARCH_PATHS      Caminhos públicos de object storage
+DATABASE_URL                    Connection string PostgreSQL
+GCP_*                           Credenciais Google Cloud Storage
 ```
 
 ---
 
-## 7. VARIÁVEIS DE AMBIENTE OBRIGATÓRIAS
+## 13. AUDITORIA DE SEGURANÇA (03/05/2026)
 
-```
-DATABASE_URL              — string de conexão PostgreSQL
-ADMIN_PASSWORD            — senha do painel /admin
-JWT_SECRET                — secret para assinar tokens JWT
-STRIPE_SECRET_KEY         — sk_test_... ou sk_live_...
-STRIPE_PUBLISHABLE_KEY    — pk_test_... ou pk_live_...
-STRIPE_BASE_PRICE_ID      — price_... (plano Base R9,90/mês)
-STRIPE_PREMIUM_PRICE_ID   — price_... (plano Premium R9,90/mês)
-STRIPE_WEBHOOK_SECRET     — whsec_...
-RESEND_API_KEY            — re_...
-```
-
----
-
-## 8. O QUE AINDA NÃO FOI IMPLEMENTADO
-
-```
-[x] Enforcement das regras de plano no backend
-[x] Gateway de pagamento (Stripe — cartão de crédito)
-[x] Tabela subscriptions (ciclo de vida da assinatura)
-[ ] Notificação pós-clique para solicitar avaliação
-[x] Páginas de zona (/norte, /sul, /leste, /oeste, /centro)
-[~] Destaque de Zona — schema preparado, backend e frontend pendentes
-[ ] Subdomínios personalizados
-[ ] SEO Boost (schema.org avançado)
-[ ] Relatório mensal PDF para Premium
-[ ] Sitemap.xml dinâmico
-[ ] Google Search Console ping automático
-
-IMPLEMENTADO:
-[x] Connection pooling (max: 10)
-[x] CSRF protection nos formulários públicos
-[x] Uploads em diretório persistente do workspace
-[x] Email transacional via Resend (7 templates)
-[x] Recuperação de senha para lojistas
-[x] Página admin de assinaturas com MRR
-[x] JWT_SECRET sem fallback hardcoded (segurança)
-[x] Rate limiting: login, cadastro, CNPJ, avaliações
-[x] Downgrade imediato em invoice.payment_failed
-[x] Aviso de uploads locais no admin
-[x] Sistema de boost na busca com leilão de 5 vagas
-[x] Sistema de avaliações com verificação por visita
-[x] Banners rotativos da home (home_banners)
-[x] Busca por proximidade "Perto de mim" (Haversine)
-[x] Selos automáticos: Bem Avaliado, Mais Avaliado, Sem Reclamações, Patrocinado
-[x] Painel admin: /admin/boosts, /admin/banners, /admin/cadastros
-[x] Painel lojista: /lojista/boost, /lojista/avaliacoes
-[x] Cadastro público em /cadastro (4 passos, validação CNPJ/telefone/email)
-[x] Fluxo de aprovação admin (pending → active)
-[x] CTA "Reivindicar Página" aponta para /cadastro
-[x] Rotas públicas filtram status=active AND isVisible=true
-```
+- ✅ Nenhum secret hardcoded no código-fonte
+- ✅ Rate limiting em `/api/lojista/login` e `/api/admin/login` (express-rate-limit)
+- ✅ `/api/private/uploads/` retorna 404 (não exposto)
+- ✅ Documentos privados apenas via JWT assinado (1h)
+- ✅ Path traversal guard em `resolveDocAbsPath` (verifica DOCS_DIR + businessId)
+- ✅ CSRF em `POST /api/businesses/:id/review`
+- ✅ `validateId` middleware em todos os endpoints com `:id`
+- ✅ JWT lojista: `{businessId, email, role:"lojista"}`, expira 7d
+- ✅ JWT admin: `{role:"admin"}`, expira 24h
+- ✅ bcrypt para hashes de senha
 
 ---
 
-## 9. INSTRUÇÕES PARA O AGENTE
+## 14. BUILD E DEPLOY
 
-**Antes de qualquer alteração:**
-1. Leia este arquivo completamente
-2. Identifique o que está sendo pedido
-3. Verifique se o que será feito pode quebrar algo da seção 3
-4. Se houver risco, avise antes de implementar
+### Tamanhos de Build
+```
+api-server:     dist/index.mjs = 3.8MB (pdfkit externalized)
+hub-londrina:   dist/public/assets/index.js = 721KB (gzip: 196KB)
+                dist/public/assets/index.css = 149KB (gzip: 23KB)
+                dist/server/entry-server.js = 205KB
+```
 
-**Durante a implementação:**
-- Não altere rotas públicas existentes sem necessidade explícita
-- Não remova campos do banco — apenas adicione
-- Não altere a copy da landing (seção 6)
-- Não altere as variáveis de ambiente existentes
-- Mantenha o padrão de autenticação JWT já implementado
-- Mantenha o padrão de hooks do api-client-react
+### pdfkit — Configuração esbuild
+Em `artifacts/api-server/build.mjs`, os seguintes pacotes são `external` para evitar problemas de bundling com `@swc/helpers`:
+```
+pdfkit, fontkit, linebreak, unicode-properties, unicode-trie
+```
 
-**Ao finalizar qualquer tarefa, confirme:**
+### Scripts úteis
 ```bash
-# Teste 1 — SSR funcionando
-curl https://www.hublondrina.com.br/ | wc -c
-# Esperado: acima de 50000
+# Build api-server
+pnpm --filter @workspace/api-server run build
 
-# Teste 2 — API respondendo
-curl https://www.hublondrina.com.br/api/categories
-# Esperado: JSON com array de categorias
+# Build frontend
+pnpm --filter @workspace/hub-londrina run build
 
-# Teste 3 — Admin acessível
-# Abrir /admin/login no browser e confirmar que carrega
+# Typecheck completo
+pnpm run typecheck
 
-# Teste 4 — Lojista acessível
-# Abrir /lojista/login no browser e confirmar que carrega
+# Testes de pagamento
+pnpm --filter @workspace/api-server run test:payments
 ```
-
-**Se qualquer teste falhar:** corrija antes de considerar a tarefa concluída.
-
-**OBRIGATÓRIO após qualquer alteração no backend:**
-```bash
-cd ~/workspace/artifacts/api-server && pnpm build
-```
-O servidor de produção roda dist/index.mjs (bundle compilado).
-Sem rebuild, as correções no TypeScript não chegam em produção.
 
 ---
 
-## 10. TEMPLATE DE PROMPT PARA NOVAS TAREFAS
+## 15. O QUE ESTÁ FUNCIONANDO — NÃO QUEBRAR
 
-Copie e use este template toda vez que for pedir algo novo:
+### SSR
+- `server.mjs` serve HTML + dados para home, negócio e zonas
+- `hydrateRoot()` no cliente quando `window.__SSR_QUERIES__` presente
+- `curl https://www.hublondrina.com.br/ | wc -c` retorna ~82.000 bytes
+
+### Stripe
+- Checkout, portal, webhook e subscription status funcionando
+- PRICE_IDs corretos como `price_...` (não `prod_...`)
+- Webhook sincroniza `plan` e `status` na tabela `subscriptions`
+
+### Uploads
+- Logo, banner, fotos e mídias de produto via GCS
+- Documentos em storage privado com URLs assinadas
+
+### Jobs de Background
+Todos inicializados em `src/index.ts`:
+- `startBoostExpirationJob()` — a cada 1h
+- `startDocumentationJob()` — a cada 24h
+- `startSubscriptionJob()` — a cada 24h (início em 5min)
+
+---
+
+## 16. INSTRUÇÃO PARA O PRÓXIMO ASSISTENTE
 
 ```
-Leia o CONTEXT.md antes de fazer qualquer alteração.
+Leia o context.md COMPLETO antes de fazer qualquer alteração.
 
-Não quebre nada listado na seção 3 (O que está funcionando).
+Não quebre nada listado na seção 15 (O que está funcionando).
 Não altere copy, regras de negócio ou stack sem instrução explícita.
+Não hardcode secrets — use sempre process.env.
 
 ## O que precisa ser feito:
 [descreva aqui o que quer implementar]
@@ -611,95 +800,8 @@ Não altere copy, regras de negócio ou stack sem instrução explícita.
 ## Restrições:
 [liste aqui o que NÃO deve ser tocado, se houver algo específico]
 
-## Ao finalizar, execute os 4 testes da seção 9 e confirme os resultados.
+## Ao finalizar:
+- Execute os builds (api-server + hub-londrina) e confirme que passam
+- Verifique os logs do workflow da API
+- Atualize o context.md com o que foi implementado
 ```
-
----
-
-## 11. SISTEMA DE VALIDAÇÃO DE DOCUMENTAÇÃO + EXPIRAÇÃO PLANO FREE (03/05/2026)
-
-### Schema novo
-- `business_users.firstLoginAt` (timestamp) — registrado no 1º login
-- `business_users.documentationDeadline` (timestamp) — firstLoginAt + 10 dias
-- `business_users.documentationStatus` (text) — pending|submitted|approved|rejected|expired
-- `business_users.documentationRemainingDays` (integer, default 10)
-- `business_users.documentationTimerPaused` (boolean, default false)
-- `businesses.planFrozen` (boolean, default false) — congela cobrança quando docs expiram
-- `business_documents` (tabela): id, businessId(FK), documentType, fileUrl, status, rejectionReason, submittedAt, reviewedAt
-
-### Endpoints
-- `POST /api/lojista/documents` (multipart: documentType + file) — upload local em `/public/uploads/documents/{bid}/{type}-{ts}.ext` (JPG/PNG/WebP/PDF, 10MB). Pausa timer, status=submitted. Para `cnpj_card` chama ReceitaWS (alerta admin via log se inválido, não bloqueia).
-- `GET /api/lojista/documents` — retorna documents[] + documentationStatus/RemainingDays/TimerPaused/Deadline
-- `GET /api/admin/documents` — lista lojistas pendentes/submetidos/rejeitados/expirados, ordenado por urgência (menos dias)
-- `PATCH /api/admin/documents/:id` `{action: "approve"|"reject", reason?}` — quando os 3 docs (personal_id, cnpj_card, address_proof) aprovados: documentationStatus=approved, isVisible=true, planFrozen=false. Rejeição: timer despausado, email com motivo.
-
-### Jobs (artifacts/api-server/src/lib/documentation-job.ts)
-Roda 1x ao iniciar e a cada 24h. Dois ciclos:
-1. **Documentação**: decrementa remainingDays para usuários com firstLoginAt e timer despausado e status≠approved. Se chegar a 0 → status=expired, businesses.isVisible=false, planFrozen=true.
-2. **Plano free 30d**: businesses com planType=free, isVisible=true e firstLoginAt < hoje-30d → isVisible=false, email "planoGratuitoExpirando".
-
-### Login (lojista.ts:147)
-No 1º login (`!user.firstLoginAt`): set firstLoginAt=now, deadline=+10d, remainingDays=10, status=pending, timerPaused=false.
-
-### Frontend
-- `pages/lojista/LojistaDocumentacao.tsx` — 3 cards (Documento Pessoal, Cartão CNPJ, Comprovante Endereço), upload + status + motivo de rejeição
-- `pages/lojista/LojistaLayout.tsx` — banner topo (4 estados: pending vermelho, submitted amarelo+pausado, rejected, expired) + link "Documentação" no menu
-- `pages/admin/AdminDocumentacao.tsx` — filtros (todos/pendentes/submetidos/rejeitados/expirados), expansível por lojista, aprovar/rejeitar com motivo
-- `pages/admin/AdminLayout.tsx` — link "Documentação" entre "Cadastros Pendentes" e "Assinaturas"
-- Rotas registradas em `App.tsx`: `/lojista/documentacao` e `/admin/documentacao`
-
-### 5 templates de email (services/email.ts)
-- `documentacaoPendente(nome, dias)` — countdown
-- `documentacaoExpirada(nome)` — loja offline
-- `documentacaoAprovada(nome)` — loja ativa
-- `documentacaoRejeitada(nome, motivo)` — corrija e reenvie
-- `planoGratuitoExpirando(nome)` — assine Base
-
-### Correções de segurança (auditoria pós-implementação)
-- **Storage privado**: documentos salvos em `private/uploads/documents/{bid}/...` (FORA de `public/`, não servido estaticamente). Evita IDOR via URL pública.
-- **URLs assinadas**: download via `GET /api/documents/signed/:token` (JWT 1h). Backend retorna `signedUrl` por documento — `fileUrl` interno nunca exposto.
-- **Path traversal guard**: `resolveDocAbsPath` verifica que o caminho resolvido está sob DOCS_DIR e businessId/businessDir; businessId castado para Number e validado.
-- **Pause de timer só com 3 docs**: `recomputeDocumentationStatus` só pausa timer quando os 3 tipos (`personal_id`, `cnpj_card`, `address_proof`) estão presentes E nenhum rejeitado. Evita burlar o prazo enviando 1 doc qualquer.
-- **Limpeza de arquivos antigos**: ao reenviar mesmo tipo, arquivo físico anterior é removido via `safeUnlink`.
-
----
-
-## 12. MELHORIAS DE PRODUTO — MAIO 2026 (03/05/2026)
-
-### Relatório PDF Premium (`GET /api/lojista/report/pdf?month=YYYY-MM`)
-- Apenas plano **Premium** (retorna 403 para destaque/free)
-- Gerado via **pdfkit** (puro Node.js, sem puppeteer/chromium)
-- Conteúdo: métricas do mês (visualizações, WhatsApp, telefone, avaliação), gráfico de barras de cliques diários, status de impulsionamento, recomendações automáticas (até 4)
-- Cache de 1 hora em `/tmp/hub-reports/{businessId}-{month}.pdf`
-- **pdfkit é external no esbuild** (`build.mjs` — também externalized: fontkit, linebreak, unicode-properties, unicode-trie)
-- Frontend: botão "Baixar Relatório PDF" + seletor de mês em `LojistaMetricas.tsx` (só aparece para Premium)
-- Lib: `artifacts/api-server/src/lib/pdf-report.ts`
-
-### Email Resend — Status
-- **Domínio `hublondrina.com.br` NÃO verificado** no Resend. FROM usa `onboarding@resend.dev` (sandbox Resend).
-- Quota atual: 3 emails/dia, 3/mês (plano free Resend).
-- Para produção: verificar domínio em https://resend.com/domains e atualizar FROM em `email.ts` para `noreply@hublondrina.com.br`.
-
-### Responsividade Mobile
-- `LojistaBoost.tsx`: `grid md:grid-cols-2` → `grid grid-cols-1 md:grid-cols-2` (cards de destaque especial)
-- `zona.tsx`: barra de busca hero `flex` → `flex flex-col sm:flex-row` (empilha verticalmente em mobile)
-- `busca.tsx`: drawer de filtros mobile **já estava implementado** (`mobileFiltersOpen` state, `fixed inset-0 z-[60]`, botão "Filtrar" visível só em mobile)
-- `LojistaDocumentacao.tsx`: já era `grid gap-4 md:grid-cols-3` (1 coluna em mobile — sem alteração)
-- `BusinessCard.tsx`: já responsivo (layout flex-col, w-full)
-
-### Checklist de Segurança (auditoria)
-- Nenhum secret hardcoded no código (grep confirmado)
-- Rate limiting ativo em `/api/lojista/login` (retorna 401 para credenciais inválidas)
-- `/api/private/uploads/` retorna 404 (endpoint não exposto publicamente) ✅
-- JWT lojista: `{ businessId, email, role: "lojista" }`, expira em 7 dias
-
-### Testes de Pagamento (`artifacts/api-server/src/scripts/test-payments.ts`)
-- Script TypeScript de testes E2E para o fluxo Stripe
-- Testa: config PRICE_IDs, checkout sem auth (401), PRICE_ID inválido (400), subscription status
-- Executar com: `pnpm --filter @workspace/api-server run test:payments`
-- Validações confirmadas: ✅ Auth 401, ✅ PRICE_ID inválido 400, ✅ Config Stripe PRICE_IDs corretos
-
-### Build Final (03/05/2026)
-- `api-server`: build limpo em ~2.7s, dist/index.mjs = 3.8MB
-- `hub-londrina`: build limpo em ~8.4s, 721KB JS (gzip: 196KB)
-- SSR build: entry-server.js = 205KB
