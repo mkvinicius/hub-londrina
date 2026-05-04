@@ -276,7 +276,7 @@ export default function Anuncie() {
               <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#FF9800] text-white px-5 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider whitespace-nowrap">
                 Mais Popular
               </div>
-              <h3 className="font-serif text-2xl font-black text-[#6F4E37] mb-1">Destaque</h3>
+              <h3 className="font-serif text-2xl font-black text-[#6F4E37] mb-1">Base</h3>
               <p className="text-gray-400 text-sm mb-6">Para quem quer crescer de verdade</p>
               <div className="mb-2">
                 <div className="flex items-baseline gap-1">
