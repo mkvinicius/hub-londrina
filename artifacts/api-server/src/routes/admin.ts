@@ -987,43 +987,98 @@ router.patch("/admin/subscriptions/:id/extend", validateId, async (req: Request,
   res.json({ success: true, updatedAt: updated.updatedAt });
 });
 
+// Modelo C: lojista compra via Stripe → status='pending_review' → admin aprova/rejeita
+//           admin também pode criar direto via dropdown (status='active', requestedBy='admin')
 router.get("/admin/home-banners", async (_req: Request, res: Response) => {
-  const banners = await db.select().from(homeBannersTable).orderBy(desc(homeBannersTable.createdAt));
-  res.json({ data: banners });
+  const rows = await db
+    .select({
+      id: homeBannersTable.id,
+      businessId: homeBannersTable.businessId,
+      title: homeBannersTable.title,
+      imageUrl: homeBannersTable.imageUrl,
+      linkUrl: homeBannersTable.linkUrl,
+      active: homeBannersTable.active,
+      status: homeBannersTable.status,
+      requestedBy: homeBannersTable.requestedBy,
+      rejectionReason: homeBannersTable.rejectionReason,
+      stripeSessionId: homeBannersTable.stripeSessionId,
+      clicks: homeBannersTable.clicks,
+      endsAt: homeBannersTable.endsAt,
+      createdAt: homeBannersTable.createdAt,
+      businessName: businessesTable.name,
+      businessLogoUrl: businessesTable.logoUrl,
+      businessZone: businessesTable.zone,
+      businessPlanType: businessesTable.planType,
+      businessIsVisible: businessesTable.isVisible,
+      businessStatus: businessesTable.status,
+    })
+    .from(homeBannersTable)
+    .leftJoin(businessesTable, eq(homeBannersTable.businessId, businessesTable.id))
+    .orderBy(desc(homeBannersTable.createdAt));
+  res.json({ data: rows });
 });
 
 router.post("/admin/home-banners", async (req: Request, res: Response) => {
-  const { title, imageUrl, linkUrl, active, endsAt, businessId } = req.body;
-  if (!title || !imageUrl) {
-    res.status(400).json({ error: "title e imageUrl são obrigatórios" });
+  const { businessId, imageUrl, linkUrl, endsAt } = req.body;
+
+  const parsedBizId = parseId(String(businessId ?? ""));
+  if (!parsedBizId) {
+    res.status(400).json({ error: "Selecione um negócio cadastrado.", code: "INVALID_BUSINESS" });
     return;
   }
 
-  let parsedBannerId: number | null = null;
-  if (businessId) {
-    parsedBannerId = parseId(String(businessId));
-    if (!parsedBannerId) {
-      res.status(400).json({ error: "businessId inválido.", code: "INVALID_ID" });
-      return;
-    }
+  const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, parsedBizId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado.", code: "BUSINESS_NOT_FOUND" });
+    return;
+  }
+  if (biz.status !== "active" || !biz.isVisible) {
+    res.status(400).json({
+      error: `Negócio "${biz.name}" não está ativo/visível. Não é possível promovê-lo.`,
+      code: "BUSINESS_INACTIVE",
+    });
+    return;
   }
 
-  const active3 = await db
+  const activeCount = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(homeBannersTable)
-    .where(eq(homeBannersTable.active, true));
-  if ((active3[0]?.count ?? 0) >= 2) {
-    res.status(400).json({ error: "Máximo 2 banners ativos simultâneos" });
+    .where(and(eq(homeBannersTable.active, true), eq(homeBannersTable.status, "active")));
+  if ((activeCount[0]?.count ?? 0) >= 2) {
+    res.status(400).json({ error: "Máximo 2 banners ativos simultâneos.", code: "SLOTS_FULL" });
+    return;
+  }
+
+  const dup = await db.select({ id: homeBannersTable.id }).from(homeBannersTable).where(
+    and(
+      eq(homeBannersTable.businessId, parsedBizId),
+      eq(homeBannersTable.active, true),
+      eq(homeBannersTable.status, "active"),
+    )
+  );
+  if (dup.length > 0) {
+    res.status(400).json({ error: "Este negócio já tem um banner ativo.", code: "DUPLICATE" });
+    return;
+  }
+
+  const finalImageUrl = (imageUrl && String(imageUrl).trim()) || biz.logoUrl;
+  if (!finalImageUrl) {
+    res.status(400).json({
+      error: "Negócio não tem logo cadastrada. Informe a URL da imagem do banner.",
+      code: "MISSING_IMAGE",
+    });
     return;
   }
 
   const [banner] = await db.insert(homeBannersTable).values({
-    title,
-    imageUrl,
-    linkUrl: linkUrl || null,
-    active: active !== false,
+    businessId: parsedBizId,
+    title: biz.name,
+    imageUrl: finalImageUrl,
+    linkUrl: (linkUrl && String(linkUrl).trim()) || `/negocio/${parsedBizId}`,
+    active: true,
+    status: "active",
+    requestedBy: "admin",
     endsAt: endsAt ? new Date(endsAt) : null,
-    businessId: parsedBannerId,
   }).returning();
 
   res.status(201).json({ banner });
@@ -1032,9 +1087,8 @@ router.post("/admin/home-banners", async (req: Request, res: Response) => {
 router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
 
-  const { title, imageUrl, linkUrl, active, endsAt } = req.body;
+  const { imageUrl, linkUrl, active, endsAt } = req.body;
   const updates: Record<string, unknown> = {};
-  if (title !== undefined) updates.title = title;
   if (imageUrl !== undefined) updates.imageUrl = imageUrl;
   if (linkUrl !== undefined) updates.linkUrl = linkUrl;
   if (active !== undefined) updates.active = Boolean(active);
@@ -1042,6 +1096,63 @@ router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Re
 
   const [banner] = await db.update(homeBannersTable).set(updates).where(eq(homeBannersTable.id, id)).returning();
   if (!banner) { res.status(404).json({ error: "Banner não encontrado" }); return; }
+  res.json({ banner });
+});
+
+router.post("/admin/home-banners/:id/approve", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const [existing] = await db.select().from(homeBannersTable).where(eq(homeBannersTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Banner não encontrado" }); return; }
+  if (existing.status !== "pending_review") {
+    res.status(400).json({ error: `Banner está com status '${existing.status}', não pode aprovar.` });
+    return;
+  }
+
+  if (existing.businessId) {
+    const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, existing.businessId));
+    if (!biz) {
+      res.status(400).json({ error: "Negócio vinculado não existe mais.", code: "BUSINESS_NOT_FOUND" });
+      return;
+    }
+    if (biz.status !== "active" || !biz.isVisible) {
+      res.status(400).json({ error: "Negócio não está ativo/visível. Não pode aprovar banner.", code: "BUSINESS_NOT_ELIGIBLE" });
+      return;
+    }
+    const [dup] = await db.select({ id: homeBannersTable.id }).from(homeBannersTable)
+      .where(and(eq(homeBannersTable.businessId, existing.businessId), eq(homeBannersTable.status, "active")));
+    if (dup) {
+      res.status(400).json({ error: "Este negócio já tem um banner ativo.", code: "DUPLICATE" });
+      return;
+    }
+  }
+
+  const activeCount = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(homeBannersTable)
+    .where(and(eq(homeBannersTable.active, true), eq(homeBannersTable.status, "active")));
+  if ((activeCount[0]?.count ?? 0) >= 2) {
+    res.status(400).json({ error: "Máximo 2 banners ativos simultâneos. Desative um antes de aprovar.", code: "SLOTS_FULL" });
+    return;
+  }
+
+  const [banner] = await db.update(homeBannersTable)
+    .set({ status: "active", active: true, rejectionReason: null })
+    .where(eq(homeBannersTable.id, id)).returning();
+  res.json({ banner });
+});
+
+router.post("/admin/home-banners/:id/reject", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const reason = String(req.body?.reason ?? "").slice(0, 500) || null;
+  const [existing] = await db.select().from(homeBannersTable).where(eq(homeBannersTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Banner não encontrado" }); return; }
+  if (existing.status !== "pending_review") {
+    res.status(400).json({ error: `Banner está com status '${existing.status}', não pode rejeitar.` });
+    return;
+  }
+  const [banner] = await db.update(homeBannersTable)
+    .set({ status: "rejected", active: false, rejectionReason: reason })
+    .where(eq(homeBannersTable.id, id)).returning();
   res.json({ banner });
 });
 

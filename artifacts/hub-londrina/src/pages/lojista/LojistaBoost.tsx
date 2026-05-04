@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { lojistaFetch } from "@/lib/lojista-api";
-import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon } from "lucide-react";
 import { Link } from "wouter";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
@@ -54,18 +54,22 @@ export default function LojistaBoost() {
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ type: "success" | "info" | "error"; msg: string } | null>(null);
+  const [homeBanner, setHomeBanner] = useState<{ id: number; status: string; rejectionReason: string | null; createdAt: string } | null>(null);
+  const [bannerCheckoutLoading, setBannerCheckoutLoading] = useState(false);
 
   async function loadAll() {
     try {
-      const [profile, posData, avail] = await Promise.all([
+      const [profile, posData, avail, hb] = await Promise.all([
         lojistaFetch("/lojista/profile"),
         lojistaFetch("/lojista/boost-positions"),
         lojistaFetch("/lojista/boosts/availability"),
+        lojistaFetch("/lojista/home-banner/status").catch(() => ({ banner: null })),
       ]);
       setBoost(profile._boost || null);
       setPositions(posData.positions || []);
       setPlanType(profile.planType || "free");
       setAvailability(avail);
+      setHomeBanner(hb?.banner || null);
     } catch (e) {
       // ignore
     } finally {
@@ -81,9 +85,29 @@ export default function LojistaBoost() {
     } else if (params.get("boost_cancelled") === "1") {
       setBanner({ type: "info", msg: "Pagamento cancelado. Você pode tentar novamente quando quiser." });
       window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("banner") === "success") {
+      setBanner({ type: "success", msg: "Pagamento confirmado! Sua solicitação de banner Home está em análise pelo admin. Você será notificado quando for aprovada." });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("banner") === "cancelled") {
+      setBanner({ type: "info", msg: "Pagamento do banner cancelado." });
+      window.history.replaceState({}, "", window.location.pathname);
     }
     loadAll();
   }, []);
+
+  async function handleBuyHomeBanner() {
+    setBannerCheckoutLoading(true);
+    setBanner(null);
+    try {
+      const res = await lojistaFetch("/lojista/home-banner/checkout", { method: "POST" });
+      if (res?.url) { window.location.href = res.url; return; }
+      setBanner({ type: "error", msg: res?.error || "Erro ao iniciar o checkout" });
+    } catch (e: any) {
+      setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
+    } finally {
+      setBannerCheckoutLoading(false);
+    }
+  }
 
   async function handleBuyBoost(boostContext: "zone" | "home_search") {
     setCheckoutLoading(boostContext);
@@ -298,6 +322,53 @@ export default function LojistaBoost() {
               </div>
             );
           })()}
+        </div>
+
+        {/* ===== BANNER HOME (R$299/mês) — Modelo C: compra → análise admin ===== */}
+        <div className="mt-5 bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#d97706]/10">
+              <ImageIcon className="w-6 h-6 text-[#d97706]" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-800 text-base">Banner na Home</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Apareça em destaque na página inicial • máx. 2 lojistas simultâneos</p>
+            </div>
+            <span className="text-lg font-black text-[#d97706] whitespace-nowrap">R$299/mês</span>
+          </div>
+
+          {homeBanner && homeBanner.status === "pending_review" && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-center gap-2 text-sm text-amber-800">
+              <Clock className="w-4 h-4 flex-shrink-0" />
+              Sua solicitação está em análise pelo admin (enviada em {new Date(homeBanner.createdAt).toLocaleDateString("pt-BR")}).
+            </div>
+          )}
+          {homeBanner && homeBanner.status === "active" && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 flex items-center gap-2 text-sm text-emerald-800">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              Seu banner está ativo na Home!
+            </div>
+          )}
+          {homeBanner && homeBanner.status === "rejected" && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3 text-sm text-red-800">
+              <p className="font-semibold">Banner rejeitado</p>
+              {homeBanner.rejectionReason && <p className="text-xs mt-1">{homeBanner.rejectionReason}</p>}
+            </div>
+          )}
+
+          {(!homeBanner || homeBanner.status === "rejected" || homeBanner.status === "expired") && (
+            <button
+              onClick={handleBuyHomeBanner}
+              disabled={bannerCheckoutLoading}
+              className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${BTN_ELEVATION}`}
+            >
+              {bannerCheckoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Comprar banner — R$299/mês</>}
+            </button>
+          )}
+
+          <p className="text-[11px] text-gray-400 mt-2">
+            Após o pagamento, sua solicitação fica em análise. O admin aprova banners que respeitam as diretrizes de imagem e conteúdo.
+          </p>
         </div>
       </section>
 

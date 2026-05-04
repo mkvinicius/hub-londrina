@@ -594,20 +594,57 @@ router.get("/zones/:zone/businesses", async (req: Request, res: Response) => {
 router.get("/home-banners", async (_req: Request, res: Response) => {
   const { homeBannersTable } = await import("@workspace/db/schema");
   const now = new Date();
-  const banners = await db
-    .select()
+  const rows = await db
+    .select({
+      id: homeBannersTable.id,
+      businessId: homeBannersTable.businessId,
+      title: homeBannersTable.title,
+      imageUrl: homeBannersTable.imageUrl,
+      linkUrl: homeBannersTable.linkUrl,
+    })
     .from(homeBannersTable)
+    .leftJoin(businessesTable, eq(homeBannersTable.businessId, businessesTable.id))
     .where(
       and(
         eq(homeBannersTable.active, true),
+        eq(homeBannersTable.status, "active"),
         or(
           sql`${homeBannersTable.endsAt} IS NULL`,
           gte(homeBannersTable.endsAt, now),
         )!,
+        // Negócio precisa estar ativo e visível (ou banner sem businessId — legado)
+        or(
+          sql`${homeBannersTable.businessId} IS NULL`,
+          and(
+            eq(businessesTable.status, "active"),
+            eq(businessesTable.isVisible, true),
+          )!,
+        )!,
       ),
     )
     .limit(2);
-  res.json({ data: banners });
+  res.json({ data: rows });
+});
+
+router.post("/home-banners/:id/click", async (req: Request, res: Response) => {
+  const { homeBannersTable } = await import("@workspace/db/schema");
+  const id = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(id) || id <= 0) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const [banner] = await db.select().from(homeBannersTable).where(eq(homeBannersTable.id, id));
+  if (!banner) { res.status(404).json({ error: "Banner não encontrado" }); return; }
+
+  await db.update(homeBannersTable)
+    .set({ clicks: sql`${homeBannersTable.clicks} + 1` })
+    .where(eq(homeBannersTable.id, id));
+
+  if (banner.businessId) {
+    await db.update(businessesTable)
+      .set({ clicks: sql`${businessesTable.clicks} + 1` })
+      .where(eq(businessesTable.id, banner.businessId));
+  }
+
+  res.json({ success: true, redirectTo: banner.linkUrl || (banner.businessId ? `/negocio/${banner.businessId}` : null) });
 });
 
 export default router;

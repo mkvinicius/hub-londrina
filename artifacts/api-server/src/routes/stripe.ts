@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable } from "@workspace/db/schema";
-import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 
 const router: IRouter = Router();
@@ -113,6 +113,88 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
   });
 
   res.json({ url: session.url });
+});
+
+// Modelo C: lojista compra banner da Home → Stripe Checkout → webhook cria
+// banner com status='pending_review' → admin aprova/rejeita no painel.
+router.post("/lojista/home-banner/checkout", async (req: Request, res: Response) => {
+  const lojista = getLojistaFromToken(req);
+  if (!lojista) return res.status(401).json({ error: "Não autorizado" });
+
+  const HOME_BANNER_PRICE_ID = process.env.STRIPE_HOME_BANNER_PRICE_ID;
+  if (!HOME_BANNER_PRICE_ID) {
+    return res.status(503).json({
+      error: "Pagamento de banner da Home ainda não configurado. Fale com o admin.",
+      code: "PRICE_NOT_CONFIGURED",
+    });
+  }
+
+  const { homeBannersTable } = await import("@workspace/db/schema");
+
+  const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
+  if (!business) return res.status(404).json({ error: "Negócio não encontrado" });
+  if (business.status !== "active" || !business.isVisible) {
+    return res.status(400).json({
+      error: "Seu negócio precisa estar ativo e visível para anunciar na Home.",
+      code: "BUSINESS_INACTIVE",
+    });
+  }
+
+  // Não permite comprar se já tem banner ativo ou pending_review
+  const existing = await db.select().from(homeBannersTable).where(
+    and(
+      eq(homeBannersTable.businessId, lojista.businessId),
+      or(eq(homeBannersTable.status, "active"), eq(homeBannersTable.status, "pending_review"))!,
+    )
+  );
+  if (existing.length > 0) {
+    return res.status(400).json({
+      error: existing[0].status === "active"
+        ? "Você já tem um banner ativo na Home."
+        : "Sua solicitação de banner está em análise pelo admin.",
+      code: existing[0].status === "active" ? "ALREADY_ACTIVE" : "ALREADY_PENDING",
+    });
+  }
+
+  const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, lojista.businessId));
+  let customerId = existingSub?.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: lojista.email,
+      name: business.name,
+      metadata: { businessId: String(lojista.businessId) },
+    });
+    customerId = customer.id;
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "subscription",
+    payment_method_types: ["card"],
+    line_items: [{ price: HOME_BANNER_PRICE_ID, quantity: 1 }],
+    success_url: `${FRONTEND_URL}/lojista/boost?banner=success`,
+    cancel_url: `${FRONTEND_URL}/lojista/boost?banner=cancelled`,
+    metadata: { businessId: String(lojista.businessId), kind: "home_banner_request" },
+    subscription_data: {
+      metadata: { businessId: String(lojista.businessId), kind: "home_banner_request" },
+    },
+    locale: "pt-BR",
+  });
+
+  res.json({ url: session.url });
+});
+
+router.get("/lojista/home-banner/status", async (req: Request, res: Response) => {
+  const lojista = getLojistaFromToken(req);
+  if (!lojista) return res.status(401).json({ error: "Não autorizado" });
+
+  const { homeBannersTable } = await import("@workspace/db/schema");
+  const rows = await db.select().from(homeBannersTable)
+    .where(eq(homeBannersTable.businessId, lojista.businessId))
+    .orderBy(desc(homeBannersTable.createdAt))
+    .limit(1);
+
+  res.json({ banner: rows[0] ?? null });
 });
 
 router.post("/stripe/portal", async (req: Request, res: Response) => {
@@ -244,6 +326,40 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         console.log("[Stripe Webhook] checkout.session.completed — session:", session.id, "subscription:", session.subscription);
+
+        // Modelo C: solicitação de banner Home pelo lojista → cria pending_review
+        if (session.metadata?.kind === "home_banner_request") {
+          const bizId = Number(session.metadata.businessId);
+          if (Number.isFinite(bizId) && bizId > 0) {
+            try {
+              const { homeBannersTable } = await import("@workspace/db/schema");
+              const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, bizId));
+              if (biz) {
+                // Idempotência: ignora se já existe pendente/ativo desta sessão
+                const dup = await db.select({ id: homeBannersTable.id }).from(homeBannersTable)
+                  .where(eq(homeBannersTable.stripeSessionId, session.id));
+                if (dup.length === 0) {
+                  await db.insert(homeBannersTable).values({
+                    businessId: bizId,
+                    title: biz.name,
+                    imageUrl: biz.logoUrl || "",
+                    linkUrl: `/negocio/${bizId}`,
+                    active: false,
+                    status: "pending_review",
+                    requestedBy: "lojista",
+                    stripeSessionId: session.id,
+                    stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
+                  });
+                  console.log(`[Stripe Webhook] Banner Home pending_review criado para biz ${bizId}`);
+                }
+              }
+            } catch (err) {
+              console.error("[Stripe Webhook] Erro criando banner pending_review:", err);
+            }
+          }
+          break; // não cai no fluxo de subscription de plano
+        }
+
         if (session.subscription) {
           await syncSubscription(String(session.subscription));
           try {

@@ -118,7 +118,7 @@ export default function Landing() {
   const [regionOpen, setRegionOpen] = useState(false);
   const [, navigate] = useLocation();
 
-  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string; imageUrl: string; linkUrl: string | null }[]>([]);
+  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; imageUrl: string; linkUrl: string | null; businessId: number | null }[]>([]);
   const [bannerIdx, setBannerIdx] = useState(0);
 
   const { data: categoriesData } = useListCategories();
@@ -345,12 +345,28 @@ export default function Landing() {
                 key={banner.id}
                 className={`transition-opacity duration-700 ${idx === bannerIdx ? "opacity-100" : "opacity-0 absolute inset-0"}`}
               >
-                {banner.linkUrl ? (
-                  <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer">
-                    <img src={banner.imageUrl} alt={banner.title} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
+                {banner.linkUrl || banner.businessId ? (
+                  <a
+                    href={banner.linkUrl || `/negocio/${banner.businessId}`}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      try {
+                        const r = await fetch(`${BASE}/api/home-banners/${banner.id}/click`, { method: "POST" });
+                        const j = await r.json().catch(() => ({}));
+                        const target = j.redirectTo || banner.linkUrl || `/negocio/${banner.businessId}`;
+                        if (target.startsWith("/")) navigate(target);
+                        else window.open(target, "_blank", "noopener,noreferrer");
+                      } catch {
+                        const target = banner.linkUrl || `/negocio/${banner.businessId}`;
+                        if (target.startsWith("/")) navigate(target);
+                        else window.open(target, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                  >
+                    <img src={banner.imageUrl} alt={banner.title || ""} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
                   </a>
                 ) : (
-                  <img src={banner.imageUrl} alt={banner.title} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
+                  <img src={banner.imageUrl} alt={banner.title || ""} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
                 )}
               </div>
             ))}
