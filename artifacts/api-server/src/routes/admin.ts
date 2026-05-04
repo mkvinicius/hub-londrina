@@ -779,9 +779,18 @@ router.post("/admin/boosts-extra", async (req: Request, res: Response) => {
     return;
   }
 
-  const [biz] = await db.select({ planType: businessesTable.planType, name: businessesTable.name }).from(businessesTable).where(eq(businessesTable.id, parsedBusinessId));
+  const [biz] = await db.select({ planType: businessesTable.planType, name: businessesTable.name, zone: businessesTable.zone }).from(businessesTable).where(eq(businessesTable.id, parsedBusinessId));
   if (!biz) {
     res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  // Regra de negócio: destaque de zona só aceita negócios da própria zona.
+  if (boostContext === "zone" && biz.zone !== zone) {
+    res.status(400).json({
+      error: `Negócio "${biz.name}" pertence à zona "${biz.zone ?? "—"}" e não pode ocupar slot da zona "${zone}".`,
+      code: "ZONE_MISMATCH",
+    });
     return;
   }
 

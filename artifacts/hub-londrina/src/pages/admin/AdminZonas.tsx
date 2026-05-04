@@ -41,6 +41,7 @@ interface ListBusiness {
   id: number;
   name: string;
   region: string;
+  zone: string;
   categorySlug: string;
 }
 
@@ -213,9 +214,13 @@ export default function AdminZonas() {
     }
   }
 
+  // Regra de negócio: o slot de uma zona só aceita negócios cadastrados
+  // naquela mesma zona. Filtra o dropdown pela zona ativa.
   const filteredBiz = businesses.filter(b =>
-    !bizSearch || b.name.toLowerCase().includes(bizSearch.toLowerCase())
+    (!activeZone || b.zone === activeZone) &&
+    (!bizSearch || b.name.toLowerCase().includes(bizSearch.toLowerCase()))
   );
+  const activeZoneLabel = zonesList.find(z => z.slug === activeZone)?.name ?? activeZone;
 
   return (
     <AdminLayout>
@@ -437,13 +442,20 @@ export default function AdminZonas() {
                 <select
                   value={bizId}
                   onChange={e => setBizId(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white"
+                  disabled={filteredBiz.length === 0}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white disabled:bg-gray-50 disabled:text-gray-400"
                 >
                   <option value="">Selecionar...</option>
                   {filteredBiz.slice(0, 30).map(b => (
                     <option key={b.id} value={b.id}>{b.name} ({b.region})</option>
                   ))}
                 </select>
+                {filteredBiz.length === 0 && (
+                  <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Nenhum negócio cadastrado na <b>{activeZoneLabel}</b> ainda.
+                    Para destacar aqui, o lojista precisa ter <code>zone = {activeZone}</code> no cadastro.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Duração</label>
