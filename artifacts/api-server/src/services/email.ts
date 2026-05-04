@@ -234,6 +234,22 @@ export const emails = {
     `,
   }),
 
+  assinaturaExpirando: (nome: string, produto: string, diasRestantes: number, url: string) => ({
+    subject: `⏰ ${produto} vence em ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} — renove para manter seu destaque`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#d97706">Seu ${produto} está perto de vencer</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Seu <strong>${produto}</strong> vence em <strong>${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}</strong>.</p>
+        <p>Para continuar aparecendo em destaque para os consumidores de Londrina, renove antes que expire.</p>
+        <p><a href="${url}" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Renovar agora</a></p>
+        <p style="color:#666;font-size:13px">Acesse seu painel a qualquer momento para acompanhar todas as suas assinaturas.</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `,
+  }),
+
   recuperacaoSenha: (nome: string, token: string) => ({
     subject: `Redefinir sua senha — Hub Londrina`,
     html: `

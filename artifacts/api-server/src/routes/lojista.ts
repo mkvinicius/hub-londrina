@@ -8,7 +8,7 @@ import fs from "fs";
 import os from "os";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable } from "@workspace/db/schema";
+import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
 import { generatePdfReport } from "../lib/pdf-report.js";
@@ -910,6 +910,92 @@ router.get("/lojista/report/pdf", async (req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   fs.createReadStream(cacheFile).pipe(res);
+});
+
+// ─── GET /lojista/subscriptions — painel unificado de assinaturas ─────────────
+router.get("/lojista/subscriptions", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+
+  const [biz] = await db.select({
+    planType: businessesTable.planType,
+    name: businessesTable.name,
+    ownerName: businessesTable.ownerName,
+    ownerEmail: businessesTable.ownerEmail,
+  }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+
+  function daysUntil(date: Date | null | undefined): number | null {
+    if (!date) return null;
+    const diff = date.getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }
+
+  const [sub, boosts, banner] = await Promise.all([
+    db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, businessId)).limit(1),
+    db.select().from(searchBoostsTable).where(and(
+      eq(searchBoostsTable.businessId, businessId),
+      or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+    )),
+    db.select().from(homeBannersTable).where(and(
+      eq(homeBannersTable.businessId, businessId),
+      or(
+        eq(homeBannersTable.status, "active"),
+        eq(homeBannersTable.status, "pending_review"),
+      ),
+    )).limit(1),
+  ]);
+
+  const planLabels: Record<string, string> = { free: "Gratuito", destaque: "Base", premium: "Premium" };
+  const planPrices: Record<string, string> = { free: "R$0", destaque: "R$59,90", premium: "R$89,90" };
+  const planFeatures: Record<string, string[]> = {
+    free: ["Perfil básico", "1 foto", "Link WhatsApp", "Aparece nas buscas"],
+    destaque: ["Até 10 fotos", "Logo e banner", "Selo Destaque", "Prioridade na busca", "Métricas básicas", "Suporte por email"],
+    premium: ["Tudo do Base", "Vitrine de produtos", "Vídeo de apresentação", "Métricas avançadas", "Suporte WhatsApp VIP", "Topo garantido"],
+  };
+
+  const subscription = sub[0] ?? null;
+  const renewsAt = subscription?.currentPeriodEnd ?? null;
+  const daysUntilRenewal = daysUntil(renewsAt ?? undefined);
+
+  const zoneBoost = boosts.find(b => b.boostContext === "zone") ?? null;
+  const homeBoost = boosts.find(b => b.boostContext === "home_search") ?? null;
+  const homeBanner = banner[0] ?? null;
+
+  res.json({
+    plan: {
+      key: biz.planType || "free",
+      label: planLabels[biz.planType || "free"] ?? biz.planType,
+      price: planPrices[biz.planType || "free"] ?? "—",
+      features: planFeatures[biz.planType || "free"] ?? [],
+      status: subscription?.status ?? (biz.planType === "free" ? "free" : "unknown"),
+      renewsAt: renewsAt?.toISOString() ?? null,
+      daysUntilRenewal,
+      cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd ?? false,
+    },
+    zoneBoost: zoneBoost ? {
+      status: zoneBoost.status,
+      zone: zoneBoost.zone,
+      expiresAt: zoneBoost.expiresAt?.toISOString() ?? null,
+      daysLeft: daysUntil(zoneBoost.expiresAt ?? undefined),
+      price: "R$79",
+      label: "Destaque de Zona",
+    } : null,
+    homeBoost: homeBoost ? {
+      status: homeBoost.status,
+      expiresAt: homeBoost.expiresAt?.toISOString() ?? null,
+      daysLeft: daysUntil(homeBoost.expiresAt ?? undefined),
+      price: "R$149",
+      label: "Destaque Home + Busca",
+    } : null,
+    homeBanner: homeBanner ? {
+      status: homeBanner.status,
+      endsAt: homeBanner.endsAt?.toISOString() ?? null,
+      daysLeft: daysUntil(homeBanner.endsAt ?? undefined),
+      rejectionReason: homeBanner.rejectionReason,
+      price: "R$299/mês",
+      label: "Banner na Home",
+    } : null,
+  });
 });
 
 export default router;

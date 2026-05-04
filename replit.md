@@ -74,6 +74,7 @@ Full-stack local business directory for Londrina, Brazil.
 - `/lojista/metricas` — Click analytics (locked for free; chart locked for non-premium)
 - `/lojista/avaliacoes` — Review management (view, respond, copy review link)
 - `/lojista/boost` — Boost/impulsionamento info page (position table, avulso options, WhatsApp CTA)
+- `/lojista/assinaturas` — Unified subscription dashboard (plan + boosts + banner, time remaining bars, manage links)
 - `/lojista/plano` — Plan management
 - `/lojista/senha` — Password change
 

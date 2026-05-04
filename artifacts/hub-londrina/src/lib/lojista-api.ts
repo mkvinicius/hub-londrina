@@ -187,3 +187,7 @@ export async function createPortalSession(): Promise<{ url: string }> {
 export async function getSubscription() {
   return lojistaFetch("/stripe/subscription");
 }
+
+export async function getSubscriptions() {
+  return lojistaFetch("/lojista/subscriptions");
+}

@@ -4,6 +4,7 @@ import { runStartupSeed } from "./lib/startup-seed";
 import { startBoostExpirationJob } from "./lib/boost-expiration";
 import { startDocumentationJob } from "./lib/documentation-job";
 import { startSubscriptionJob } from "./lib/subscription-job";
+import { startSubscriptionReminderJob } from "./lib/subscription-reminder-job";
 import fs from "fs";
 import path from "path";
 
@@ -47,5 +48,6 @@ runStartupSeed().then(() => {
     startBoostExpirationJob();
     startDocumentationJob();
     startSubscriptionJob();
+    startSubscriptionReminderJob();
   });
 });
