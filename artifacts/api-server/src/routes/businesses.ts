@@ -59,12 +59,13 @@ router.get("/businesses", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Parâmetros inválidos" });
     return;
   }
-  const { category, region, q, sort } = parsed.data;
+  const { category, region, q, sort, zone } = parsed.data;
 
   const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active")];
 
   if (category) conditions.push(eq(businessesTable.categorySlug, category));
   if (region) conditions.push(eq(businessesTable.region, region));
+  if (zone) conditions.push(eq(businessesTable.zone, zone));
   if (q) {
     const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
     const PLAIN    = "aaaaaeeeeiiiioooooiuuuucnAAAAAEEEEIIIIOOOOOUUUUCN";

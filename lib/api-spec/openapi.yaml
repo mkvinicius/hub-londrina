@@ -50,6 +50,11 @@ paths:
           required: false
           schema:
             type: string
+        - name: zone
+          in: query
+          required: false
+          schema:
+            type: string
         - name: q
           in: query
           required: false
@@ -101,6 +106,12 @@ paths:
       tags: [categories]
       summary: List categories
       description: Returns all categories with business count
+      parameters:
+        - name: zone
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           description: List of categories
@@ -136,6 +147,11 @@ paths:
       description: Full-text search across name and description
       parameters:
         - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: zone
           in: query
           required: false
           schema:

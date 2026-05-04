@@ -7,6 +7,15 @@ import { BusinessCard } from "@/components/BusinessCard";
 import { getCategoryIcon } from "@/lib/icons";
 import { zoneConfig, type ZoneSlug } from "@/lib/zones";
 
+interface ZoneApiData {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  color: string;
+  bannerUrl: string | null;
+}
+
 interface ZoneStats {
   zone: string;
   label: string;
@@ -26,8 +35,24 @@ interface ZoneBusinesses {
 const BASE = import.meta.env.VITE_API_URL || "";
 
 export default function ZonePage({ zone }: { zone: ZoneSlug }) {
-  const cfg = zoneConfig[zone];
+  const fallback = zoneConfig[zone];
   const [, navigate] = useLocation();
+
+  const { data: zoneApi } = useQuery<{ data: ZoneApiData }>({
+    queryKey: [`/api/zones/${zone}`],
+    queryFn: () => fetch(`${BASE}/api/zones/${zone}`).then(r => r.json()),
+    staleTime: 60_000,
+  });
+
+  const apiCfg = zoneApi?.data;
+  const cfg = {
+    label: apiCfg?.name ?? fallback.label,
+    color: apiCfg?.color ?? fallback.color,
+    bgColor: fallback.bgColor,
+    textColor: fallback.textColor,
+    description: apiCfg?.description ?? fallback.description,
+    bannerUrl: apiCfg?.bannerUrl ?? null,
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -62,7 +87,13 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
     <Layout>
       {/* SEÇÃO 1 — Hero da zona */}
       <section
-        style={{ backgroundColor: cfg.bgColor, minHeight: "280px" }}
+        style={{
+          backgroundColor: cfg.bgColor,
+          minHeight: "280px",
+          backgroundImage: cfg.bannerUrl ? `linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)), url(${cfg.bannerUrl})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
         className="flex items-center"
       >
         <div className="max-w-4xl mx-auto px-4 md:px-8 py-16 w-full text-center">

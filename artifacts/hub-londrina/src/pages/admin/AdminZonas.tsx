@@ -1,17 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { MapPin, Plus, Trash2, X, RefreshCw, Clock } from "lucide-react";
+import { MapPin, Plus, Trash2, X, RefreshCw, Clock, Edit3, Save } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
-
-const ZONES = [
-  { key: "norte", label: "Zona Norte", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  { key: "sul", label: "Zona Sul", color: "bg-green-50 text-green-700 border-green-200" },
-  { key: "leste", label: "Zona Leste", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { key: "oeste", label: "Zona Oeste", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  { key: "centro", label: "Centro", color: "bg-rose-50 text-rose-700 border-rose-200" },
-];
 
 const DURATION_OPTIONS = [
   { days: 7, label: "7 dias", price: 19 },
@@ -20,6 +12,17 @@ const DURATION_OPTIONS = [
 ];
 
 const MAX_SLOTS = 6;
+
+interface Zone {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  color: string;
+  bannerUrl: string | null;
+  active: boolean;
+  businessCount: number;
+}
 
 interface ZoneBoost {
   id: number;
@@ -53,8 +56,11 @@ function daysRemaining(d: string | null): string {
   return `${diff} dia${diff > 1 ? "s" : ""}`;
 }
 
+const emptyZoneForm = { slug: "", name: "", description: "", color: "#f97316", bannerUrl: "", active: true };
+
 export default function AdminZonas() {
-  const [zones, setZones] = useState<Record<string, ZoneBoost[]>>({ norte: [], sul: [], leste: [], oeste: [], centro: [] });
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [boosts, setBoosts] = useState<Record<string, ZoneBoost[]>>({});
   const [businesses, setBusinesses] = useState<ListBusiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeZone, setActiveZone] = useState<string | null>(null);
@@ -63,14 +69,21 @@ export default function AdminZonas() {
   const [days, setDays] = useState(7);
   const [saving, setSaving] = useState(false);
 
+  const [zoneModalOpen, setZoneModalOpen] = useState(false);
+  const [editingZone, setEditingZone] = useState<Zone | null>(null);
+  const [zoneForm, setZoneForm] = useState(emptyZoneForm);
+  const [zoneSaving, setZoneSaving] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [extra, biz] = await Promise.all([
+      const [zonesRes, extra, biz] = await Promise.all([
+        adminFetch("/api/admin/zones"),
         adminFetch("/api/admin/boosts-extra"),
         adminFetch("/api/admin/businesses?limit=200"),
       ]);
-      setZones(extra.zones || {});
+      setZonesList(zonesRes.data || []);
+      setBoosts(extra.zones || {});
       setBusinesses(biz.data || []);
     } finally {
       setLoading(false);
@@ -80,6 +93,68 @@ export default function AdminZonas() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const opt = DURATION_OPTIONS.find(o => o.days === days)!;
+
+  function openCreate() {
+    setEditingZone(null);
+    setZoneForm(emptyZoneForm);
+    setZoneModalOpen(true);
+  }
+
+  function openEdit(z: Zone) {
+    setEditingZone(z);
+    setZoneForm({
+      slug: z.slug,
+      name: z.name,
+      description: z.description || "",
+      color: z.color,
+      bannerUrl: z.bannerUrl || "",
+      active: z.active,
+    });
+    setZoneModalOpen(true);
+  }
+
+  async function handleSaveZone() {
+    if (!zoneForm.name.trim() || (!editingZone && !zoneForm.slug.trim())) {
+      alert("Slug e nome são obrigatórios");
+      return;
+    }
+    setZoneSaving(true);
+    try {
+      if (editingZone) {
+        await adminFetch(`/api/admin/zones/${editingZone.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: zoneForm.name,
+            description: zoneForm.description,
+            color: zoneForm.color,
+            bannerUrl: zoneForm.bannerUrl,
+            active: zoneForm.active,
+          }),
+        });
+      } else {
+        await adminFetch("/api/admin/zones", {
+          method: "POST",
+          body: JSON.stringify(zoneForm),
+        });
+      }
+      setZoneModalOpen(false);
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao salvar zona");
+    } finally {
+      setZoneSaving(false);
+    }
+  }
+
+  async function handleDeleteZone(z: Zone) {
+    if (!confirm(`Excluir a zona "${z.name}"? Negócios não serão excluídos.`)) return;
+    try {
+      await adminFetch(`/api/admin/zones/${z.id}`, { method: "DELETE" });
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao excluir");
+    }
+  }
 
   async function handleAdd() {
     if (!activeZone || !bizId) return;
@@ -126,44 +201,78 @@ export default function AdminZonas() {
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-gray-800 flex items-center gap-2">
             <MapPin className="w-6 h-6 sm:w-7 sm:h-7 text-[#d97706]" />
-            Destaque por Zona
+            Zonas
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Até {MAX_SLOTS} negócios em destaque por zona</p>
+          <p className="text-sm text-gray-500 mt-1">Gerenciar zonas e até {MAX_SLOTS} negócios em destaque por zona</p>
         </div>
-        <button
-          onClick={() => fetchData()}
-          className={`p-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-[#d97706] ${BTN_ELEVATION}`}
-        >
-          <RefreshCw className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openCreate}
+            className={`px-4 py-2.5 text-sm font-bold text-white bg-[#d97706] rounded-xl ${BTN_ELEVATION}`}
+          >
+            <Plus className="w-4 h-4 inline mr-1" />Nova zona
+          </button>
+          <button
+            onClick={() => fetchData()}
+            className={`p-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-[#d97706] ${BTN_ELEVATION}`}
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
+      ) : zonesList.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">
+          Nenhuma zona cadastrada. Clique em "Nova zona" para começar.
+        </div>
       ) : (
         <div className="space-y-6">
-          {ZONES.map(z => {
-            const slots = zones[z.key] || [];
+          {zonesList.map(z => {
+            const slots = boosts[z.slug] || [];
             const free = MAX_SLOTS - slots.length;
             return (
-              <div key={z.key} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${z.color}`}>{z.label}</span>
-                    <span className="text-sm text-gray-500">{slots.length}/{MAX_SLOTS} ocupados</span>
-                  </div>
-                  {free > 0 && (
-                    <button
-                      onClick={() => { setActiveZone(z.key); setBizId(""); setBizSearch(""); setDays(7); }}
-                      className={`px-3 py-1.5 text-xs font-bold text-[#d97706] bg-amber-50 hover:bg-amber-100 rounded-lg ${BTN_ELEVATION}`}
+              <div key={z.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="text-xs font-bold px-3 py-1 rounded-full border"
+                      style={{ color: z.color, borderColor: z.color + "40", backgroundColor: z.color + "12" }}
                     >
-                      <Plus className="w-3 h-3 inline mr-1" />Adicionar
+                      {z.name}
+                    </span>
+                    <span className="text-xs text-gray-400">slug: {z.slug}</span>
+                    <span className="text-sm text-gray-500">{z.businessCount} negócios</span>
+                    {!z.active && <span className="text-xs text-red-600 font-bold">INATIVA</span>}
+                    <span className="text-sm text-gray-500 ml-3">{slots.length}/{MAX_SLOTS} slots</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {free > 0 && (
+                      <button
+                        onClick={() => { setActiveZone(z.slug); setBizId(""); setBizSearch(""); setDays(7); }}
+                        className={`px-3 py-1.5 text-xs font-bold text-[#d97706] bg-amber-50 hover:bg-amber-100 rounded-lg ${BTN_ELEVATION}`}
+                      >
+                        <Plus className="w-3 h-3 inline mr-1" />Slot
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openEdit(z)}
+                      className={`px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg ${BTN_ELEVATION}`}
+                    >
+                      <Edit3 className="w-3 h-3 inline mr-1" />Editar
                     </button>
-                  )}
+                    <button
+                      onClick={() => handleDeleteZone(z)}
+                      className={`px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg ${BTN_ELEVATION}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
 
                 {slots.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-gray-400">Nenhum destaque ativo nesta zona</div>
+                  <div className="p-4 text-center text-xs text-gray-400">Nenhum destaque ativo nesta zona</div>
                 ) : (
                   <div className="divide-y divide-gray-50">
                     {slots.map((s, idx) => (
@@ -195,12 +304,99 @@ export default function AdminZonas() {
         </div>
       )}
 
+      {/* Modal: criar/editar zona */}
+      {zoneModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingZone ? `Editar — ${editingZone.name}` : "Nova zona"}
+              </h3>
+              <button onClick={() => setZoneModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Slug *</label>
+                <input
+                  type="text"
+                  disabled={!!editingZone}
+                  placeholder="ex: norte"
+                  value={zoneForm.slug}
+                  onChange={e => setZoneForm({ ...zoneForm, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Nome *</label>
+                <input
+                  type="text"
+                  placeholder="ex: Zona Norte"
+                  value={zoneForm.name}
+                  onChange={e => setZoneForm({ ...zoneForm, name: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Descrição</label>
+                <textarea
+                  rows={2}
+                  value={zoneForm.description}
+                  onChange={e => setZoneForm({ ...zoneForm, description: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Cor</label>
+                  <input
+                    type="color"
+                    value={zoneForm.color}
+                    onChange={e => setZoneForm({ ...zoneForm, color: e.target.value })}
+                    className="w-full h-10 border border-gray-200 rounded-xl"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={zoneForm.active}
+                      onChange={e => setZoneForm({ ...zoneForm, active: e.target.checked })}
+                    />
+                    Ativa
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">URL do banner (opcional)</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={zoneForm.bannerUrl}
+                  onChange={e => setZoneForm({ ...zoneForm, bannerUrl: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
+                />
+              </div>
+              <button
+                onClick={handleSaveZone}
+                disabled={zoneSaving}
+                className={`w-full py-2.5 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl disabled:opacity-50 ${BTN_ELEVATION}`}
+              >
+                <Save className="w-4 h-4 inline mr-1" />
+                {zoneSaving ? "Salvando..." : editingZone ? "Atualizar zona" : "Criar zona"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeZone && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800">
-                Adicionar destaque — {ZONES.find(z => z.key === activeZone)?.label}
+                Adicionar destaque — {zonesList.find(z => z.slug === activeZone)?.name}
               </h3>
               <button onClick={() => setActiveZone(null)} className="p-1 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-400" />

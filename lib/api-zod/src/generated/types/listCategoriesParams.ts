@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SearchParams = {
-  q?: string;
+export type ListCategoriesParams = {
   zone?: string;
-  region?: string;
-  category?: string;
 };

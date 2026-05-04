@@ -1,10 +1,59 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { validatePagination } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, searchBoostsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, searchBoostsTable, zonesTable } from "@workspace/db/schema";
 import { eq, and, ne, desc, asc, sql, or } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+const FALLBACK_ZONES: Record<string, { name: string; color: string; description: string }> = {
+  norte:  { name: "Zona Norte",  color: "#3d7a28", description: "Negócios da Zona Norte de Londrina" },
+  sul:    { name: "Zona Sul",    color: "#2563eb", description: "Negócios da Zona Sul de Londrina" },
+  leste:  { name: "Zona Leste",  color: "#d97706", description: "Negócios da Zona Leste de Londrina" },
+  oeste:  { name: "Zona Oeste",  color: "#7c3aed", description: "Negócios da Zona Oeste de Londrina" },
+  centro: { name: "Centro",      color: "#dc2626", description: "Negócios do Centro de Londrina" },
+};
+
+async function getZoneBySlug(slug: string) {
+  const rows = await db.select().from(zonesTable).where(eq(zonesTable.slug, slug)).limit(1);
+  if (rows[0]) return rows[0];
+  const fb = FALLBACK_ZONES[slug];
+  if (!fb) return null;
+  return { id: 0, slug, name: fb.name, description: fb.description, color: fb.color, bannerUrl: null, active: true, createdAt: null };
+}
+
+router.get("/zones", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(zonesTable).where(eq(zonesTable.active, true)).orderBy(asc(zonesTable.name));
+    if (rows.length > 0) {
+      res.json({ data: rows });
+      return;
+    }
+    const fallback = Object.entries(FALLBACK_ZONES).map(([slug, v]) => ({
+      id: 0, slug, name: v.name, description: v.description, color: v.color, bannerUrl: null, active: true, createdAt: null,
+    }));
+    res.json({ data: fallback });
+  } catch (err) {
+    console.error("[zones list]", err);
+    res.status(500).json({ error: "Erro ao listar zonas" });
+  }
+});
+
+router.get("/zones/:zone", async (req: Request, res: Response, next) => {
+  // Avoid clashing with /zones/:zone/stats and /zones/:zone/businesses
+  if (req.params.zone === "undefined") return next();
+  if (req.path.endsWith("/stats") || req.path.endsWith("/businesses")) return next();
+  try {
+    const zone = await getZoneBySlug(String(req.params.zone));
+    if (!zone) {
+      res.status(404).json({ error: "Zona não encontrada" });
+      return;
+    }
+    res.json({ data: zone });
+  } catch (err) {
+    next(err);
+  }
+});
 
 const VALID_ZONES = ["norte", "sul", "leste", "oeste", "centro"] as const;
 type ZoneSlug = typeof VALID_ZONES[number];

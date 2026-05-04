@@ -4,7 +4,7 @@ import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -1039,6 +1039,65 @@ router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Re
 router.delete("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   await db.delete(homeBannersTable).where(eq(homeBannersTable.id, id));
+  res.json({ success: true });
+});
+
+// ─── ADMIN ZONES CRUD ────────────────────────────────────────────────────────
+router.get("/admin/zones", async (_req: Request, res: Response) => {
+  const rows = await db.select().from(zonesTable).orderBy(asc(zonesTable.name));
+  const counts = await db
+    .select({ zone: businessesTable.zone, count: sql<number>`count(*)::int` })
+    .from(businessesTable)
+    .where(and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active")))
+    .groupBy(businessesTable.zone);
+  const countMap = new Map(counts.map(c => [c.zone, c.count]));
+  res.json({ data: rows.map(z => ({ ...z, businessCount: countMap.get(z.slug) ?? 0 })) });
+});
+
+router.post("/admin/zones", async (req: Request, res: Response) => {
+  const { slug, name, description, color, bannerUrl, active } = req.body || {};
+  if (!slug || !name) {
+    res.status(400).json({ error: "slug e name são obrigatórios" });
+    return;
+  }
+  const slugNorm = String(slug).toLowerCase().trim().replace(/\s+/g, "-");
+  if (!/^[a-z0-9-]+$/.test(slugNorm)) {
+    res.status(400).json({ error: "Slug inválido (use apenas letras, números e hífens)" });
+    return;
+  }
+  const existing = await db.select().from(zonesTable).where(eq(zonesTable.slug, slugNorm)).limit(1);
+  if (existing[0]) {
+    res.status(409).json({ error: "Já existe uma zona com este slug" });
+    return;
+  }
+  const [zone] = await db.insert(zonesTable).values({
+    slug: slugNorm,
+    name: String(name),
+    description: description ?? null,
+    color: color || "#f97316",
+    bannerUrl: bannerUrl || null,
+    active: active !== false,
+  }).returning();
+  res.status(201).json({ zone });
+});
+
+router.patch("/admin/zones/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const { name, description, color, bannerUrl, active } = req.body || {};
+  const updates: Record<string, unknown> = {};
+  if (name !== undefined) updates.name = String(name);
+  if (description !== undefined) updates.description = description || null;
+  if (color !== undefined) updates.color = color || "#f97316";
+  if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl || null;
+  if (active !== undefined) updates.active = Boolean(active);
+  const [zone] = await db.update(zonesTable).set(updates).where(eq(zonesTable.id, id)).returning();
+  if (!zone) { res.status(404).json({ error: "Zona não encontrada" }); return; }
+  res.json({ zone });
+});
+
+router.delete("/admin/zones/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(zonesTable).where(eq(zonesTable.id, id));
   res.json({ success: true });
 });
 

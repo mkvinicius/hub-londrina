@@ -56,6 +56,14 @@ Full-stack local business directory for Londrina, Brazil.
 - `/admin/categorias` — Category management (CRUD)
 - `/admin/impulsionamento` — Search boost management (5 monthly positions + avulso boosts)
 - `/admin/home-banners` — Home banner management (CRUD, max 2 active)
+- `/admin/zonas` — Zone CRUD + per-zone featured slots (up to 6 per zone)
+
+**Zonas (regions)**: 5 zonas canônicas — `centro`, `norte`, `sul`, `leste`, `oeste`. Stored as `businesses.zone` (slug) and `businesses.region` (display name). Zone metadata (name, color, banner, description) lives in the `zones` table; falls back to `lib/zones.ts` constants if a row is missing.
+
+**Zone-aware endpoints** (all accept `?zone=<slug>`):
+- `GET /api/businesses?zone=` `GET /api/search?zone=` `GET /api/categories?zone=`
+- `GET /api/zones` (public list with counts) · `GET /api/zones/:slug` (public detail)
+- `GET/POST/PATCH/DELETE /api/admin/zones[/:id]` (admin CRUD)
 
 **Routes (lojista — SPA, no SSR)**:
 - `/lojista/login` — Email+password login (JWT 7 days)

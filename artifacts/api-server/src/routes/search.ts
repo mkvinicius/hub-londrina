@@ -107,9 +107,11 @@ router.get("/search", async (req, res) => {
     res.status(400).json({ error: "Parâmetros inválidos" });
     return;
   }
-  const { q, region, category } = parsed.data;
+  const { q, region, category, zone } = parsed.data;
 
   const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active")];
+
+  if (zone) conditions.push(eq(businessesTable.zone, zone));
 
   if (q) {
     const words = q.trim().split(/\s+/).filter(Boolean);

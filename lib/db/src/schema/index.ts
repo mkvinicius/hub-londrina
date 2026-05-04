@@ -8,3 +8,4 @@ export * from "./home-banners";
 export * from "./search-boosts";
 export * from "./subscriptions";
 export * from "./business-documents";
+export * from "./zones";

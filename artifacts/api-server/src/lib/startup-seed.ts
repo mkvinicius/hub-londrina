@@ -69,7 +69,7 @@ export async function runStartupSeed() {
         {
           name: "Churrascaria Pantanal",
           categorySlug: "restaurantes",
-          region: "Gleba Palhano",
+          region: "Zona Sul",
           description: "Tradição de 20 anos em churrasco de qualidade. Cortes nobres, espeto corrido e ambiente sofisticado na Gleba Palhano.",
           address: "Av. Ayrton Senna, 1840 - Gleba Palhano, Londrina",
           phone: "(43) 3344-5566",
@@ -128,7 +128,7 @@ export async function runStartupSeed() {
         {
           name: "Salão Studio Glamour",
           categorySlug: "saloes",
-          region: "Gleba Palhano",
+          region: "Zona Sul",
           description: "Especialistas em coloração, cortes modernos, tratamentos capilares e nail art. Profissionais certificados e atendimento premium.",
           address: "Av. Madre Leônia Milito, 500 - Gleba Palhano, Londrina",
           phone: "(43) 3366-9900",
@@ -217,7 +217,7 @@ export async function runStartupSeed() {
         {
           name: "FitLife Academia",
           categorySlug: "academias",
-          region: "Jardim Québec",
+          region: "Zona Leste",
           description: "Academia moderna com spinning, pilates, zumba e musculação. Planos acessíveis para toda a família no Jardim Québec.",
           address: "Rua Prefeito Hugo Cabral, 1120 - Jardim Québec, Londrina",
           phone: "(43) 3388-1144",
@@ -275,7 +275,7 @@ export async function runStartupSeed() {
         {
           name: "Mini Mercado Família",
           categorySlug: "mercados",
-          region: "Jardim Québec",
+          region: "Zona Leste",
           description: "Mercado de bairro com produtos frescos, padaria artesanal e atendimento personalizado. Tradição de 15 anos no Jardim Québec.",
           address: "Rua Ângelo Moreira da Fonseca, 88 - Jardim Québec, Londrina",
           phone: "(43) 3300-7766",
@@ -334,7 +334,7 @@ export async function runStartupSeed() {
         {
           name: "Grão Especial Café",
           categorySlug: "cafeterias",
-          region: "Gleba Palhano",
+          region: "Zona Sul",
           description: "Café da manhã completo, almoço executivo e cafés especiais. O point favorito da Gleba Palhano para reuniões.",
           address: "Av. Ayrton Senna, 560 - Gleba Palhano, Londrina",
           phone: "(43) 3344-9988",
@@ -480,7 +480,7 @@ export async function runStartupSeed() {
         {
           name: "Padaria Arte do Pão",
           categorySlug: "padarias",
-          region: "Jardim Québec",
+          region: "Zona Leste",
           description: "Pães artesanais, bolos caseiros, salgados frescos e café colonial. Feito com amor toda manhã no Jardim Québec.",
           address: "Rua dos Pioneiros, 560 - Jardim Québec, Londrina",
           phone: "(43) 3366-4400",
@@ -538,7 +538,7 @@ export async function runStartupSeed() {
         {
           name: "Clínica Bem Estar",
           categorySlug: "saude",
-          region: "Gleba Palhano",
+          region: "Zona Sul",
           description: "Clínica multidisciplinar com psicologia, nutrição, fisioterapia e medicina estética. Cuidado integral para toda a família.",
           address: "Al. Júlio César Gomes da Rocha, 650 - Gleba Palhano, Londrina",
           phone: "(43) 3344-7711",

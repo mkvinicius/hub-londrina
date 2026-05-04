@@ -16,6 +16,7 @@ export * from "./categoryListResponse";
 export * from "./healthStatus";
 export * from "./listBusinessesParams";
 export * from "./listBusinessesSort";
+export * from "./listCategoriesParams";
 export * from "./listReviewsParams";
 export * from "./review";
 export * from "./reviewListResponse";

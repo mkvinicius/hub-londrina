@@ -10,6 +10,7 @@ import type { ListBusinessesSort } from "./listBusinessesSort";
 export type ListBusinessesParams = {
   category?: string;
   region?: string;
+  zone?: string;
   q?: string;
   sort?: ListBusinessesSort;
 };

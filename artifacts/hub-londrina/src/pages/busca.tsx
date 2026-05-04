@@ -24,6 +24,7 @@ export default function Busca() {
 
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [region, setRegion] = useState(searchParams.get("regiao") ?? "");
+  const [zone, setZone] = useState(searchParams.get("zona") ?? "");
   const [categoria, setCategoria] = useState(searchParams.get("categoria") ?? "");
   const [sort, setSort] = useState("relevance");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -85,6 +86,7 @@ export default function Busca() {
   const { data: searchData, isLoading } = useSearch({
     q: query || undefined,
     region: region || undefined,
+    zone: zone || undefined,
     category: categoria || undefined,
   });
 
@@ -159,6 +161,7 @@ export default function Busca() {
     const params = new URLSearchParams();
     if (localQuery) params.set("q", localQuery);
     if (region && region !== "todas") params.set("regiao", region);
+    if (zone && zone !== "todas") params.set("zona", zone);
     if (categoria) params.set("categoria", categoria);
     navigate(`/busca?${params.toString()}`);
   }
@@ -177,6 +180,7 @@ export default function Busca() {
     setQuery("");
     setLocalQuery("");
     setRegion("");
+    setZone("");
     setCategoria("");
     setNearbyMode(false);
     setNearbyResults(null);

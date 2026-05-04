@@ -22,6 +22,7 @@ export const HealthCheckResponse = zod.object({
 export const ListBusinessesQueryParams = zod.object({
   category: zod.coerce.string().optional(),
   region: zod.coerce.string().optional(),
+  zone: zod.coerce.string().optional(),
   q: zod.coerce.string().optional(),
   sort: zod.enum(["rating", "recent", "name"]).optional(),
 });
@@ -105,6 +106,10 @@ export const GetBusinessByIdResponse = zod
  * Returns all categories with business count
  * @summary List categories
  */
+export const ListCategoriesQueryParams = zod.object({
+  zone: zod.coerce.string().optional(),
+});
+
 export const ListCategoriesResponse = zod.object({
   data: zod.array(
     zod.object({
@@ -145,6 +150,7 @@ export const ListReviewsResponse = zod.object({
  */
 export const SearchQueryParams = zod.object({
   q: zod.coerce.string().optional(),
+  zone: zod.coerce.string().optional(),
   region: zod.coerce.string().optional(),
   category: zod.coerce.string().optional(),
 });

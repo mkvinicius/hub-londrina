@@ -5,8 +5,12 @@ import { eq, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/categories", async (_req, res) => {
+router.get("/categories", async (req, res) => {
+  const zone = typeof req.query.zone === "string" ? req.query.zone : undefined;
   const categories = await db.select().from(categoriesTable);
+
+  const baseConds = [eq(businessesTable.isVisible, true), eq(businessesTable.status, "active")];
+  if (zone) baseConds.push(eq(businessesTable.zone, zone));
 
   const counts = await db
     .select({
@@ -14,7 +18,7 @@ router.get("/categories", async (_req, res) => {
       count: sql<number>`count(*)::int`,
     })
     .from(businessesTable)
-    .where(and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active")))
+    .where(and(...baseConds))
     .groupBy(businessesTable.categorySlug);
 
   const countMap = new Map(counts.map((c) => [c.categorySlug, c.count]));
