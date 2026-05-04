@@ -58,6 +58,16 @@ function daysRemaining(d: string | null): string {
 
 const emptyZoneForm = { slug: "", name: "", description: "", color: "#f97316", bannerUrl: "", active: true };
 
+// Zonas padrão — sempre existem no sistema. Garante que a página renderize
+// mesmo se /api/admin/zones falhar (auth, rede, etc).
+const DEFAULT_ZONES: Zone[] = [
+  { id: -1, slug: "norte",  name: "Zona Norte",  color: "#3b82f6", description: "Região norte de Londrina",   bannerUrl: null, active: true, businessCount: 0 },
+  { id: -2, slug: "sul",    name: "Zona Sul",    color: "#10b981", description: "Região sul de Londrina",     bannerUrl: null, active: true, businessCount: 0 },
+  { id: -3, slug: "leste",  name: "Zona Leste",  color: "#f59e0b", description: "Região leste de Londrina",   bannerUrl: null, active: true, businessCount: 0 },
+  { id: -4, slug: "oeste",  name: "Zona Oeste",  color: "#8b5cf6", description: "Região oeste de Londrina",   bannerUrl: null, active: true, businessCount: 0 },
+  { id: -5, slug: "centro", name: "Centro",      color: "#ef4444", description: "Região central de Londrina", bannerUrl: null, active: true, businessCount: 0 },
+];
+
 export default function AdminZonas() {
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [boosts, setBoosts] = useState<Record<string, ZoneBoost[]>>({});
@@ -76,18 +86,30 @@ export default function AdminZonas() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    // Zonas: tenta API admin, depois pública, depois fallback hardcoded.
     try {
-      const [zonesRes, extra, biz] = await Promise.all([
-        adminFetch("/api/admin/zones"),
-        adminFetch("/api/admin/boosts-extra"),
-        adminFetch("/api/admin/businesses?limit=200"),
-      ]);
-      setZonesList(zonesRes.data || []);
-      setBoosts(extra.zones || {});
-      setBusinesses(biz.data || []);
-    } finally {
-      setLoading(false);
+      const zonesRes = await adminFetch("/api/admin/zones");
+      const list = (zonesRes?.data as Zone[]) || [];
+      setZonesList(list.length > 0 ? list : DEFAULT_ZONES);
+    } catch {
+      try {
+        const pub = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/zones`).then(r => r.json());
+        const list = (pub?.data as Zone[]) || [];
+        setZonesList(list.length > 0 ? list.map(z => ({ ...z, businessCount: 0 })) : DEFAULT_ZONES);
+      } catch {
+        setZonesList(DEFAULT_ZONES);
+      }
     }
+    // Boosts e businesses são best-effort — sem eles a página ainda mostra zonas.
+    try {
+      const extra = await adminFetch("/api/admin/boosts-extra");
+      setBoosts(extra.zones || {});
+    } catch { setBoosts({}); }
+    try {
+      const biz = await adminFetch("/api/admin/businesses?limit=200");
+      setBusinesses(biz.data || []);
+    } catch { setBusinesses([]); }
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
