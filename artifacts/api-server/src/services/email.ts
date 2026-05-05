@@ -250,6 +250,25 @@ export const emails = {
     `,
   }),
 
+  assinaturaCancelada: (businessName: string) => ({
+    subject: "Sua assinatura foi cancelada — Hub Londrina",
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f97316;">Hub Londrina</h2>
+        <p>Olá,</p>
+        <p>A assinatura de <strong>${businessName}</strong> foi cancelada e o perfil voltou para o plano Gratuito.</p>
+        <p>Seu perfil continua ativo na plataforma, mas os recursos pagos foram desativados.</p>
+        <p>Quando quiser reativar, acesse sua conta e escolha um novo plano:</p>
+        <a href="https://www.hublondrina.com.br/lojista/plano"
+           style="background: #f97316; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; margin: 16px 0;">
+          Reativar assinatura
+        </a>
+        <p style="color: #666; font-size: 14px;">Sentimos sua falta. Qualquer dúvida, estamos aqui.</p>
+        <p style="color: #666; font-size: 14px;">— Equipe Hub Londrina</p>
+      </div>
+    `,
+  }),
+
   recuperacaoSenha: (nome: string, token: string) => ({
     subject: `Redefinir sua senha — Hub Londrina`,
     html: `
@@ -265,3 +284,8 @@ export const emails = {
     `,
   }),
 };
+
+export async function sendAssinaturaCancelada(email: string, businessName: string): Promise<void> {
+  const tpl = emails.assinaturaCancelada(businessName);
+  await sendEmail(email, tpl.subject, tpl.html);
+}

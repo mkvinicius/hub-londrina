@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable } from "@workspace/db/schema";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
-import { sendEmail, emails } from "../services/email";
+import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
 
 const router: IRouter = Router();
 
@@ -433,10 +433,52 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         }
         break;
       }
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
+      case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
         await syncSubscription(sub.id);
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const sub = await db.select()
+          .from(subscriptionsTable)
+          .where(eq(subscriptionsTable.stripeCustomerId, customerId))
+          .limit(1);
+        if (!sub[0]) break;
+        await db.update(businessesTable)
+          .set({ planType: "free" })
+          .where(eq(businessesTable.id, sub[0].businessId));
+        await db.update(subscriptionsTable)
+          .set({ status: "canceled" })
+          .where(eq(subscriptionsTable.id, sub[0].id));
+        const [biz] = await db.select().from(businessesTable)
+          .where(eq(businessesTable.id, sub[0].businessId));
+        if (biz?.ownerEmail) {
+          await sendAssinaturaCancelada(biz.ownerEmail, biz.name);
+        }
+        break;
+      }
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const customerId = charge.customer as string;
+        if (!customerId) break;
+        const sub = await db.select()
+          .from(subscriptionsTable)
+          .where(eq(subscriptionsTable.stripeCustomerId, customerId))
+          .limit(1);
+        if (!sub[0]) break;
+        await db.update(businessesTable)
+          .set({ planType: "free" })
+          .where(eq(businessesTable.id, sub[0].businessId));
+        await db.update(subscriptionsTable)
+          .set({ status: "canceled" })
+          .where(eq(subscriptionsTable.id, sub[0].id));
+        const [biz] = await db.select().from(businessesTable)
+          .where(eq(businessesTable.id, sub[0].businessId));
+        if (biz?.ownerEmail) {
+          await sendAssinaturaCancelada(biz.ownerEmail, biz.name);
+        }
         break;
       }
       case "payment_intent.succeeded": {
