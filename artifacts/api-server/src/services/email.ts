@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = "Hub Londrina <onboarding@resend.dev>";
+const FROM = "Hub Londrina <noreply@hublondrina.com.br>";
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   try {
