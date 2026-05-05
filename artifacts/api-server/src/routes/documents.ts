@@ -1,9 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import { db } from "@workspace/db";
+import { uploadBufferToGCS, serveGCSObject } from "../lib/gcsUpload";
 import {
   businessesTable,
   businessUsersTable,
@@ -26,17 +25,16 @@ type DocType = (typeof VALID_TYPES)[number];
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const ALLOWED_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
 
-// Diretório PRIVADO — fora de /public para não ser servido estaticamente
-const DOCS_DIR = path.resolve(process.cwd(), "private", "uploads", "documents");
-if (!fs.existsSync(DOCS_DIR)) {
-  fs.mkdirSync(DOCS_DIR, { recursive: true });
+function extractExt(filename: string): string {
+  const idx = filename.lastIndexOf(".");
+  return idx >= 0 ? filename.slice(idx).toLowerCase() : "";
 }
 
 const docUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
+    const ext = extractExt(file.originalname);
     if (ALLOWED_MIMES.includes(file.mimetype) && ALLOWED_EXTS.includes(ext)) {
       cb(null, true);
     } else {
@@ -156,23 +154,6 @@ async function recomputeDocumentationStatus(businessId: number): Promise<void> {
   }
 }
 
-function safeUnlink(absPath: string): void {
-  try {
-    if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
-  } catch (err) {
-    logger.warn({ err, absPath }, "[Documents] falha ao remover arquivo antigo");
-  }
-}
-
-function resolveDocAbsPath(businessId: number, filename: string): string | null {
-  const businessDir = path.resolve(DOCS_DIR, String(businessId));
-  const full = path.resolve(businessDir, filename);
-  // Path traversal guard
-  if (!full.startsWith(businessDir + path.sep) && full !== businessDir) return null;
-  if (!full.startsWith(DOCS_DIR + path.sep)) return null;
-  return full;
-}
-
 // POST /api/lojista/documents — upload de documento
 router.post(
   "/lojista/documents",
@@ -196,35 +177,18 @@ router.post(
       return;
     }
 
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const businessDir = path.resolve(DOCS_DIR, String(businessId));
-    if (!fs.existsSync(businessDir)) fs.mkdirSync(businessDir, { recursive: true });
+    const ext = extractExt(req.file.originalname);
     const filename = `${documentType}-${Date.now()}${ext}`;
-    const fullPath = path.resolve(businessDir, filename);
-    if (!fullPath.startsWith(businessDir + path.sep)) {
-      res.status(400).json({ error: "Caminho inválido" });
-      return;
-    }
-
-    // Remove arquivo físico anterior do mesmo tipo (evita acúmulo)
-    const previous = await db
-      .select()
-      .from(businessDocumentsTable)
-      .where(
-        and(
-          eq(businessDocumentsTable.businessId, businessId),
-          eq(businessDocumentsTable.documentType, documentType),
-        ),
-      );
-    for (const old of previous) {
-      const oldName = path.basename(old.fileUrl);
-      const oldAbs = resolveDocAbsPath(businessId, oldName);
-      if (oldAbs) safeUnlink(oldAbs);
-    }
-
-    fs.writeFileSync(fullPath, req.file.buffer);
+    // Upload para GCS em pasta privada por businessId
     // fileUrl é apenas referência interna; jamais retornado ao cliente
-    const fileUrl = `private://documents/${businessId}/${filename}`;
+    const fileUrl = await uploadBufferToGCS(
+      req.file.buffer,
+      `documents/${businessId}`,
+      filename,
+      req.file.mimetype,
+    );
+    // Remover arquivo anterior do mesmo tipo: apenas registro no banco
+    // (objetos antigos no GCS ficam órfãos — limpeza por job opcional)
 
     await db
       .delete(businessDocumentsTable)
@@ -485,14 +449,22 @@ router.get("/documents/signed/:token", async (req: Request, res: Response) => {
     return;
   }
 
-  const filename = path.basename(doc.fileUrl);
-  const abs = resolveDocAbsPath(doc.businessId, filename);
-  if (!abs || !fs.existsSync(abs)) {
+  // doc.fileUrl é o path retornado por uploadBufferToGCS (ex: "/storage/objects/uploads/documents/<biz>/<file>")
+  // Extrai o caminho dentro do bucket (sem o prefixo /storage/objects/)
+  const PREFIX = "/storage/objects/";
+  const gcsPath = doc.fileUrl.startsWith(PREFIX)
+    ? doc.fileUrl.slice(PREFIX.length)
+    : doc.fileUrl;
+
+  const obj = await serveGCSObject(gcsPath);
+  if (!obj) {
     res.status(404).json({ error: "Arquivo não encontrado" });
     return;
   }
 
-  res.sendFile(abs);
+  res.setHeader("Content-Type", obj.contentType);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.send(obj.buffer);
 });
 
 export default router;
