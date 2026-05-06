@@ -18,7 +18,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL
   || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
 
 const ZONE_PRICE_ID = process.env.STRIPE_ZONE_BOOST_PRICE_ID;
-const HOME_PRICE_ID = process.env.STRIPE_HOME_BOOST_PRICE_ID;
+const HOME_PRICE_ID = process.env.STRIPE_HOME_SEARCH_BOOST_PRICE_ID;
 
 const SLOTS_PER_CONTEXT = 6;
 const ZONE_PRICE_BRL = 79;

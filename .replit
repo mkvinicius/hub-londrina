@@ -33,4 +33,3 @@ channel = "stable-25_05"
 
 [userenv.shared]
 STRIPE_ZONE_BOOST_PRICE_ID = "price_1TT5lsDto2NkIN2Dl9Mztpl3"
-STRIPE_HOME_BOOST_PRICE_ID = "price_1TT5lsDto2NkIN2DUyYwnjQk"
