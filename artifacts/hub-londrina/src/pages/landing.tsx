@@ -594,7 +594,10 @@ export default function Landing() {
                         </li>
                       ))}
                     </ul>
-                    <button className="w-full border border-white/20 text-white/80 hover:bg-white/10 rounded-xl py-2 text-sm font-bold transition-colors">
+                    <button
+                      onClick={() => navigate("/cadastro")}
+                      className="w-full border border-white/20 text-white/80 hover:bg-white/10 rounded-xl py-2 text-sm font-bold transition-colors"
+                    >
                       Começar
                     </button>
                   </div>
@@ -615,7 +618,7 @@ export default function Landing() {
                       ))}
                     </ul>
                     <button
-                      onClick={() => navigate("/anuncie")}
+                      onClick={() => navigate("/anuncie#planos")}
                       className="w-full bg-white text-[#d97706] hover:bg-gray-100 rounded-xl py-2 text-sm font-black transition-colors"
                     >
                       Assinar
@@ -635,7 +638,7 @@ export default function Landing() {
                       ))}
                     </ul>
                     <button
-                      onClick={() => navigate("/lojista/plano")}
+                      onClick={() => navigate("/anuncie#planos")}
                       className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl py-2 text-sm font-bold transition-colors"
                     >
                       Assinar Premium

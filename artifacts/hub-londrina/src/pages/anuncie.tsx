@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   CheckCircle2, TrendingUp, Users, Smartphone, MessageSquare,
@@ -83,6 +83,17 @@ const depoimentos = [
 export default function Anuncie() {
   const [, navigate] = useLocation();
   const [anual, setAnual] = useState(false);
+
+  // Wouter ignora hash; rolagem manual quando a URL contém #planos (ou outra âncora).
+  useEffect(() => {
+    const hash = typeof window !== "undefined" ? window.location.hash.replace("#", "") : "";
+    if (!hash) return;
+    const id = window.setTimeout(() => {
+      const el = document.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const destaque = {
     mensal: { price: "R$59,90", sub: "/mês" },
