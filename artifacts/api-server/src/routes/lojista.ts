@@ -55,55 +55,13 @@ function lojistaAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-router.post("/lojista/register", async (req: Request, res: Response) => {
-  const { businessName, categorySlug, zone, ownerName, email, password } = req.body;
-
-  if (!businessName || !email || !password || !ownerName) {
-    res.status(400).json({ error: "Nome do negócio, responsável, email e senha são obrigatórios" });
-    return;
-  }
-  if (password.length < 6) {
-    res.status(400).json({ error: "A senha deve ter no mínimo 6 caracteres" });
-    return;
-  }
-
-  const normalizedEmail = email.toLowerCase().trim();
-  const existing = await db.select().from(businessUsersTable).where(eq(businessUsersTable.email, normalizedEmail));
-  if (existing.length > 0) {
-    res.status(409).json({ error: "Este email já está cadastrado" });
-    return;
-  }
-
-  const validZones = ["centro", "norte", "sul", "leste", "oeste"];
-  const selectedZone = validZones.includes(zone) ? zone : "centro";
-
-  const [business] = await db.insert(businessesTable).values({
-    name: businessName.trim(),
-    categorySlug: categorySlug || "servicos",
-    zone: selectedZone,
-    ownerName: ownerName.trim(),
-    ownerEmail: normalizedEmail,
-    planType: "free",
-    isVisible: true,
-    description: "",
-    phone: "",
-    whatsapp: "",
-  }).returning();
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  await db.insert(businessUsersTable).values({
-    email: normalizedEmail,
-    passwordHash,
-    businessId: business.id,
+// H6: rota legacy desativada. Bypassava email verification, CNPJ check,
+// rate limit, CSRF e marcava isVisible=true sem aprovação. Use /api/auth/register.
+router.post("/lojista/register", (_req: Request, res: Response) => {
+  res.status(410).json({
+    error: "Rota descontinuada. Use POST /api/auth/register.",
+    code: "ENDPOINT_DEPRECATED",
   });
-
-  const token = jwt.sign(
-    { businessId: business.id, email: normalizedEmail, role: "lojista" },
-    JWT_SECRET!,
-    { expiresIn: "7d" }
-  );
-
-  res.status(201).json({ token, businessId: business.id });
 });
 
 router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) => {

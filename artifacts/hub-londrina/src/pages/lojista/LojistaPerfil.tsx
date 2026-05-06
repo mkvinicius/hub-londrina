@@ -70,7 +70,14 @@ export default function LojistaPerfil() {
       setMsg("Perfil salvo com sucesso!");
       setTimeout(() => setMsg(""), 3000);
     } catch (err: any) {
-      setMsg(`Erro: ${err.message}`);
+      // H7: tratar PLAN_REQUIRED com mensagem amigável + CTA implícito ao plano.
+      const code = err?.code || err?.body?.code;
+      if (code === "PLAN_REQUIRED") {
+        const plan = err?.body?.requiredPlan || err?.requiredPlan || "superior";
+        setMsg(`Erro: este recurso exige o plano ${plan}. Acesse "Plano & Assinatura" para fazer upgrade.`);
+      } else {
+        setMsg(`Erro: ${err.message}`);
+      }
     } finally {
       setSaving(false);
     }

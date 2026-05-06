@@ -309,6 +309,23 @@ router.post("/businesses/:id/review", reviewLimiter, csrfProtection, validateId,
 
   const visitorId = getVisitorId(req, res);
 
+  // H4: impedir múltiplas avaliações do mesmo visitante para o mesmo negócio
+  // (até existir UNIQUE(business_id, visitor_id) via migration).
+  const [duplicate] = await db
+    .select({ id: reviewsTable.id })
+    .from(reviewsTable)
+    .where(
+      and(
+        eq(reviewsTable.businessId, id),
+        eq(reviewsTable.visitorId, visitorId),
+      ),
+    )
+    .limit(1);
+  if (duplicate) {
+    res.status(409).json({ error: "Você já avaliou este negócio.", code: "REVIEW_DUPLICATE" });
+    return;
+  }
+
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [recentClick] = await db
     .select({ id: businessClicksTable.id })

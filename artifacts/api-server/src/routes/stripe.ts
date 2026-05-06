@@ -506,9 +506,21 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           if (sub) {
             await db
               .update(businessesTable)
-              .set({ planType: "free" })
+              .set({ planType: "free", boostedUntil: null })
               .where(eq(businessesTable.id, sub.businessId));
-            console.log(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId}`);
+            // H2: ao rebaixar para free, expirar boosts ativos (boost só está
+            // disponível para Premium; manter ativo seria inconsistente e daria
+            // exposição grátis ao negócio rebaixado).
+            await db
+              .update(searchBoostsTable)
+              .set({ status: "expired", expiresAt: new Date() })
+              .where(
+                and(
+                  eq(searchBoostsTable.businessId, sub.businessId),
+                  sql`${searchBoostsTable.status} != 'expired'`
+                )
+              );
+            console.log(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId} (boosts expirados)`);
             try {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
               if (biz?.ownerEmail) {

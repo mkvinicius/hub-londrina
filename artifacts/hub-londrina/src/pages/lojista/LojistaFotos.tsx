@@ -30,6 +30,24 @@ export default function LojistaFotos() {
   const isFree = profile.planType === "free";
 
   async function handleUpload(type: "logo" | "banner" | "photo", file: File) {
+    // H8: guardas defensivas pré-upload — evita gastar banda do lojista quando
+    // a regra de plano já reprovaria no servidor.
+    if ((type === "logo" || type === "banner") && isFree) {
+      setMsg(`Erro: ${type === "logo" ? "Logo" : "Banner"} disponível apenas no plano Destaque ou superior.`);
+      return;
+    }
+    if (type === "photo" && photos.length >= maxPhotos) {
+      setMsg(`Erro: limite de ${maxPhotos} foto(s) atingido para o plano ${profile.planType}.`);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMsg("Erro: arquivo maior que 5MB.");
+      return;
+    }
+    if (!/^image\/(jpeg|jpg|png|webp|gif)$/i.test(file.type)) {
+      setMsg("Erro: formato inválido. Use JPG, PNG, WEBP ou GIF.");
+      return;
+    }
     setUploading(type);
     setMsg("");
     try {

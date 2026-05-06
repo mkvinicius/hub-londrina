@@ -34,6 +34,15 @@ const forgotLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// H9: limita tentativas de reset com token (anti brute-force de tokens).
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Muitas tentativas. Tente novamente em 15 minutos.", code: "TOO_MANY_REQUESTS" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function stripCnpj(cnpj: string): string {
   return cnpj.replace(/\D/g, "");
 }
@@ -310,7 +319,7 @@ router.post("/auth/forgot-password", forgotLimiter, csrfProtection, async (req: 
   res.json({ message: GENERIC });
 });
 
-router.post("/auth/reset-password", async (req: Request, res: Response) => {
+router.post("/auth/reset-password", resetLimiter, async (req: Request, res: Response) => {
   const { token, newPassword } = req.body;
 
   if (!token || !newPassword) {

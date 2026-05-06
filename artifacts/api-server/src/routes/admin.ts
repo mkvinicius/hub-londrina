@@ -327,6 +327,23 @@ router.patch("/admin/businesses/:id", validateId, async (req: Request, res: Resp
     if (!VALID_PLANS.includes(req.body.planType)) {
       res.status(400).json({ error: "planType inválido" }); return;
     }
+    // H1: bloquear mudança manual de plano se houver assinatura Stripe ativa.
+    // Caso contrário, admin e Stripe ficam dessincronizados (lojista cobrado por
+    // plano antigo, mas com plano novo no DB; ou vice-versa). Para promoções/
+    // cortesias, peça ao lojista para cancelar pelo Billing Portal antes.
+    const [activeSub] = await db
+      .select({ id: subscriptionsTable.id, status: subscriptionsTable.status, plan: subscriptionsTable.plan })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.businessId, id));
+    if (activeSub && ["active", "trialing", "past_due"].includes(activeSub.status) && req.body.planType !== activeSub.plan) {
+      res.status(409).json({
+        error: `Negócio possui assinatura Stripe ${activeSub.status} no plano "${activeSub.plan}". Cancele pelo Billing Portal antes de alterar o plano manualmente.`,
+        code: "SUBSCRIPTION_ACTIVE",
+        currentPlan: activeSub.plan,
+        subscriptionStatus: activeSub.status,
+      });
+      return;
+    }
     updates.planType = req.body.planType;
   }
   if (req.body.region !== undefined) {
