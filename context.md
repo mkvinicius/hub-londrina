@@ -529,18 +529,27 @@ boostAtivado(nome, ctx, expiresAt)     Boost promovido da fila de espera
 Critério de desempate: rating DESC → completeness score → clicks DESC
 
 ### Planos Stripe
-| Variável de ambiente         | Plano     | Ciclo   |
-|------------------------------|-----------|---------|
-| STRIPE_BASE_PRICE_ID         | destaque  | mensal  |
-| STRIPE_BASE_ANNUAL_PRICE_ID  | destaque  | anual   |
-| STRIPE_PREMIUM_PRICE_ID      | premium   | mensal  |
-| STRIPE_PREMIUM_ANNUAL_PRICE_ID | premium | anual   |
+| Variável de ambiente           | Plano     | Ciclo   | Tipo    |
+|-------------------------------|-----------|---------|---------|
+| STRIPE_BASE_PRICE_ID           | destaque  | mensal  | secret  |
+| STRIPE_BASE_ANNUAL_PRICE_ID    | destaque  | anual   | secret  |
+| STRIPE_PREMIUM_PRICE_ID        | premium   | mensal  | secret  |
+| STRIPE_PREMIUM_ANNUAL_PRICE_ID | premium   | anual   | secret  |
+| STRIPE_HOME_BANNER_PRICE_ID    | banner home | avulso | secret |
+| STRIPE_ZONE_BOOST_PRICE_ID     | boost zona | 30d=R$79 | env var shared |
+| STRIPE_HOME_BOOST_PRICE_ID     | boost home/busca | 30d=R$149 | env var shared |
 
 ### Impulsionamentos Especiais (boosts.ts)
-- **Destaque de Zona** (`boostContext=zone`): destaque na página de zona por 30 dias. Máximo 6 vagas por zona. Fila de espera automática.
-- **Destaque Home/Busca** (`boostContext=home_search`): aparece em `/busca` e home. Máximo 6 vagas. Fila de espera automática.
+- **Destaque de Zona** (`boostContext=zone`): destaque na página de zona por 30 dias. Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
+- **Destaque Home/Busca** (`boostContext=home_search`): aparece em `/busca` e home. Máximo 6 vagas. Fila de espera automática. Exclusivo Premium. Price ID: `STRIPE_HOME_BOOST_PRICE_ID`.
 - **Busca Patrocinada** (`boostContext=search`): posição fixa na busca (mensal). Gerenciado pelo admin.
 - **Boost Direto Admin** (`businesses.boostedUntil`): admin define período manualmente.
+
+**Fluxo de compra self-service (lojista):**
+1. `GET /api/lojista/boosts/availability` — verifica vagas e elegibilidade de plano
+2. `POST /api/lojista/boosts/checkout` — cria sessão Stripe Checkout (mode=payment)
+3. Webhook `payment_intent.succeeded` — cria registro em `search_boosts` com status `active` ou `waitlist`
+4. Job `startBoostExpirationJob()` — expira boosts vencidos e promove waitlist a cada 1h
 
 ### Features por Plano
 | Feature                        | Free | Destaque | Premium |
