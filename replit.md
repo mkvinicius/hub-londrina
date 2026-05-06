@@ -73,9 +73,9 @@ Full-stack local business directory for Londrina, Brazil.
 - `/lojista/produtos` — Product catalog CRUD (locked for non-premium)
 - `/lojista/metricas` — Click analytics (locked for free; chart locked for non-premium)
 - `/lojista/avaliacoes` — Review management (view, respond, copy review link)
-- `/lojista/boost` — Boost/impulsionamento info page (position table, avulso options, WhatsApp CTA)
-- `/lojista/assinaturas` — Unified subscription dashboard (plan + boosts + banner, time remaining bars, manage links)
-- `/lojista/plano` — Plan management
+- `/lojista/boost` — Boost (categoria self-service Premium com botões comprar, avulso WhatsApp)
+- `/lojista/plano` — Plano & Assinatura unificado, abas "Visão Geral" (status plano + boosts + banner) e "Mudar Plano" (grade 3 planos consumindo `/api/stripe/config`)
+- `/lojista/assinaturas` — redirect 301-like para `/lojista/plano` (rota aposentada)
 - `/lojista/senha` — Password change
 
 **Key files**:
@@ -127,11 +127,12 @@ Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/
 - Uploads served at `/api/uploads/{logos,banners,photos}/` — MIME filtered (jpg/png/webp/gif only)
 
 **Boost System**:
-- Monthly: 5 positions, bids R$149(1st)/R$119(2nd)/R$99(3rd)/R$79(4th)/R$59(5th). Waitlist if position occupied.
-- Avulso: 7d=R$29, 15d=R$49, 30d=R$79. Expires automatically via hourly job.
+- Categoria (auto-serviço, Premium-only): 5 posições mensais R$149/R$119/R$99/R$79/R$59. Compra direta no cartão via Stripe Checkout. Waitlist se posição ocupada. Duração 30d. Price IDs em `STRIPE_BOOST_CAT_{1..5}_PRICE_ID`. Endpoints `GET /api/lojista/boosts/category-positions` e `POST /api/lojista/boosts/category-checkout`. Webhook `payment_intent.succeeded` com `boostContext=category` insere em `searchBoosts(boostType=monthly, boostContext=search)` com `pg_advisory_xact_lock` por posição.
+- Avulso: 7d=R$29, 15d=R$49, 30d=R$79. Contato WhatsApp.
+- Zona / Home+Busca / Banner Home: vendidos em `LojistaBoost` via `/lojista/boosts/checkout` (zone/home_search) e `/lojista/home-banner/checkout`.
 - Ordering: monthly boosted (position ASC) → avulso boosted (rating DESC) → premium → destaque → free
-- Expiration job: `api-server/src/lib/boost-expiration.ts` — runs on startup + every 1h, sets status='expired' for avulso boosts past expiresAt
-- API: `GET /api/lojista/boost-positions` — position availability for lojista view
+- Expiration job: `api-server/src/lib/boost-expiration.ts` — runs on startup + every 1h.
+- API: `GET /api/lojista/boost-positions` — view legacy de posições.
 
 **DB Seed**: 10 categories, 20 businesses (real Londrina data), 20 lojista accounts, 42 products, 10 reviews
 Default lojista password: Hub@2026 (all accounts)
@@ -158,4 +159,10 @@ Default lojista password: Hub@2026 (all accounts)
 - On payment success: sets business.planType to "destaque" or "premium"
 - On cancellation/failure: reverts business.planType to "free"
 - Frontend: LojistaPlano.tsx fully integrated — mensal/anual toggle, real checkout buttons, Billing Portal access, subscription status card
-- Required secrets: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_BASE_PRICE_ID, STRIPE_BASE_ANNUAL_PRICE_ID, STRIPE_PREMIUM_PRICE_ID, STRIPE_PREMIUM_ANNUAL_PRICE_ID, STRIPE_WEBHOOK_SECRET
+- Required secrets: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_BASE_PRICE_ID, STRIPE_BASE_ANNUAL_PRICE_ID, STRIPE_PREMIUM_PRICE_ID, STRIPE_PREMIUM_ANNUAL_PRICE_ID, STRIPE_WEBHOOK_SECRET, STRIPE_ZONE_BOOST_PRICE_ID, STRIPE_HOME_SEARCH_BOOST_PRICE_ID, STRIPE_HOME_BANNER_PRICE_ID, STRIPE_BOOST_CAT_{1..5}_PRICE_ID
+- `/api/stripe/config` (público) — fonte única de preços/planos/boosts. Retorna `prices` (todos price IDs incl. `category_boosts.{1..5}`), `plans` (free/destaque/premium com `monthlyDisplay`/`annualDisplay`/`features`) e `boosts` (metadata categoria/zona/home_search/home_banner). LojistaPlano consome `plans` no fallback. Pendente: `anuncie.tsx` consumir `prices`/`plans`.
+
+**Rotas aposentadas (Sprint 2.4)**:
+- `businesses.ts` `/zones/:zone/stats` e `/zones/:zone/businesses` removidos (duplicavam `zones.ts:108/165`).
+- `reviews.ts` `/reviews?businessId=` removido (use `/businesses/:id/reviews`).
+- `LojistaAssinaturas.tsx` removido — fundido em `LojistaPlano.tsx` via abas.

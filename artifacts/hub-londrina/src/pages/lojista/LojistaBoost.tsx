@@ -1,8 +1,23 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { lojistaFetch } from "@/lib/lojista-api";
+import { lojistaFetch, getCategoryBoostPositions, createCategoryBoostCheckout } from "@/lib/lojista-api";
 import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon } from "lucide-react";
 import { Link } from "wouter";
+
+interface CategoryPosition {
+  position: number;
+  price: number;
+  occupied: boolean;
+  mine: boolean;
+  expiresAt: string | null;
+}
+interface CategoryPositionsResponse {
+  plan: string;
+  eligible: boolean;
+  requiredPlan: string;
+  positions: CategoryPosition[];
+  currentBoost: { position: number; expiresAt: string | null } | null;
+}
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 const WHATSAPP_NUMBER = "5543999999999";
@@ -56,20 +71,24 @@ export default function LojistaBoost() {
   const [banner, setBanner] = useState<{ type: "success" | "info" | "error"; msg: string } | null>(null);
   const [homeBanner, setHomeBanner] = useState<{ id: number; status: string; rejectionReason: string | null; createdAt: string } | null>(null);
   const [bannerCheckoutLoading, setBannerCheckoutLoading] = useState(false);
+  const [catPositions, setCatPositions] = useState<CategoryPositionsResponse | null>(null);
+  const [catCheckoutLoading, setCatCheckoutLoading] = useState<number | null>(null);
 
   async function loadAll() {
     try {
-      const [profile, posData, avail, hb] = await Promise.all([
+      const [profile, posData, avail, hb, cats] = await Promise.all([
         lojistaFetch("/lojista/profile"),
         lojistaFetch("/lojista/boost-positions"),
         lojistaFetch("/lojista/boosts/availability"),
         lojistaFetch("/lojista/home-banner/status").catch(() => ({ banner: null })),
+        getCategoryBoostPositions().catch(() => null),
       ]);
       setBoost(profile._boost || null);
       setPositions(posData.positions || []);
       setPlanType(profile.planType || "free");
       setAvailability(avail);
       setHomeBanner(hb?.banner || null);
+      setCatPositions(cats);
     } catch (e) {
       // ignore
     } finally {
@@ -84,6 +103,12 @@ export default function LojistaBoost() {
       window.history.replaceState({}, "", window.location.pathname);
     } else if (params.get("boost_cancelled") === "1") {
       setBanner({ type: "info", msg: "Pagamento cancelado. Você pode tentar novamente quando quiser." });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("cat_success") === "1") {
+      setBanner({ type: "success", msg: "Pagamento confirmado! Seu boost de categoria foi ativado. Verifique seu email." });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("cat_cancelled") === "1") {
+      setBanner({ type: "info", msg: "Pagamento de boost de categoria cancelado." });
       window.history.replaceState({}, "", window.location.pathname);
     } else if (params.get("banner") === "success") {
       setBanner({ type: "success", msg: "Pagamento confirmado! Sua solicitação de banner Home está em análise pelo admin. Você será notificado quando for aprovada." });
@@ -106,6 +131,23 @@ export default function LojistaBoost() {
       setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
     } finally {
       setBannerCheckoutLoading(false);
+    }
+  }
+
+  async function handleBuyCategoryBoost(position: number) {
+    setCatCheckoutLoading(position);
+    setBanner(null);
+    try {
+      const res = await createCategoryBoostCheckout(position);
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      setBanner({ type: "error", msg: "Erro ao iniciar o checkout" });
+    } catch (e: any) {
+      setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
+    } finally {
+      setCatCheckoutLoading(null);
     }
   }
 
@@ -431,11 +473,34 @@ export default function LojistaBoost() {
           </a>
         </div>
       ) : (
-        <div className={`bg-white border border-gray-200 rounded-2xl p-6 mb-8 ${planType !== "premium" ? "opacity-60 pointer-events-none" : ""}`}>
-          <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <Crown className="w-4 h-4 text-amber-500" />
-            Posições Mensais
-          </h3>
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
+          <div className="flex items-start gap-2 mb-4">
+            <Crown className="w-5 h-5 text-amber-500 mt-0.5" />
+            <div>
+              <h3 className="text-base font-bold text-gray-800">Boost de Categoria</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                5 posições mensais por categoria. Compra direta no cartão (Premium).
+              </p>
+            </div>
+          </div>
+
+          {catPositions && !catPositions.eligible && (
+            <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              Boost de categoria é exclusivo para o plano <strong>Premium</strong>.{" "}
+              <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+            </div>
+          )}
+
+          {catPositions?.currentBoost && (
+            <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Você ocupa a <strong>{catPositions.currentBoost.position}ª posição</strong> até{" "}
+              {catPositions.currentBoost.expiresAt
+                ? new Date(catPositions.currentBoost.expiresAt).toLocaleDateString("pt-BR")
+                : "—"}
+            </div>
+          )}
+
           <div className="bg-gray-50 rounded-xl overflow-hidden mb-6">
             <table className="w-full text-sm">
               <thead>
@@ -443,36 +508,46 @@ export default function LojistaBoost() {
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Posição</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Preço Mensal</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase">Ação</th>
                 </tr>
               </thead>
               <tbody>
-                {positions.map(p => (
-                  <tr key={p.position} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-2.5 font-bold text-gray-700">{p.position}º</td>
-                    <td className="px-4 py-2.5 text-gray-700">R${p.bid}/mês</td>
-                    <td className="px-4 py-2.5">
-                      {p.occupied ? (
-                        <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Ocupado</span>
-                      ) : (
-                        <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Livre</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {(catPositions?.positions ?? positions.map(p => ({ position: p.position, price: p.bid, occupied: p.occupied, mine: false, expiresAt: null }))).map(p => {
+                  const canBuy = catPositions?.eligible && !p.occupied && !catPositions.currentBoost;
+                  return (
+                    <tr key={p.position} className="border-b border-gray-100 last:border-0">
+                      <td className="px-4 py-2.5 font-bold text-gray-700">{p.position}º</td>
+                      <td className="px-4 py-2.5 text-gray-700">R${p.price}/mês</td>
+                      <td className="px-4 py-2.5">
+                        {p.mine ? (
+                          <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Sua</span>
+                        ) : p.occupied ? (
+                          <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Ocupada</span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Livre</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {canBuy ? (
+                          <button
+                            onClick={() => handleBuyCategoryBoost(p.position)}
+                            disabled={catCheckoutLoading === p.position}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-lg disabled:opacity-60"
+                          >
+                            {catCheckoutLoading === p.position
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <>Comprar</>}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-
-          <a
-            href={ctaUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl ${BTN_ELEVATION}`}
-          >
-            <MessageCircle className="w-4 h-4" />
-            Fale com a gente para contratar
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
 
           <h3 className="text-sm font-bold text-gray-700 mt-8 mb-3 flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-500" />
@@ -512,7 +587,7 @@ export default function LojistaBoost() {
             className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl ${BTN_ELEVATION}`}
           >
             <MessageCircle className="w-4 h-4" />
-            Fale com a gente
+            Fale com a gente para boost avulso
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>

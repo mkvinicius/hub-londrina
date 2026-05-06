@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, User, Image, ShoppingBag, BarChart3, Lock, CreditCard, Star, Zap, LogOut, Menu, X, FileText, AlertTriangle, Receipt } from "lucide-react";
+import { LayoutDashboard, User, Image, ShoppingBag, BarChart3, Lock, CreditCard, Star, Zap, LogOut, Menu, X, FileText, AlertTriangle } from "lucide-react";
 import { clearToken, lojistaFetch } from "@/lib/lojista-api";
 import { useEffect, useState } from "react";
 
@@ -12,8 +12,7 @@ const links = [
   { href: "/lojista/metricas", label: "Métricas", icon: BarChart3 },
   { href: "/lojista/avaliacoes", label: "Avaliações", icon: Star },
   { href: "/lojista/boost", label: "Impulsionamento", icon: Zap },
-  { href: "/lojista/assinaturas", label: "Assinaturas", icon: Receipt },
-  { href: "/lojista/plano", label: "Plano", icon: CreditCard },
+  { href: "/lojista/plano", label: "Plano & Assinatura", icon: CreditCard },
   { href: "/lojista/senha", label: "Senha", icon: Lock },
 ];
 

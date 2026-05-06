@@ -515,81 +515,8 @@ const ZONE_REGION_PATTERN: Record<string, string> = {
   centro: "%centro%",
 };
 
-router.get("/zones/:zone/stats", async (req: Request, res: Response) => {
-  const { zone } = req.params;
-  const pattern = ZONE_REGION_PATTERN[zone];
-  if (!pattern) return res.status(400).json({ error: "Zona inválida" });
-
-  const visibleActive = and(
-    eq(businessesTable.isVisible, true),
-    eq(businessesTable.status, "active"),
-    sql`lower(${businessesTable.region}) LIKE lower(${pattern})`,
-  );
-
-  const [countRes, byCat, topRated, cats, zoneBoosts] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(visibleActive),
-    db.select({ slug: businessesTable.categorySlug, count: sql<number>`count(*)::int` })
-      .from(businessesTable).where(visibleActive).groupBy(businessesTable.categorySlug),
-    db.select().from(businessesTable).where(visibleActive).orderBy(desc(businessesTable.rating)).limit(6),
-    db.select().from(categoriesTable),
-    db.select({ businessId: searchBoostsTable.businessId })
-      .from(searchBoostsTable)
-      .where(and(
-        eq(searchBoostsTable.boostContext as any, "zone"),
-        eq(searchBoostsTable.zone as any, zone),
-        eq(searchBoostsTable.status, "active"),
-        or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > NOW()`)
-      )).limit(6),
-  ]);
-
-  const catMap = new Map(cats.map(c => [c.slug, c.name]));
-
-  res.json({
-    zone,
-    label: zone,
-    totalBusinesses: countRes[0]?.count ?? 0,
-    byCategory: byCat.filter(c => c.slug).map(c => ({ slug: c.slug, name: catMap.get(c.slug) ?? c.slug, count: c.count })),
-    topRated,
-    zoneBoostCount: zoneBoosts.length,
-  });
-});
-
-router.get("/zones/:zone/businesses", async (req: Request, res: Response) => {
-  const { zone } = req.params;
-  const pattern = ZONE_REGION_PATTERN[zone];
-  if (!pattern) return res.status(400).json({ error: "Zona inválida" });
-
-  const category = req.query.category as string | undefined;
-  const limit = Math.min(Number(req.query.limit) || 12, 60);
-
-  const conditions: any[] = [
-    eq(businessesTable.isVisible, true),
-    eq(businessesTable.status, "active"),
-    sql`lower(${businessesTable.region}) LIKE lower(${pattern})`,
-  ];
-  if (category) conditions.push(eq(businessesTable.categorySlug, category));
-
-  const [data, countResult, boostMap] = await Promise.all([
-    db.select().from(businessesTable).where(and(...conditions)).orderBy(asc(PLAN_ORDER), desc(businessesTable.rating)).limit(limit),
-    db.select({ count: sql<number>`count(*)::int` }).from(businessesTable).where(and(...conditions)),
-    getActiveBoosts(),
-  ]);
-
-  const now = Date.now();
-  const monthlyBoosted: any[] = [], avulsoBoosted: any[] = [], premium: any[] = [], destaque: any[] = [], free: any[] = [];
-  for (const biz of data) {
-    const boost = boostMap.get(biz.id);
-    if (boost?.boostType === "monthly" && boost.position) monthlyBoosted.push({ ...biz, _boostBadge: "Patrocinado" });
-    else if (boost) avulsoBoosted.push({ ...biz, _boostBadge: "Patrocinado" });
-    else if (biz.boostedUntil && new Date(biz.boostedUntil).getTime() > now) avulsoBoosted.push({ ...biz, _boostBadge: "Impulsionado" });
-    else if (biz.planType === "premium") premium.push(biz);
-    else if (biz.planType === "destaque") destaque.push(biz);
-    else free.push(biz);
-  }
-  monthlyBoosted.sort((a, b) => (a._boostPosition || 99) - (b._boostPosition || 99));
-
-  res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0, page: 1, limit });
-});
+// /zones/:zone/stats e /zones/:zone/businesses foram removidos — duplicavam
+// rotas equivalentes em zones.ts (linhas 108 e 165). Use /api/zones/:slug/* lá.
 
 router.get("/home-banners", async (_req: Request, res: Response) => {
   const { homeBannersTable } = await import("@workspace/db/schema");

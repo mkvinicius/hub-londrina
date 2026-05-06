@@ -1,0 +1,50 @@
+Leia o context.md. Execute as 4 tarefas do Sprint 2 em ordem. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build.
+
+TAREFA 2.1 — Boost de Categoria self-service
+
+Passo 1 — Criar produtos no Stripe:
+
+cd ~/workspace/artifacts/api-server && node -e "
+const Stripe = require('stripe');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const positions = [
+  { name: 'Boost Categoria Posição 1', price: 14900 },
+  { name: 'Boost Categoria Posição 2', price: 11900 },
+  { name: 'Boost Categoria Posição 3', price: 9900 },
+  { name: 'Boost Categoria Posição 4', price: 7900 },
+  { name: 'Boost Categoria Posição 5', price: 5900 },
+];
+Promise.all(positions.map(async (p, i) => {
+  const product = await stripe.products.create({ name: p.name });
+  const price = await stripe.prices.create({ product: product.id, unit_amount: p.price, currency: 'brl' });
+  console.log('STRIPE_BOOST_CAT_' + (i+1) + '_PRICE_ID=' + price.id);
+}));
+"
+
+Adicione os 5 Price IDs gerados nos Secrets: STRIPE_BOOST_CAT_1_PRICE_ID, STRIPE_BOOST_CAT_2_PRICE_ID, STRIPE_BOOST_CAT_3_PRICE_ID, STRIPE_BOOST_CAT_4_PRICE_ID, STRIPE_BOOST_CAT_5_PRICE_ID.
+
+Passo 2 — Backend em artifacts/api-server/src/routes/boosts.ts, adicione dois endpoints:
+
+POST /api/lojista/boosts/category-checkout — Body: { position: 1|2|3|4|5 }. Só Premium. Verifica se posição está livre em search_boosts (boostType='monthly', position=N, status='active'). Se ocupada retorna 400 "Posição ocupada. Tente outra posição." Se livre cria Stripe Checkout mode:'payment' com metadata: { businessId, boostContext:'search', position, type:'category_boost' }, success_url: /lojista/boost?category_success=1, cancel_url: /lojista/boost?cancelled=1.
+
+GET /api/lojista/boosts/category-positions — Retorna quais das 5 posições estão livres ou ocupadas: { positions: [ { position:1, price:149, status:'occupied'|'free', occupiedBy?: string } ] }.
+
+No webhook payment_intent.succeeded em stripe.ts, adicione case para type='category_boost': se pi.metadata.type === 'category_boost', pegar position = parseInt(pi.metadata.position), prices = [14900,11900,9900,7900,5900], inserir em searchBoostsTable com boostType:'monthly', boostContext:'search', monthlyBid: String(prices[position-1]/100), position, status:'active', startsAt: new Date(), expiresAt: now + 30 dias, price: String(prices[position-1]/100).
+
+Passo 3 — Frontend em LojistaBoost.tsx: na seção Posições Mensais, buscar posições via GET /api/lojista/boosts/category-positions. Para cada posição livre mostrar botão "Comprar — R$X" que chama POST /api/lojista/boosts/category-checkout. Para posição ocupada mostrar badge cinza "Ocupada". Se não Premium mostrar "Exclusivo Premium" com link para /lojista/plano. Mostrar banner de sucesso quando URL tiver ?category_success=1.
+
+TAREFA 2.2 — Centralizar tabela de preços
+
+Em artifacts/api-server/src/routes/stripe.ts, atualize GET /api/stripe/config para retornar: publishableKey, prices com base_monthly, base_annual, premium_monthly, premium_annual, zone_boost, home_boost (STRIPE_HOME_SEARCH_BOOST_PRICE_ID), banner, category_boosts com chaves 1 a 5 lendo STRIPE_BOOST_CAT_1_PRICE_ID até STRIPE_BOOST_CAT_5_PRICE_ID. Também retornar plans com free (price_monthly:0, features: Perfil na plataforma, Botão WhatsApp, Endereço no mapa, 1 foto na galeria), destaque (price_monthly:5990, price_annual:59880, features: Tudo do Gratuito, Até 10 fotos, Logo e banner, Selo Destaque, Instagram/Website, Métricas básicas, Prioridade na busca, Suporte por email), premium (price_monthly:8990, price_annual:95880, features: Tudo do Base, Vitrine de produtos, Vídeo de apresentação, Destaque na home, Métricas avançadas, Impulsionamento disponível, Suporte WhatsApp VIP, Selo Premium, Topo garantido na busca).
+
+Em LojistaPlano.tsx e anuncie.tsx, substituir preços e features hardcoded por dados de GET /api/stripe/config com fallback para valores atuais se a API falhar.
+
+TAREFA 2.3 — Fundir LojistaPlano e LojistaAssinaturas
+
+Em LojistaPlano.tsx adicionar duas abas no topo: Visão Geral e Mudar Plano. Aba Visão Geral mostra: card com plano atual, status, próxima cobrança, cancelAtPeriodEnd, botão Gerenciar cobrança que abre portal Stripe, seção Histórico com últimas 3 faturas via GET /api/stripe/subscription, e regra de degradação. Aba Mudar Plano mostra os 3 cards atuais com toggle mensal/anual. Se existir rota /lojista/assinaturas em App.tsx redirecionar para /lojista/plano.
+
+TAREFA 2.4 — Aposentar rotas duplicadas
+
+Em artifacts/api-server/src/routes/businesses.ts remover handlers de GET /zones/:zone/stats e GET /zones/:zone/businesses se existirem. Em index.ts ou auth.ts verificar se /lojista/register está duplicado e se sim manter apenas em auth.ts removendo de lojista.ts. Verificar se há rotas duplicadas de reviews e remover a versão flat GET /reviews?bizId= mantendo apenas GET /businesses/:id/reviews.
+
+APÓS TUDO: rodar cd ~/workspace/artifacts/api-server && pnpm build. Atualizar context.md com Sprint 2 completo incluindo 5 novos Price IDs de boost categoria, endpoints category-checkout e category-positions, preços centralizados em /api/stripe/config, LojistaPlano com abas. Retornar relatório completo.

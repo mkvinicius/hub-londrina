@@ -20,6 +20,22 @@ const FRONTEND_URL = process.env.FRONTEND_URL
 const ZONE_PRICE_ID = process.env.STRIPE_ZONE_BOOST_PRICE_ID;
 const HOME_PRICE_ID = process.env.STRIPE_HOME_SEARCH_BOOST_PRICE_ID;
 
+const CATEGORY_PRICE_IDS: Record<number, string | undefined> = {
+  1: process.env.STRIPE_BOOST_CAT_1_PRICE_ID,
+  2: process.env.STRIPE_BOOST_CAT_2_PRICE_ID,
+  3: process.env.STRIPE_BOOST_CAT_3_PRICE_ID,
+  4: process.env.STRIPE_BOOST_CAT_4_PRICE_ID,
+  5: process.env.STRIPE_BOOST_CAT_5_PRICE_ID,
+};
+
+const CATEGORY_PRICES_BRL: Record<number, number> = {
+  1: 149,
+  2: 119,
+  3: 99,
+  4: 79,
+  5: 59,
+};
+
 const SLOTS_PER_CONTEXT = 6;
 const ZONE_PRICE_BRL = 79;
 const HOME_PRICE_BRL = 149;
@@ -199,6 +215,147 @@ router.post("/lojista/boosts/checkout", lojistaAuth, async (req: Request, res: R
         businessId: String(lojista.businessId),
         boostContext,
         zone: biz.zone || "",
+      },
+    },
+    locale: "pt-BR",
+  });
+
+  res.json({ url: session.url });
+});
+
+// ──────────────────────────────────────────────────────────────────
+// BOOST CATEGORIA — 5 posições mensais (auto-serviço, Premium-only)
+// ──────────────────────────────────────────────────────────────────
+
+router.get("/lojista/boosts/category-positions", lojistaAuth, async (req: Request, res: Response) => {
+  const lojista = (req as any).lojista as LojistaPayload;
+
+  const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const planType = biz.planType || "free";
+  const eligible = planType === "premium";
+
+  const occupied = await db.select({
+    position: searchBoostsTable.position,
+    businessId: searchBoostsTable.businessId,
+    expiresAt: searchBoostsTable.expiresAt,
+  })
+    .from(searchBoostsTable)
+    .where(and(
+      eq(searchBoostsTable.boostType, "monthly"),
+      eq(searchBoostsTable.boostContext, "search" as any),
+      eq(searchBoostsTable.status, "active"),
+      or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+    ));
+
+  const positions = [1, 2, 3, 4, 5].map(pos => {
+    const occ = occupied.find(o => o.position === pos);
+    return {
+      position: pos,
+      price: CATEGORY_PRICES_BRL[pos],
+      occupied: !!occ,
+      mine: occ?.businessId === lojista.businessId,
+      expiresAt: occ?.expiresAt || null,
+    };
+  });
+
+  const myCurrent = occupied.find(o => o.businessId === lojista.businessId);
+
+  res.json({
+    plan: planType,
+    eligible,
+    requiredPlan: "premium",
+    positions,
+    currentBoost: myCurrent ? {
+      position: myCurrent.position,
+      expiresAt: myCurrent.expiresAt,
+    } : null,
+  });
+});
+
+router.post("/lojista/boosts/category-checkout", lojistaAuth, async (req: Request, res: Response) => {
+  const lojista = (req as any).lojista as LojistaPayload;
+  const { position } = req.body as { position?: number };
+
+  if (!position || ![1, 2, 3, 4, 5].includes(position)) {
+    res.status(400).json({ error: "Posição inválida (1 a 5)" });
+    return;
+  }
+
+  const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const planType = biz.planType || "free";
+  if (planType !== "premium") {
+    res.status(403).json({ error: "Boost de categoria é exclusivo para o plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium" });
+    return;
+  }
+
+  const existing = await db.select().from(searchBoostsTable).where(and(
+    eq(searchBoostsTable.businessId, lojista.businessId),
+    eq(searchBoostsTable.boostType, "monthly"),
+    eq(searchBoostsTable.boostContext, "search" as any),
+    eq(searchBoostsTable.status, "active"),
+    or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+  ));
+  if (existing.length > 0) {
+    res.status(400).json({ error: "Você já tem um boost de categoria ativo", code: "BOOST_EXISTS" });
+    return;
+  }
+
+  const occupied = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
+    eq(searchBoostsTable.boostType, "monthly"),
+    eq(searchBoostsTable.boostContext, "search" as any),
+    eq(searchBoostsTable.position, position),
+    eq(searchBoostsTable.status, "active"),
+    or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+  ));
+  if (occupied.length > 0) {
+    res.status(409).json({ error: `Posição ${position}º já está ocupada`, code: "POSITION_TAKEN" });
+    return;
+  }
+
+  const priceId = CATEGORY_PRICE_IDS[position];
+  if (!priceId) {
+    res.status(500).json({ error: `Price ID não configurado para posição ${position}` });
+    return;
+  }
+
+  const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, lojista.businessId));
+  let customerId = existingSub?.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: lojista.email,
+      name: biz.name,
+      metadata: { businessId: String(lojista.businessId) },
+    });
+    customerId = customer.id;
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${FRONTEND_URL}/lojista/boost?cat_success=1`,
+    cancel_url: `${FRONTEND_URL}/lojista/boost?cat_cancelled=1`,
+    metadata: {
+      businessId: String(lojista.businessId),
+      boostContext: "category",
+      position: String(position),
+    },
+    payment_intent_data: {
+      metadata: {
+        businessId: String(lojista.businessId),
+        boostContext: "category",
+        position: String(position),
       },
     },
     locale: "pt-BR",

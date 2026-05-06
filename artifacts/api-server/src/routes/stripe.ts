@@ -54,6 +54,93 @@ router.get("/stripe/config", (_req: Request, res: Response) => {
       base_annual: process.env.STRIPE_BASE_ANNUAL_PRICE_ID,
       premium_monthly: process.env.STRIPE_PREMIUM_PRICE_ID,
       premium_annual: process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID,
+      zone_boost: process.env.STRIPE_ZONE_BOOST_PRICE_ID,
+      home_search_boost: process.env.STRIPE_HOME_SEARCH_BOOST_PRICE_ID,
+      home_banner: process.env.STRIPE_HOME_BANNER_PRICE_ID,
+      category_boosts: {
+        1: process.env.STRIPE_BOOST_CAT_1_PRICE_ID,
+        2: process.env.STRIPE_BOOST_CAT_2_PRICE_ID,
+        3: process.env.STRIPE_BOOST_CAT_3_PRICE_ID,
+        4: process.env.STRIPE_BOOST_CAT_4_PRICE_ID,
+        5: process.env.STRIPE_BOOST_CAT_5_PRICE_ID,
+      },
+    },
+    plans: {
+      free: {
+        key: "free",
+        label: "Gratuito",
+        monthlyBRL: 0,
+        annualBRL: 0,
+        monthlyDisplay: "R$0",
+        annualDisplay: "R$0",
+        annualTotalDisplay: "",
+        annualSavings: "",
+        features: [
+          { label: "Perfil básico do negócio", included: true },
+          { label: "1 foto na galeria", included: true },
+          { label: "Link para WhatsApp", included: true },
+          { label: "Aparece nas buscas locais", included: true },
+          { label: "Logo e banner", included: false },
+          { label: "Instagram / Website", included: false },
+          { label: "Métricas de cliques", included: false },
+          { label: "Vitrine de produtos", included: false },
+        ],
+      },
+      destaque: {
+        key: "destaque",
+        label: "Base",
+        monthlyBRL: 5990,
+        annualBRL: 59880,
+        monthlyDisplay: "R$59,90",
+        annualDisplay: "R$49,90",
+        annualTotalDisplay: "R$598,80/ano",
+        annualSavings: "Economize R$120/ano",
+        features: [
+          { label: "Tudo do Gratuito", included: true },
+          { label: "Até 10 fotos", included: true },
+          { label: "Logo e banner", included: true },
+          { label: "Selo Destaque", included: true },
+          { label: "Instagram / Website", included: true },
+          { label: "Métricas básicas", included: true },
+          { label: "Prioridade na busca", included: true },
+          { label: "Suporte por email", included: true },
+        ],
+      },
+      premium: {
+        key: "premium",
+        label: "Premium",
+        monthlyBRL: 8990,
+        annualBRL: 95880,
+        monthlyDisplay: "R$89,90",
+        annualDisplay: "R$79,90",
+        annualTotalDisplay: "R$958,80/ano",
+        annualSavings: "Economize R$120/ano",
+        features: [
+          { label: "Tudo do plano Base", included: true },
+          { label: "Vitrine de produtos", included: true },
+          { label: "Vídeo de apresentação", included: true },
+          { label: "Boost de categoria disponível", included: true },
+          { label: "Métricas avançadas", included: true },
+          { label: "Suporte prioritário via WhatsApp", included: true },
+          { label: "Selo Premium", included: true },
+        ],
+      },
+    },
+    boosts: {
+      category: {
+        label: "Boost de Categoria",
+        requiredPlan: "premium",
+        positions: [
+          { position: 1, priceBRL: 149 },
+          { position: 2, priceBRL: 119 },
+          { position: 3, priceBRL: 99 },
+          { position: 4, priceBRL: 79 },
+          { position: 5, priceBRL: 59 },
+        ],
+      },
+      zone: { label: "Destaque de Zona", priceBRL: 79, durationDays: 30, requiredPlan: "destaque" },
+      home_search: { label: "Destaque Home + Busca", priceBRL: 149, durationDays: 30, requiredPlan: "premium" },
+      home_banner: { label: "Banner na Home", priceBRL: 299, requiredPlan: "premium" },
     },
   });
 });
@@ -483,8 +570,67 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
       }
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
-        const { businessId, boostContext, zone } = pi.metadata || {};
+        const { businessId, boostContext, zone, position } = pi.metadata || {};
         if (!businessId || !boostContext) break;
+
+        // Branch: BOOST CATEGORIA (5 posições mensais)
+        if (boostContext === "category") {
+          const bizIdCat = parseInt(businessId, 10);
+          const pos = parseInt(position || "0", 10);
+          if (!Number.isFinite(bizIdCat) || bizIdCat <= 0) break;
+          if (![1, 2, 3, 4, 5].includes(pos)) break;
+
+          const CAT_PRICES: Record<number, number> = { 1: 149, 2: 119, 3: 99, 4: 79, 5: 59 };
+          const lockKey = `boost:category:${pos}`;
+          let hashCat = 0;
+          for (let i = 0; i < lockKey.length; i++) hashCat = ((hashCat << 5) - hashCat + lockKey.charCodeAt(i)) | 0;
+
+          const result = await db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(${hashCat})`);
+
+            const existingMine = await tx.select().from(searchBoostsTable).where(and(
+              eq(searchBoostsTable.businessId, bizIdCat),
+              eq(searchBoostsTable.boostType, "monthly"),
+              eq(searchBoostsTable.boostContext, "search" as any),
+              or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+            ));
+            if (existingMine.length > 0) return { skipped: true as const };
+
+            const occ = await tx.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
+              eq(searchBoostsTable.boostType, "monthly"),
+              eq(searchBoostsTable.boostContext, "search" as any),
+              eq(searchBoostsTable.position, pos),
+              eq(searchBoostsTable.status, "active"),
+              or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+            ));
+
+            const status: "active" | "waitlist" = occ.length === 0 ? "active" : "waitlist";
+            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+            await tx.insert(searchBoostsTable).values({
+              businessId: bizIdCat,
+              boostType: "monthly",
+              boostContext: "search" as any,
+              position: pos,
+              monthlyBid: String(CAT_PRICES[pos]),
+              status,
+              durationDays: 30,
+              startsAt: status === "active" ? new Date() : null,
+              expiresAt: status === "active" ? expiresAt : null,
+              price: String(CAT_PRICES[pos]),
+            });
+
+            return { skipped: false as const, status, expiresAt, position: pos };
+          });
+
+          if (result.skipped) {
+            console.log(`[Stripe Webhook] Boost categoria já existe para biz ${bizIdCat}, ignorando`);
+          } else {
+            console.log(`[Stripe Webhook] Boost categoria pos ${pos} ${result.status} criado para biz ${bizIdCat}`);
+          }
+          break;
+        }
+
         if (boostContext !== "zone" && boostContext !== "home_search") break;
 
         const bizId = parseInt(businessId, 10);

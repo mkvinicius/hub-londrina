@@ -191,3 +191,14 @@ export async function getSubscription() {
 export async function getSubscriptions() {
   return lojistaFetch("/lojista/subscriptions");
 }
+
+export async function getCategoryBoostPositions() {
+  return lojistaFetch("/lojista/boosts/category-positions");
+}
+
+export async function createCategoryBoostCheckout(position: number): Promise<{ url: string }> {
+  return lojistaFetch("/lojista/boosts/category-checkout", {
+    method: "POST",
+    body: JSON.stringify({ position }),
+  });
+}

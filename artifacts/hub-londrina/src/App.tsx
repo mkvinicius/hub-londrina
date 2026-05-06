@@ -32,7 +32,6 @@ import LojistaPlano from "@/pages/lojista/LojistaPlano";
 import LojistaSenha from "@/pages/lojista/LojistaSenha";
 import LojistaAvaliacoes from "@/pages/lojista/LojistaAvaliacoes";
 import LojistaBoost from "@/pages/lojista/LojistaBoost";
-import LojistaAssinaturas from "@/pages/lojista/LojistaAssinaturas";
 import LojistaDocumentacao from "@/pages/lojista/LojistaDocumentacao";
 import AdminDocumentacao from "@/pages/admin/AdminDocumentacao";
 import ZonePage from "@/pages/zona";
@@ -91,7 +90,7 @@ function Router() {
       <Route path="/lojista/metricas">{() => <LojistaPrivateRoute component={LojistaMetricas} />}</Route>
       <Route path="/lojista/avaliacoes">{() => <LojistaPrivateRoute component={LojistaAvaliacoes} />}</Route>
       <Route path="/lojista/boost">{() => <LojistaPrivateRoute component={LojistaBoost} />}</Route>
-      <Route path="/lojista/assinaturas">{() => <LojistaPrivateRoute component={LojistaAssinaturas} />}</Route>
+      <Route path="/lojista/assinaturas">{() => <Redirect to="/lojista/plano" />}</Route>
       <Route path="/lojista/documentacao">{() => <LojistaPrivateRoute component={LojistaDocumentacao} />}</Route>
       <Route path="/lojista/plano">{() => <LojistaPrivateRoute component={LojistaPlano} />}</Route>
       <Route path="/lojista/senha">{() => <LojistaPrivateRoute component={LojistaSenha} />}</Route>
