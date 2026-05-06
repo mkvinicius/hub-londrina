@@ -23,6 +23,7 @@ export const businessUsersTable = pgTable(
     emailVerified: text("email_verified").notNull().default("false"),
     emailVerificationToken: text("email_verification_token"),
     firstLoginAt: timestamp("first_login_at"),
+    lastLoginAt: timestamp("last_login_at"),
     documentationDeadline: timestamp("documentation_deadline"),
     documentationStatus: text("documentation_status").default("pending"),
     documentationRemainingDays: integer("documentation_remaining_days").default(10),

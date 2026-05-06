@@ -5,7 +5,7 @@ import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable } from "@workspace/db/schema";
-import { eq, ilike, sql, and, desc, gte, asc, or, ne } from "drizzle-orm";
+import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -63,6 +63,7 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     regionResults,
     categoryResults,
     lojistasResult,
+    activeLojistasResult,
     productsResult,
     visibilityResult,
     topBusinesses,
@@ -100,6 +101,10 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     }).from(categoriesTable).orderBy(desc(sql`(select count(*)::int from businesses where businesses.category_slug = ${categoriesTable.slug})`)),
 
     db.select({ count: sql<number>`count(*)::int` }).from(businessUsersTable),
+
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(businessUsersTable)
+      .where(gte(businessUsersTable.lastLoginAt, thirtyDaysAgo)),
 
     db.select({ count: sql<number>`count(*)::int` }).from(productsTable),
 
@@ -159,11 +164,84 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     count: r.count,
   }));
 
-  const estimatedRevenue = (byPlan.destaque || 0) * 49 + (byPlan.premium || 0) * 89;
+  // ---- Receita REAL (MRR) -------------------------------------------------
+  // Cruza subscriptions ativas com price IDs do Stripe (env). Anual é dividido
+  // por 12 para virar MRR comparável. Boosts ativos (search_boosts) são somados
+  // como receita não-recorrente do mês corrente.
+  const PRICE_TO_MRR: Record<string, { plan: string; cycle: "monthly" | "annual"; mrr: number }> = {};
+  const addPrice = (id: string | undefined, plan: string, cycle: "monthly" | "annual", priceCents: number) => {
+    if (!id) return;
+    PRICE_TO_MRR[id] = {
+      plan,
+      cycle,
+      mrr: cycle === "annual" ? priceCents / 12 : priceCents,
+    };
+  };
+  addPrice(process.env.STRIPE_BASE_PRICE_ID, "destaque", "monthly", 59.9);
+  addPrice(process.env.STRIPE_BASE_ANNUAL_PRICE_ID, "destaque", "annual", 598.8);
+  addPrice(process.env.STRIPE_PREMIUM_PRICE_ID, "premium", "monthly", 89.9);
+  addPrice(process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID, "premium", "annual", 958.8);
+
+  const activeSubs = await db
+    .select({
+      stripePriceId: subscriptionsTable.stripePriceId,
+      plan: subscriptionsTable.plan,
+    })
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.status, "active"),
+        or(
+          isNull(subscriptionsTable.currentPeriodEnd),
+          gte(subscriptionsTable.currentPeriodEnd, new Date()),
+        ),
+      ),
+    );
+
+  let mrrFromSubs = 0;
+  const subsBreakdown: Record<string, number> = {
+    destaque_monthly: 0,
+    destaque_annual: 0,
+    premium_monthly: 0,
+    premium_annual: 0,
+    unknown: 0,
+  };
+  for (const s of activeSubs) {
+    const meta = s.stripePriceId ? PRICE_TO_MRR[s.stripePriceId] : undefined;
+    if (meta) {
+      mrrFromSubs += meta.mrr;
+      subsBreakdown[`${meta.plan}_${meta.cycle}`]++;
+    } else {
+      subsBreakdown.unknown++;
+    }
+  }
+
+  const activeBoosts = await db
+    .select({ price: searchBoostsTable.price })
+    .from(searchBoostsTable)
+    .where(
+      and(
+        eq(searchBoostsTable.status, "active"),
+        or(
+          isNull(searchBoostsTable.expiresAt),
+          gte(searchBoostsTable.expiresAt, new Date()),
+        ),
+      ),
+    );
+  const boostsRevenueMonth = activeBoosts.reduce(
+    (acc, b) => acc + (b.price ? Number(b.price) : 0),
+    0,
+  );
+
+  // Estimativa "ingênua" mantida para compatibilidade visual (preços atuais).
+  const estimatedRevenue =
+    Math.round(((byPlan.destaque || 0) * 59.9 + (byPlan.premium || 0) * 89.9) * 100) / 100;
+  const realRevenue = Math.round((mrrFromSubs + boostsRevenueMonth) * 100) / 100;
 
   res.json({
     totalBusinesses: totalResult[0]?.count ?? 0,
     totalLojistas: lojistasResult[0]?.count ?? 0,
+    activeLojistas: activeLojistasResult[0]?.count ?? 0,
     totalProducts: productsResult[0]?.count ?? 0,
     totalClicks: clicksResult[0]?.totalClicks ?? 0,
     totalWhatsappClicks: clicksResult[0]?.totalWhatsappClicks ?? 0,
@@ -171,6 +249,10 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     visibleCount: visibilityResult[0]?.visible ?? 0,
     hiddenCount: visibilityResult[0]?.hidden ?? 0,
     estimatedRevenue,
+    realRevenue,
+    mrrFromSubs: Math.round(mrrFromSubs * 100) / 100,
+    boostsRevenueMonth: Math.round(boostsRevenueMonth * 100) / 100,
+    subsBreakdown,
     byPlan,
     byRegion,
     byCategory,

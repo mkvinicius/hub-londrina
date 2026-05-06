@@ -145,16 +145,23 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
   }
 
   // Primeiro login: iniciar timer de documentação (10 dias)
+  const now = new Date();
   if (!user.firstLoginAt) {
     await db
       .update(businessUsersTable)
       .set({
-        firstLoginAt: new Date(),
+        firstLoginAt: now,
+        lastLoginAt: now,
         documentationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
         documentationRemainingDays: 10,
         documentationStatus: "pending",
         documentationTimerPaused: false,
       })
+      .where(eq(businessUsersTable.id, user.id));
+  } else {
+    await db
+      .update(businessUsersTable)
+      .set({ lastLoginAt: now })
       .where(eq(businessUsersTable.id, user.id));
   }
 

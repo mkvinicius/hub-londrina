@@ -107,7 +107,8 @@ Routes: `POST /api/admin/login`, `GET /api/admin/stats` (comprehensive: KPIs, by
 `GET|PATCH|DELETE /api/admin/businesses`, `GET /api/admin/businesses/:id` (detail w/ products, lojista, clickBreakdown),
 `GET|POST|PATCH|DELETE /api/admin/categories`
 Env vars: `JWT_SECRET` (auto-generated), `ADMIN_PASSWORD` (user secret)
-Admin Dashboard: 6 KPI cards, plan/region/category distributions, top 10 businesses, recent signups feed, visibility summary
+Admin Dashboard: 6 KPI cards, plan/region/category distributions, top 10 businesses, recent signups feed, visibility summary.
+Stats v2: `realRevenue` (MRR vindo de `subscriptions` ativas + `boostsRevenueMonth` somando `search_boosts.price`); `estimatedRevenue` mantida como potencial baseado em `byPlan` × preços atuais (R$59,90/R$89,90); `mrrFromSubs`/`boostsRevenueMonth`/`subsBreakdown` expostos para diagnóstico. `activeLojistas` = `count(business_users) WHERE last_login_at >= now()-30d` (coluna `lastLoginAt` atualizada no `POST /api/lojista/login`); `totalLojistas` é o total cadastrado.
 Admin Negócios: clickable rows with detail modal (all fields, products, metrics), region-based filtering from admin-scoped data
 
 **Lojista API**: Direct fetch calls via `src/lib/lojista-api.ts` (JWT Bearer auth)

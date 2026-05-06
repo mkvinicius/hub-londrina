@@ -10,6 +10,7 @@ import {
 interface Stats {
   totalBusinesses: number;
   totalLojistas: number;
+  activeLojistas: number;
   totalProducts: number;
   totalClicks: number;
   totalWhatsappClicks: number;
@@ -17,6 +18,10 @@ interface Stats {
   visibleCount: number;
   hiddenCount: number;
   estimatedRevenue: number;
+  realRevenue: number;
+  mrrFromSubs: number;
+  boostsRevenueMonth: number;
+  subsBreakdown: Record<string, number>;
   byPlan: { free: number; destaque: number; premium: number };
   byRegion: { name: string; count: number }[];
   byCategory: { name: string; slug: string; count: number }[];
@@ -64,9 +69,9 @@ export default function AdminDashboard() {
 
   const kpiCards = [
     { label: "Negócios", value: stats.totalBusinesses, icon: Store, color: "from-amber-500 to-orange-600", sub: `${stats.visibleCount} ativos` },
-    { label: "Receita Estimada", value: `R$ ${stats.estimatedRevenue}`, icon: DollarSign, color: "from-emerald-500 to-green-600", sub: "/mês" },
+    { label: "Receita Real (MRR)", value: `R$ ${stats.realRevenue.toFixed(2).replace(".", ",")}`, icon: DollarSign, color: "from-emerald-500 to-green-600", sub: `est. R$ ${stats.estimatedRevenue.toFixed(2).replace(".", ",")}/mês` },
     { label: "Cliques Totais", value: stats.totalClicks + stats.totalWhatsappClicks, icon: MousePointerClick, color: "from-blue-500 to-indigo-600", sub: `${stats.totalWhatsappClicks} WhatsApp` },
-    { label: "Lojistas Ativos", value: stats.totalLojistas, icon: Users, color: "from-purple-500 to-violet-600", sub: `${stats.totalProducts} produtos` },
+    { label: "Lojistas Ativos (30d)", value: stats.activeLojistas, icon: Users, color: "from-purple-500 to-violet-600", sub: `${stats.totalLojistas} cadastrados` },
     { label: "Cadastros 30d", value: stats.recentSignups, icon: TrendingUp, color: "from-pink-500 to-rose-600", sub: "últimos 30 dias" },
     { label: "Categorias", value: stats.byCategory.length, icon: Package, color: "from-teal-500 to-cyan-600", sub: `${stats.byRegion.length} regiões` },
   ];
