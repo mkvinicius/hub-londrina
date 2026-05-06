@@ -127,7 +127,7 @@ Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/
 - Uploads served at `/api/uploads/{logos,banners,photos}/` — MIME filtered (jpg/png/webp/gif only)
 
 **Boost System**:
-- Categoria (auto-serviço, Premium-only): 5 posições mensais R$149/R$119/R$99/R$79/R$59. Compra direta no cartão via Stripe Checkout. Waitlist se posição ocupada. Duração 30d. Price IDs em `STRIPE_BOOST_CAT_{1..5}_PRICE_ID`. Endpoints `GET /api/lojista/boosts/category-positions` e `POST /api/lojista/boosts/category-checkout`. Webhook `payment_intent.succeeded` com `boostContext=category` insere em `searchBoosts(boostType=monthly, boostContext=search)` com `pg_advisory_xact_lock` por posição.
+- Categoria (auto-serviço, Premium-only): 5 posições mensais R$149/R$119/R$99/R$79/R$59. Compra direta no cartão via Stripe Checkout. Waitlist se posição ocupada. Duração 30d. Price IDs em `STRIPE_BOOST_CAT_{1..5}_PRICE_ID`. Endpoints `GET /api/lojista/boosts/category-positions` e `POST /api/lojista/boosts/category-checkout`. Webhook `payment_intent.succeeded` com `boostContext=category` insere em `searchBoosts(boostType=monthly, boostContext=category, position 1-5)` com `pg_advisory_xact_lock` por posição. Locks determinísticos em `api-server/src/lib/boost-locks.ts` (chaves int32 `[ns:8|slot:24]`, sem hash de string — ns=1 categoria, ns=2 zona, ns=3 home_search). Enum `boost_context` (lib/db/schema): search|zone|home_search|category.
 - Avulso: 7d=R$29, 15d=R$49, 30d=R$79. Contato WhatsApp.
 - Zona / Home+Busca / Banner Home: vendidos em `LojistaBoost` via `/lojista/boosts/checkout` (zone/home_search) e `/lojista/home-banner/checkout`.
 - Ordering: monthly boosted (position ASC) → avulso boosted (rating DESC) → premium → destaque → free

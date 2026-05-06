@@ -15,6 +15,7 @@ export const boostContextEnum = pgEnum("boost_context", [
   "search",
   "zone",
   "home_search",
+  "category",
 ]);
 
 export const searchBoostsTable = pgTable(

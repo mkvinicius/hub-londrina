@@ -247,7 +247,7 @@ router.get("/lojista/boosts/category-positions", lojistaAuth, async (req: Reques
     .from(searchBoostsTable)
     .where(and(
       eq(searchBoostsTable.boostType, "monthly"),
-      eq(searchBoostsTable.boostContext, "search" as any),
+      eq(searchBoostsTable.boostContext, "category"),
       eq(searchBoostsTable.status, "active"),
       or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
     ));
@@ -301,7 +301,7 @@ router.post("/lojista/boosts/category-checkout", lojistaAuth, async (req: Reques
   const existing = await db.select().from(searchBoostsTable).where(and(
     eq(searchBoostsTable.businessId, lojista.businessId),
     eq(searchBoostsTable.boostType, "monthly"),
-    eq(searchBoostsTable.boostContext, "search" as any),
+    eq(searchBoostsTable.boostContext, "category"),
     eq(searchBoostsTable.status, "active"),
     or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
   ));
@@ -312,7 +312,7 @@ router.post("/lojista/boosts/category-checkout", lojistaAuth, async (req: Reques
 
   const occupied = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
     eq(searchBoostsTable.boostType, "monthly"),
-    eq(searchBoostsTable.boostContext, "search" as any),
+    eq(searchBoostsTable.boostContext, "category"),
     eq(searchBoostsTable.position, position),
     eq(searchBoostsTable.status, "active"),
     or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),

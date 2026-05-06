@@ -5,6 +5,7 @@ import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable } from "@workspace/db/schema";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
+import { categoryLockKey, zoneLockKey, homeSearchLockKey } from "../lib/boost-locks";
 
 const router: IRouter = Router();
 
@@ -581,24 +582,22 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           if (![1, 2, 3, 4, 5].includes(pos)) break;
 
           const CAT_PRICES: Record<number, number> = { 1: 149, 2: 119, 3: 99, 4: 79, 5: 59 };
-          const lockKey = `boost:category:${pos}`;
-          let hashCat = 0;
-          for (let i = 0; i < lockKey.length; i++) hashCat = ((hashCat << 5) - hashCat + lockKey.charCodeAt(i)) | 0;
+          const lockKeyCat = categoryLockKey(pos);
 
           const result = await db.transaction(async (tx) => {
-            await tx.execute(sql`SELECT pg_advisory_xact_lock(${hashCat})`);
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKeyCat})`);
 
             const existingMine = await tx.select().from(searchBoostsTable).where(and(
               eq(searchBoostsTable.businessId, bizIdCat),
               eq(searchBoostsTable.boostType, "monthly"),
-              eq(searchBoostsTable.boostContext, "search" as any),
+              eq(searchBoostsTable.boostContext, "category"),
               or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
             ));
             if (existingMine.length > 0) return { skipped: true as const };
 
             const occ = await tx.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
               eq(searchBoostsTable.boostType, "monthly"),
-              eq(searchBoostsTable.boostContext, "search" as any),
+              eq(searchBoostsTable.boostContext, "category"),
               eq(searchBoostsTable.position, pos),
               eq(searchBoostsTable.status, "active"),
               or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
@@ -610,7 +609,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             await tx.insert(searchBoostsTable).values({
               businessId: bizIdCat,
               boostType: "monthly",
-              boostContext: "search" as any,
+              boostContext: "category",
               position: pos,
               monthlyBid: String(CAT_PRICES[pos]),
               status,
@@ -636,17 +635,14 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         const bizId = parseInt(businessId, 10);
         if (!Number.isFinite(bizId) || bizId <= 0) break;
 
-        // Aloca vaga atomicamente: lock por contexto+zona via pg_advisory_xact_lock
-        // Hash determinístico do par (ctx,zone) para a chave de lock
-        const lockKey = boostContext === "zone"
-          ? `boost:zone:${zone || ""}`
-          : `boost:home_search`;
-        // Hash 32-bit simples
-        let hash = 0;
-        for (let i = 0; i < lockKey.length; i++) hash = ((hash << 5) - hash + lockKey.charCodeAt(i)) | 0;
+        // Aloca vaga atomicamente: lock determinístico por (contexto, zona)
+        // via pg_advisory_xact_lock. Sem hashing de string — chave em namespaces.
+        const lockKeyZH = boostContext === "zone"
+          ? zoneLockKey(zone || "")
+          : homeSearchLockKey();
 
         const result = await db.transaction(async (tx) => {
-          await tx.execute(sql`SELECT pg_advisory_xact_lock(${hash})`);
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKeyZH})`);
 
           // Idempotência: se já existe boost active/waitlist deste biz/contexto, ignora
           const existing = await tx.select().from(searchBoostsTable)
