@@ -70,11 +70,13 @@ export default function LojistaPerfil() {
       setMsg("Perfil salvo com sucesso!");
       setTimeout(() => setMsg(""), 3000);
     } catch (err: any) {
-      // H7: tratar PLAN_REQUIRED com mensagem amigável + CTA implícito ao plano.
       const code = err?.code || err?.body?.code;
+      const field = err?.field || err?.body?.field;
       if (code === "PLAN_REQUIRED") {
         const plan = err?.body?.requiredPlan || err?.requiredPlan || "superior";
         setMsg(`Erro: este recurso exige o plano ${plan}. Acesse "Plano & Assinatura" para fazer upgrade.`);
+      } else if (field) {
+        setMsg(`Erro no campo "${field}": ${err?.body?.message || err.message}`);
       } else {
         setMsg(`Erro: ${err.message}`);
       }
@@ -117,7 +119,12 @@ export default function LojistaPerfil() {
       setLocMsg("Localização salva!");
       setTimeout(() => setLocMsg(""), 3000);
     } catch (err: any) {
-      setLocMsg(`Erro: ${err.message}`);
+      const field = err?.field || err?.body?.field;
+      if (field) {
+        setLocMsg(`Erro no campo "${field}": ${err?.body?.message || err.message}`);
+      } else {
+        setLocMsg(`Erro: ${err.message}`);
+      }
     } finally {
       setLocSaving(false);
     }

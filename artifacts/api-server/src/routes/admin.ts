@@ -1225,18 +1225,22 @@ router.post("/admin/home-banners/:id/approve", validateId, async (req: Request, 
     }
   }
 
-  const activeCount = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(homeBannersTable)
-    .where(and(eq(homeBannersTable.active, true), eq(homeBannersTable.status, "active")));
-  if ((activeCount[0]?.count ?? 0) >= 2) {
-    res.status(400).json({ error: "Máximo 2 banners ativos simultâneos. Desative um antes de aprovar.", code: "SLOTS_FULL" });
+  const banner = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(99001)`);
+    const activeCount = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(homeBannersTable)
+      .where(and(eq(homeBannersTable.active, true), eq(homeBannersTable.status, "active")));
+    if ((activeCount[0]?.count ?? 0) >= 2) return null;
+    const [updated] = await tx.update(homeBannersTable)
+      .set({ status: "active", active: true, rejectionReason: null })
+      .where(eq(homeBannersTable.id, id)).returning();
+    return updated ?? null;
+  });
+  if (!banner) {
+    res.status(409).json({ error: "Máximo 2 banners ativos simultâneos. Desative um antes de aprovar.", code: "SLOTS_FULL" });
     return;
   }
-
-  const [banner] = await db.update(homeBannersTable)
-    .set({ status: "active", active: true, rejectionReason: null })
-    .where(eq(homeBannersTable.id, id)).returning();
   res.json({ banner });
 });
 

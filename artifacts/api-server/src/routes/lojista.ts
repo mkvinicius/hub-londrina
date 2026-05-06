@@ -55,6 +55,8 @@ function lojistaAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+const PENDING_BLOCK_START = new Date("2026-05-03T00:00:00Z");
+
 // H6: rota legacy desativada. Bypassava email verification, CNPJ check,
 // rate limit, CSRF e marcava isVisible=true sem aprovação. Use /api/auth/register.
 router.post("/lojista/register", (_req: Request, res: Response) => {
@@ -88,7 +90,7 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
   }
 
   // Bloqueio: cadastros pendentes criados a partir de 03/05/2026 não logam até aprovação
-  const PENDING_BLOCK_START = new Date("2026-05-03T00:00:00Z");
+  // (PENDING_BLOCK_START definida no módulo; sufixo Z garante UTC independente do TZ do servidor)
   const [business] = await db
     .select({ status: businessesTable.status, createdAt: businessesTable.createdAt })
     .from(businessesTable)

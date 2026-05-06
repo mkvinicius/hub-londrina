@@ -27,7 +27,13 @@ const COMPLETENESS = sql<number>`(
   CASE WHEN ${businessesTable.address} != '' THEN 1 ELSE 0 END
 )`;
 
+let _boostsCache: { data: Map<number, { position: number | null; boostType: string; monthlyBid: string }>; ts: number } | null = null;
+const BOOSTS_CACHE_TTL_MS = 30_000;
+
 async function getActiveBoosts(): Promise<Map<number, { position: number | null; boostType: string; monthlyBid: string }>> {
+  if (_boostsCache && Date.now() - _boostsCache.ts < BOOSTS_CACHE_TTL_MS) {
+    return _boostsCache.data;
+  }
   const boosts = await db.select().from(searchBoostsTable).where(
     and(
       eq(searchBoostsTable.status, "active"),
@@ -41,6 +47,7 @@ async function getActiveBoosts(): Promise<Map<number, { position: number | null;
   for (const b of boosts) {
     map.set(b.businessId, { position: b.position, boostType: b.boostType, monthlyBid: b.monthlyBid });
   }
+  _boostsCache = { data: map, ts: Date.now() };
   return map;
 }
 

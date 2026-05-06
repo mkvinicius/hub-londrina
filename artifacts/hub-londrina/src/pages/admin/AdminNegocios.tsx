@@ -255,7 +255,11 @@ export default function AdminNegocios() {
   async function handleDelete(biz: Business) {
     if (!confirm(`Excluir "${biz.name}"? Esta ação não pode ser desfeita.`)) return;
     await deleteBusiness(biz.id);
-    fetchData();
+    if (businesses.length === 1 && page > 1) {
+      setPage(p => p - 1);
+    } else {
+      fetchData();
+    }
   }
 
   const totalPages = Math.ceil(total / 20);

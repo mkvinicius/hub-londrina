@@ -159,7 +159,10 @@ export default function Negocio() {
   const [, navigate] = useLocation();
   const [isFavorite, setIsFavorite] = useState(false);
   const [reviewKey, setReviewKey] = useState(0);
-  const id = params?.id ? parseInt(params.id) : 0;
+  const id = params?.id ? parseInt(params.id, 10) : 0;
+  useEffect(() => {
+    if (!id || !Number.isFinite(id)) navigate("/");
+  }, []);
   const [activeTab, setActiveTab] = useState("sobre");
 
   useEffect(() => {

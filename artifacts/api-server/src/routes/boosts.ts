@@ -1,9 +1,14 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import Stripe from "stripe";
+import { z } from "zod";
 import { db } from "@workspace/db";
 import { businessesTable, searchBoostsTable, subscriptionsTable } from "@workspace/db/schema";
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
+
+const BoostCheckoutSchema = z.object({
+  boostContext: z.enum(["zone", "home_search"]),
+});
 
 const router: IRouter = Router();
 
@@ -138,12 +143,12 @@ router.get("/lojista/boosts/availability", lojistaAuth, async (req: Request, res
 
 router.post("/lojista/boosts/checkout", lojistaAuth, async (req: Request, res: Response) => {
   const lojista = (req as any).lojista as LojistaPayload;
-  const { boostContext } = req.body as { boostContext?: "zone" | "home_search" };
-
-  if (boostContext !== "zone" && boostContext !== "home_search") {
-    res.status(400).json({ error: "boostContext inválido" });
+  const _parsed = BoostCheckoutSchema.safeParse(req.body);
+  if (!_parsed.success) {
+    res.status(400).json({ error: "boostContext inválido. Use 'zone' ou 'home_search'.", code: "INVALID_BODY" });
     return;
   }
+  const { boostContext } = _parsed.data;
 
   const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
   if (!biz) {

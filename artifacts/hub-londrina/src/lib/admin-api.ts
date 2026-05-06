@@ -1,19 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+const ADMIN_STORAGE_KEYS = {
+  token: "hub_admin_token",
+} as const;
+
 export function getAdminToken(): string | null {
-  return localStorage.getItem("hub_admin_token");
+  return localStorage.getItem(ADMIN_STORAGE_KEYS.token);
 }
 
 function getToken(): string | null {
-  return localStorage.getItem("hub_admin_token");
+  return localStorage.getItem(ADMIN_STORAGE_KEYS.token);
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("hub_admin_token", token);
+  localStorage.setItem(ADMIN_STORAGE_KEYS.token, token);
 }
 
 export function clearToken() {
-  localStorage.removeItem("hub_admin_token");
+  (Object.values(ADMIN_STORAGE_KEYS) as string[]).forEach(key => localStorage.removeItem(key));
 }
 
 export function isAuthenticated(): boolean {

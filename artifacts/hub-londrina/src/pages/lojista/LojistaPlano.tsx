@@ -511,6 +511,7 @@ export default function LojistaPlano() {
               const Icon = plan.icon;
               const isCurrent = plan.key === currentPlan;
               const isUpgrade = i > currentIndex;
+              const isDowngrade = i < currentIndex;
               const displayPrice = cycle === "annual" && plan.annualDisplay ? plan.annualDisplay : plan.monthlyDisplay;
               return (
                 <div key={plan.key} className={`bg-white rounded-2xl border-2 p-6 shadow-sm relative ${plan.color} ${isCurrent ? "shadow-md" : ""}`}>
@@ -569,6 +570,21 @@ export default function LojistaPlano() {
                   )}
                   {isCurrent && (
                     <div className="w-full py-3 rounded-xl font-bold text-sm text-center bg-gray-100 text-gray-500">Plano atual</div>
+                  )}
+                  {isDowngrade && (
+                    isSubscribed ? (
+                      <button
+                        onClick={handlePortal}
+                        disabled={openingPortal}
+                        className="w-full py-3 rounded-xl font-bold text-sm border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50 transition-colors disabled:opacity-60 text-xs"
+                      >
+                        Fazer downgrade para {plan.label}
+                      </button>
+                    ) : (
+                      <div className="w-full py-3 rounded-xl text-center border border-dashed border-gray-200 text-gray-400 text-xs">
+                        Plano inferior ao atual
+                      </div>
+                    )
                   )}
                 </div>
               );

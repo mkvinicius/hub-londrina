@@ -120,10 +120,15 @@ export default function Busca() {
           setNearbyLoading(false);
         }
       },
-      () => {
-        setNearbyError("Permita o acesso à localização para usar este recurso.");
+      (err) => {
+        setNearbyError(
+          err.code === err.PERMISSION_DENIED
+            ? "Permita o acesso à localização para usar este recurso."
+            : "Não foi possível obter sua localização. Tente novamente."
+        );
         setNearbyLoading(false);
-      }
+      },
+      { timeout: 10000, enableHighAccuracy: false, maximumAge: 60000 }
     );
   }
 

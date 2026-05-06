@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Stripe from "stripe";
 import jwt from "jsonwebtoken";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable } from "@workspace/db/schema";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
@@ -17,9 +18,9 @@ if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY env var is required")
 if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for stripe routes");
 
 if (!STRIPE_WEBHOOK_SECRET) {
-  console.warn("[Stripe] AVISO: STRIPE_WEBHOOK_SECRET não definido. O webhook não funcionará até que seja configurado.");
+  logger.warn("[Stripe] AVISO: STRIPE_WEBHOOK_SECRET não definido. O webhook não funcionará até que seja configurado.");
 } else {
-  console.log("[Stripe] STRIPE_WEBHOOK_SECRET configurado — webhook habilitado");
+  logger.info("[Stripe] STRIPE_WEBHOOK_SECRET configurado — webhook habilitado");
 }
 
 const FRONTEND_URL = process.env.FRONTEND_URL
@@ -328,19 +329,19 @@ router.get("/stripe/subscription", async (req: Request, res: Response) => {
 
 router.post("/stripe/webhook", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
-  console.log("[Stripe Webhook] Recebido. Signature header:", sig ? "presente" : "AUSENTE");
+  logger.info("[Stripe Webhook] Recebido. Signature header:", sig ? "presente" : "AUSENTE");
 
   if (!sig || !STRIPE_WEBHOOK_SECRET) {
-    console.error("[Stripe Webhook] Falha: signature ou secret ausente. STRIPE_WEBHOOK_SECRET configurado:", !!STRIPE_WEBHOOK_SECRET);
+    logger.error("[Stripe Webhook] Falha: signature ou secret ausente. STRIPE_WEBHOOK_SECRET configurado:", !!STRIPE_WEBHOOK_SECRET);
     return res.status(400).json({ error: "Missing signature" });
   }
 
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(req.body as Buffer, sig, STRIPE_WEBHOOK_SECRET);
-    console.log("[Stripe Webhook] Evento recebido:", event.type, "id:", event.id);
+    logger.info("[Stripe Webhook] Evento recebido:", event.type, "id:", event.id);
   } catch (err: any) {
-    console.error("[Stripe Webhook] Falha na verificação da assinatura:", err.message);
+    logger.error("[Stripe Webhook] Falha na verificação da assinatura:", err.message);
     return res.status(400).json({ error: `Webhook error: ${err.message}` });
   }
 
@@ -413,7 +414,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log("[Stripe Webhook] checkout.session.completed — session:", session.id, "subscription:", session.subscription);
+        logger.info("[Stripe Webhook] checkout.session.completed — session:", session.id, "subscription:", session.subscription);
 
         // Modelo C: solicitação de banner Home pelo lojista → cria pending_review
         if (session.metadata?.kind === "home_banner_request") {
@@ -438,11 +439,11 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                     stripeSessionId: session.id,
                     stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
                   });
-                  console.log(`[Stripe Webhook] Banner Home pending_review criado para biz ${bizId}`);
+                  logger.info(`[Stripe Webhook] Banner Home pending_review criado para biz ${bizId}`);
                 }
               }
             } catch (err) {
-              console.error("[Stripe Webhook] Erro criando banner pending_review:", err);
+              logger.error("[Stripe Webhook] Erro criando banner pending_review:", err);
             }
           }
           break; // não cai no fluxo de subscription de plano
@@ -462,12 +463,12 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                 await db.update(businessesTable)
                   .set({ status: "active", isVisible: true })
                   .where(eq(businessesTable.id, sub.businessId));
-                console.log(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) auto-aprovado após pagamento`);
+                logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) auto-aprovado após pagamento`);
                 try {
                   const tpl = emails.cadastroAprovado(biz.ownerName || "Lojista", biz.name);
                   if (biz.ownerEmail) await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
                 } catch (emailErr) {
-                  console.error("[Stripe Webhook] Erro enviando email de aprovação:", emailErr);
+                  logger.error("[Stripe Webhook] Erro enviando email de aprovação:", emailErr);
                 }
               }
 
@@ -479,7 +480,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
               }
             }
           } catch (e) {
-            console.error("[Stripe Webhook] Erro no pós-processamento checkout.session.completed:", e);
+            logger.error("[Stripe Webhook] Erro no pós-processamento checkout.session.completed:", e);
           }
         }
         break;
@@ -520,7 +521,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                   sql`${searchBoostsTable.status} != 'expired'`
                 )
               );
-            console.log(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId} (boosts expirados)`);
+            logger.info(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId} (boosts expirados)`);
             try {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
               if (biz?.ownerEmail) {
@@ -635,9 +636,9 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           });
 
           if (result.skipped) {
-            console.log(`[Stripe Webhook] Boost categoria já existe para biz ${bizIdCat}, ignorando`);
+            logger.info(`[Stripe Webhook] Boost categoria já existe para biz ${bizIdCat}, ignorando`);
           } else {
-            console.log(`[Stripe Webhook] Boost categoria pos ${pos} ${result.status} criado para biz ${bizIdCat}`);
+            logger.info(`[Stripe Webhook] Boost categoria pos ${pos} ${result.status} criado para biz ${bizIdCat}`);
           }
           break;
         }
@@ -697,11 +698,11 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         });
 
         if (result.skipped) {
-          console.log(`[Stripe Webhook] Boost ${boostContext} já existe para biz ${bizId}, ignorando duplicata`);
+          logger.info(`[Stripe Webhook] Boost ${boostContext} já existe para biz ${bizId}, ignorando duplicata`);
           break;
         }
 
-        console.log(`[Stripe Webhook] Boost ${boostContext} ${result.status} criado para biz ${bizId}`);
+        logger.info(`[Stripe Webhook] Boost ${boostContext} ${result.status} criado para biz ${bizId}`);
 
         try {
           const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, bizId));
@@ -712,13 +713,13 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
           }
         } catch (emailErr) {
-          console.error("[Stripe Webhook] Erro enviando email de boost:", emailErr);
+          logger.error("[Stripe Webhook] Erro enviando email de boost:", emailErr);
         }
         break;
       }
     }
   } catch (err) {
-    console.error("Webhook handler error:", err);
+    logger.error("Webhook handler error:", err);
     return res.status(500).json({ error: "Webhook handler failed" });
   }
 

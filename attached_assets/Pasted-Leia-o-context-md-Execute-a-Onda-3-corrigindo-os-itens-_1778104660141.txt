@@ -1,0 +1,19 @@
+Leia o context.md. Execute a Onda 3 corrigindo os itens abaixo. Após as correções rode cd ~/workspace/artifacts/api-server && pnpm build. Retorne relatório detalhado. Se algum item for falso positivo explique por quê.
+
+MEDIUM:
+M1 - LojistaBoost.tsx:284 — Botão "Entrar na lista de espera" leva pro mesmo Checkout sem clareza que é waitlist. Adicionar texto explicativo antes do botão: "Todas as vagas estão ocupadas. Ao comprar, você entra na fila e será ativado automaticamente quando uma vaga abrir."
+M2 - LojistaPlano.tsx:391 — Aba "Mudar Plano" mostra planos inferiores ao atual sem indicar que é downgrade. Ocultar planos inferiores ao plano atual ou rotular claramente como "Fazer downgrade".
+M3 - admin.ts:1215 — Aprovação de banner sem lock permite aprovar mais de 2 simultâneos com cliques duplos. Adicionar verificação de contagem antes de aprovar: se já há 2 ativos retornar 409.
+M4 - boosts.ts POST /lojista/boosts/checkout — Sem validação Zod do body. Adicionar schema Zod para validar boostContext e campos obrigatórios.
+M5 - businesses.ts:56 getActiveBoosts — Roda em toda busca pública sem cache. Adicionar cache em memória simples com TTL de 30 segundos.
+M6 - lojista.ts:132 PENDING_BLOCK_START — new Date com string hardcoded em local time vs UTC. Substituir por comparação relativa: só bloquear cadastros com firstLoginAt posterior a 2026-05-03T00:00:00Z.
+M7 - negocio.tsx:162 — parseInt(params.id) sem validar NaN quebra hooks. Adicionar validação: se NaN redirecionar para 404.
+M8 - busca.tsx:106 — getCurrentPosition sem timeout causa loading eterno. Adicionar timeout: 10000 e fallback silencioso.
+M9 - AdminCategorias.tsx:93 — Slug duplicado só validado no submit. Adicionar validação inline ao digitar o slug.
+M10 - LojistaPerfil.tsx:285/308 — Cidade e Estado fixos no frontend mas backend aceita. Tratar erro de campo retornado pelo backend e exibir mensagem ao usuário.
+M11 - AdminNegocios.tsx:255 — Delete não reseta página. Após deletar último item de uma página navegar para página anterior.
+
+LOW (prioritários):
+A3 - Healthcheck sem SELECT 1. Adicionar query SELECT 1 ao endpoint /api/healthz para verificar conectividade com banco.
+A4 - Logout limpa só um item do localStorage. Garantir que logout limpa todos os itens relevantes (token, perfil, etc).
+A5 - console.log em vez de req.log em stripe.ts. Substituir todos os console.log por req.log ou logger estruturado.

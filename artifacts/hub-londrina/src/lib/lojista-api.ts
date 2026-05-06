@@ -1,19 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+const LOJISTA_STORAGE_KEYS = {
+  token: "hub_lojista_token",
+} as const;
+
 export function getLojistaToken(): string | null {
-  return localStorage.getItem("hub_lojista_token");
+  return localStorage.getItem(LOJISTA_STORAGE_KEYS.token);
 }
 
 function getToken(): string | null {
-  return localStorage.getItem("hub_lojista_token");
+  return localStorage.getItem(LOJISTA_STORAGE_KEYS.token);
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("hub_lojista_token", token);
+  localStorage.setItem(LOJISTA_STORAGE_KEYS.token, token);
 }
 
 export function clearToken() {
-  localStorage.removeItem("hub_lojista_token");
+  (Object.values(LOJISTA_STORAGE_KEYS) as string[]).forEach(key => localStorage.removeItem(key));
 }
 
 export function isLojistaAuthenticated(): boolean {

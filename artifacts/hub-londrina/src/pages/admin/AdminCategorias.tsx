@@ -94,14 +94,27 @@ export default function AdminCategorias() {
               className="bg-gray-50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#d97706]"
               required
             />
-            <input
-              type="text"
-              placeholder="Slug"
-              value={newSlug}
-              onChange={(e) => setNewSlug(e.target.value)}
-              className="bg-gray-50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#d97706]"
-              required
-            />
+            <div>
+              <input
+                type="text"
+                placeholder="Slug"
+                value={newSlug}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewSlug(val);
+                  if (val && categories.some(c => c.slug === val)) {
+                    setError(`Slug "${val}" já existe. Escolha um slug único.`);
+                  } else {
+                    setError("");
+                  }
+                }}
+                className={`bg-gray-50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 w-full ${newSlug && categories.some(c => c.slug === newSlug) ? "ring-1 ring-red-300 focus:ring-red-400" : "focus:ring-[#d97706]"}`}
+                required
+              />
+              {newSlug && categories.some(c => c.slug === newSlug) && (
+                <p className="text-red-500 text-xs mt-1">Slug já em uso.</p>
+              )}
+            </div>
             <input
               type="text"
               placeholder="Ícone (ex: store)"
