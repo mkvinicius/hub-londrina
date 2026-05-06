@@ -401,7 +401,6 @@ router.delete("/lojista/photos/:index", async (req: Request, res: Response) => {
     return;
   }
 
-  const removed = photos[idx];
   const newPhotos = photos.filter((_: string, i: number) => i !== idx);
 
   await db
@@ -409,11 +408,8 @@ router.delete("/lojista/photos/:index", async (req: Request, res: Response) => {
     .set({ photos: newPhotos })
     .where(eq(businessesTable.id, businessId));
 
-  const filePath = path.join(UPLOAD_BASE, "..", removed);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
-
+  // Uploads vivem no GCS — apenas removemos a referência no DB.
+  // Limpeza de objetos órfãos no bucket é responsabilidade de um job separado.
   res.json({ photos: newPhotos });
 });
 

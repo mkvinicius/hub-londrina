@@ -1299,6 +1299,28 @@ router.patch("/admin/zones/:id", validateId, async (req: Request, res: Response)
 
 router.delete("/admin/zones/:id", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
+
+  const [zone] = await db.select().from(zonesTable).where(eq(zonesTable.id, id));
+  if (!zone) {
+    res.status(404).json({ error: "Zona não encontrada" });
+    return;
+  }
+
+  // Bloqueia exclusão se houver negócios vinculados pelo slug — caso contrário
+  // os registros ficariam órfãos e quebrariam filtros de zona no frontend.
+  const [{ count: linked }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(businessesTable)
+    .where(eq(businessesTable.zone, zone.slug));
+
+  if (linked > 0) {
+    res.status(400).json({
+      error: `Esta zona possui ${linked} negócio(s) vinculado(s). Mova-os para outra zona antes de excluir.`,
+      linkedCount: linked,
+    });
+    return;
+  }
+
   await db.delete(zonesTable).where(eq(zonesTable.id, id));
   res.json({ success: true });
 });

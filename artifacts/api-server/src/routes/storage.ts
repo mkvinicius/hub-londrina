@@ -13,6 +13,15 @@ router.get("/storage/objects/*filePath", async (req: Request, res: Response) => 
       return;
     }
 
+    // Documentos privados (CNPJ, RG, comprovante) NÃO podem ser servidos por este
+    // endpoint público. O acesso é exclusivamente via /api/documents/signed/:token
+    // (JWT 1h, validado por dono/admin em documents.ts).
+    const normalized = gcsPath.replace(/^\/+/, "").toLowerCase();
+    if (normalized.startsWith("documents/")) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
     const result = await serveGCSObject(`uploads/${gcsPath}`);
     if (!result) {
       res.status(404).json({ error: "File not found" });

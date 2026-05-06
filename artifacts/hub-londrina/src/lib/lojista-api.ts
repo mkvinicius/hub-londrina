@@ -34,7 +34,8 @@ export async function lojistaFetch(path: string, options: RequestInit = {}) {
   });
   if (res.status === 401) {
     clearToken();
-    window.location.href = import.meta.env.BASE_URL + "lojista/login";
+    const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+    window.location.href = `${base}/lojista/login`;
     throw new Error("Não autorizado");
   }
   if (!res.ok) {
@@ -167,7 +168,8 @@ export async function createCheckoutSession(priceId: string): Promise<{ url: str
   });
   if (res.status === 401) {
     clearToken();
-    window.location.href = import.meta.env.BASE_URL + "lojista/login";
+    const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+    window.location.href = `${base}/lojista/login`;
     throw new Error("Não autorizado");
   }
   if (!res.ok) {

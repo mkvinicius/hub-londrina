@@ -32,7 +32,8 @@ export async function adminFetch(path: string, options: RequestInit = {}) {
   });
   if (res.status === 401) {
     clearToken();
-    window.location.href = import.meta.env.BASE_URL + "admin/login";
+    const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+    window.location.href = `${base}/admin/login`;
     throw new Error("Não autorizado");
   }
   if (!res.ok) {
