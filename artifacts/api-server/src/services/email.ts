@@ -3,11 +3,7 @@ import { logger } from "../lib/logger";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Use custom domain when verified; fall back to Resend sandbox address.
-// IMPORTANT: onboarding@resend.dev only delivers to the Resend account owner's
-// email in sandbox mode. To reach real users, verify hublondrina.com.br in the
-// Resend dashboard and set RESEND_FROM="Hub Londrina <noreply@hublondrina.com.br>".
-const FROM = process.env.RESEND_FROM ?? "Hub Londrina <onboarding@resend.dev>";
+const FROM = "Hub Londrina <noreply@hublondrina.com.br>";
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) {
