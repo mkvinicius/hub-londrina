@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
-import { getBusinesses, updateBusiness, deleteBusiness, adminFetch } from "@/lib/admin-api";
-import { Search, Trash2, Eye, EyeOff, X, Phone, MessageCircle, MapPin, Mail, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { getBusinesses, updateBusiness, deleteBusiness, adminFetch, impersonateLojista } from "@/lib/admin-api";
+import { Search, Trash2, Eye, EyeOff, X, Phone, MessageCircle, MapPin, Mail, ExternalLink, ChevronLeft, ChevronRight, LogIn } from "lucide-react";
 
 interface Business {
   id: number;
@@ -262,6 +262,18 @@ export default function AdminNegocios() {
     }
   }
 
+  async function handleImpersonate(biz: Business) {
+    if (!confirm(`Acessar como lojista de "${biz.name}"? Você verá o painel dele em uma nova aba (token válido por 1h).`)) return;
+    try {
+      const { token } = await impersonateLojista(biz.id);
+      const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+      const url = `${base}/lojista?impersonate=${encodeURIComponent(token)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      alert(`Erro ao impersonar: ${err.message}`);
+    }
+  }
+
   const totalPages = Math.ceil(total / 20);
 
   return (
@@ -365,13 +377,22 @@ export default function AdminNegocios() {
                       </button>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(biz); }}
-                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleImpersonate(biz); }}
+                          className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          title="Acessar como lojista"
+                        >
+                          <LogIn className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(biz); }}
+                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

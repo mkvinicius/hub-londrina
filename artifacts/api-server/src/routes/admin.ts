@@ -4,8 +4,9 @@ import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
+import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -402,17 +403,32 @@ router.patch("/admin/businesses/:id", validateId, async (req: Request, res: Resp
     }
   }
 
+  // Sprint 4.2 — audit log: aprovação/rejeição/mudança de plano
+  if (before && updates.status && updates.status !== before.status) {
+    const action = updates.status === "active" ? "business.approve" : updates.status === "rejected" ? "business.reject" : "business.status_change";
+    await logAdminAction(ADMIN_DEFAULT_ID, action, "business", id, JSON.stringify({ from: before.status, to: updates.status, reason: updates.rejectionReason }), getReqIp(req));
+  }
+  if (before && updates.planType && updates.planType !== before.planType) {
+    await logAdminAction(ADMIN_DEFAULT_ID, "business.plan_change", "business", id, JSON.stringify({ from: before.planType, to: updates.planType }), getReqIp(req));
+  }
+  if (before && updates.isVisible !== undefined && updates.isVisible !== before.isVisible) {
+    await logAdminAction(ADMIN_DEFAULT_ID, updates.isVisible ? "business.show" : "business.hide", "business", id, undefined, getReqIp(req));
+  }
+
   res.json(updated);
 });
 
 router.delete("/admin/businesses/:id", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
 
+  const [before] = await db.select({ name: businessesTable.name }).from(businessesTable).where(eq(businessesTable.id, id));
   const result = await db.delete(businessesTable).where(eq(businessesTable.id, id)).returning();
   if (result.length === 0) {
     res.status(404).json({ error: "Negócio não encontrado" });
     return;
   }
+  // Sprint 4.2 — audit log: deleção de negócio
+  await logAdminAction(ADMIN_DEFAULT_ID, "business.delete", "business", id, before ? JSON.stringify({ name: before.name }) : undefined, getReqIp(req));
   res.json({ success: true });
 });
 
@@ -1010,12 +1026,16 @@ router.post("/admin/businesses/:id/boost", validateId, async (req: Request, res:
     .where(eq(businessesTable.id, id))
     .returning({ id: businessesTable.id, name: businessesTable.name, boostedUntil: businessesTable.boostedUntil });
   if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+  // Sprint 4.2 — audit log: criação de boost
+  await logAdminAction(ADMIN_DEFAULT_ID, "boost.create", "business", id, JSON.stringify({ days: Number(days), boostedUntil }), getReqIp(req));
   res.json({ success: true, business: biz });
 });
 
 router.delete("/admin/businesses/:id/boost", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   await db.update(businessesTable).set({ boostedUntil: null }).where(eq(businessesTable.id, id));
+  // Sprint 4.2 — audit log: remoção de boost
+  await logAdminAction(ADMIN_DEFAULT_ID, "boost.delete", "business", id, undefined, getReqIp(req));
   res.json({ success: true });
 });
 
@@ -1241,6 +1261,8 @@ router.post("/admin/home-banners/:id/approve", validateId, async (req: Request, 
     res.status(409).json({ error: "Máximo 2 banners ativos simultâneos. Desative um antes de aprovar.", code: "SLOTS_FULL" });
     return;
   }
+  // Sprint 4.2 — audit log: aprovação de banner
+  await logAdminAction(ADMIN_DEFAULT_ID, "home_banner.approve", "home_banner", id, undefined, getReqIp(req));
   res.json({ banner });
 });
 
@@ -1256,6 +1278,8 @@ router.post("/admin/home-banners/:id/reject", validateId, async (req: Request, r
   const [banner] = await db.update(homeBannersTable)
     .set({ status: "rejected", active: false, rejectionReason: reason })
     .where(eq(homeBannersTable.id, id)).returning();
+  // Sprint 4.2 — audit log: rejeição de banner
+  await logAdminAction(ADMIN_DEFAULT_ID, "home_banner.reject", "home_banner", id, JSON.stringify({ reason }), getReqIp(req));
   res.json({ banner });
 });
 
@@ -1344,6 +1368,127 @@ router.delete("/admin/zones/:id", validateId, async (req: Request, res: Response
 
   await db.delete(zonesTable).where(eq(zonesTable.id, id));
   res.json({ success: true });
+});
+
+// ─── Sprint 4.2 — Audit Log ──────────────────────────────────────────────────
+router.get("/admin/audit-log", async (req: Request, res: Response) => {
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const targetType = req.query.targetType as string | undefined;
+  const adminIdRaw = req.query.adminId as string | undefined;
+  const adminIdNum = adminIdRaw ? Number(adminIdRaw) : undefined;
+
+  const conds: any[] = [];
+  if (targetType) conds.push(eq(adminActionsTable.targetType, targetType));
+  if (adminIdNum && !isNaN(adminIdNum)) conds.push(eq(adminActionsTable.adminId, adminIdNum));
+
+  const baseQuery = db.select().from(adminActionsTable);
+  const rows = await (conds.length > 0
+    ? baseQuery.where(and(...conds))
+    : baseQuery
+  ).orderBy(desc(adminActionsTable.createdAt)).limit(limit);
+
+  res.json({ data: rows, count: rows.length });
+});
+
+// ─── Sprint 4.4 — Moderação de Reviews ───────────────────────────────────────
+router.get("/admin/reviews", async (req: Request, res: Response) => {
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const businessIdRaw = req.query.businessId as string | undefined;
+  const ratingRaw = req.query.rating as string | undefined;
+
+  const conds: any[] = [];
+  if (businessIdRaw) {
+    const bid = Number(businessIdRaw);
+    if (!isNaN(bid)) conds.push(eq(reviewsTable.businessId, bid));
+  }
+  if (ratingRaw) {
+    const r = Number(ratingRaw);
+    if (!isNaN(r)) conds.push(eq(reviewsTable.rating, r));
+  }
+
+  const baseQ = db
+    .select({
+      id: reviewsTable.id,
+      businessId: reviewsTable.businessId,
+      businessName: businessesTable.name,
+      author: reviewsTable.author,
+      rating: reviewsTable.rating,
+      comment: reviewsTable.comment,
+      createdAt: reviewsTable.createdAt,
+      verified: reviewsTable.verified,
+      ownerResponse: reviewsTable.ownerResponse,
+    })
+    .from(reviewsTable)
+    .leftJoin(businessesTable, eq(businessesTable.id, reviewsTable.businessId));
+
+  const rows = await (conds.length > 0
+    ? baseQ.where(and(...conds))
+    : baseQ
+  ).orderBy(desc(reviewsTable.createdAt)).limit(limit);
+
+  res.json({ data: rows, count: rows.length });
+});
+
+router.delete("/admin/reviews/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const [review] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, id));
+  if (!review) {
+    res.status(404).json({ error: "Review não encontrada" });
+    return;
+  }
+  await db.delete(reviewsTable).where(eq(reviewsTable.id, id));
+
+  // Recalcula rating + reviewsCount do negócio afetado
+  const [agg] = await db
+    .select({
+      avg: sql<number>`COALESCE(AVG(${reviewsTable.rating})::real, 0)`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.businessId, review.businessId));
+
+  await db
+    .update(businessesTable)
+    .set({ rating: agg?.avg ?? 0, reviewsCount: agg?.count ?? 0 })
+    .where(eq(businessesTable.id, review.businessId));
+
+  await logAdminAction(
+    ADMIN_DEFAULT_ID,
+    "review.delete",
+    "review",
+    id,
+    JSON.stringify({ businessId: review.businessId, rating: review.rating, author: review.author }),
+    getReqIp(req),
+  );
+
+  res.json({ success: true, businessId: review.businessId, newRating: agg?.avg ?? 0, newCount: agg?.count ?? 0 });
+});
+
+// ─── Sprint 4.6 — Impersonate Lojista ────────────────────────────────────────
+router.post("/admin/impersonate/:businessId", validateId, async (req: Request, res: Response) => {
+  const businessId = parseInt(req.params.businessId, 10);
+  const [user] = await db
+    .select({ id: businessUsersTable.id, email: businessUsersTable.email, businessId: businessUsersTable.businessId })
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.businessId, businessId));
+  if (!user) {
+    res.status(404).json({ error: "Lojista não encontrado para este negócio" });
+    return;
+  }
+  const token = jwt.sign(
+    { businessId: user.businessId, email: user.email, role: "lojista", impersonated: true },
+    JWT_SECRET!,
+    { expiresIn: "1h" },
+  );
+  await logAdminAction(
+    ADMIN_DEFAULT_ID,
+    "lojista.impersonate",
+    "business",
+    businessId,
+    JSON.stringify({ email: user.email, expiresIn: "1h" }),
+    getReqIp(req),
+  );
+  res.json({ token, businessId: user.businessId, email: user.email, expiresIn: 3600 });
 });
 
 // ─── GET /admin/placements — debug: todas as fontes de destaque ativas ───────

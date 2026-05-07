@@ -168,6 +168,22 @@ Default lojista password: Hub@2026 (all accounts)
 - `reviews.ts` `/reviews?businessId=` removido (use `/businesses/:id/reviews`).
 - `LojistaAssinaturas.tsx` removido — fundido em `LojistaPlano.tsx` via abas.
 
+**Sprint 4 — Operação Madura** (✅ completo):
+- 4.1 Global error handler em `app.ts` (próximo após routes) — captura unhandled errors, integra com Sentry, retorna 500 padronizado. `process.on('unhandledRejection'|'uncaughtException')` em `index.ts`.
+- 4.2 Tabela `admin_actions` (id, adminId, action, targetType, targetId, details, ip, createdAt). Helper `lib/audit.ts` (`logAdminAction`, `getReqIp`, `ADMIN_DEFAULT_ID=1`). Audit calls em admin.ts (PATCH businesses status/plan/visibility, DELETE business, POST/DELETE boost, banner approve/reject, review delete, impersonate) e documents.ts (approve/reject). `GET /admin/audit-log?targetType=&adminId=&limit=`.
+- 4.3 LGPD: `DELETE /api/lojista/account` (auth lojista) — valida senha, cancela Stripe sub, deleta documentos GCS (best-effort), anonimiza `businesses` (sentinelEmail `removed_<id>@deleted.hub`, status="deleted", isVisible=false, planType="free", limpa PII e mídia) e `business_users` (email sentinel, passwordHash="", flags resetados).
+- 4.4 Moderação reviews admin: `GET /admin/reviews?businessId=&rating=&limit=` (join business name) e `DELETE /admin/reviews/:id` — recalcula `businesses.rating` (AVG) e `reviewsCount` após exclusão.
+- 4.5 Sentry graceful: `lib/sentry.ts` (`initSentry()`, `captureException()`) — silencioso sem `SENTRY_DSN`. Importado de `@sentry/node` (externalizado no esbuild para evitar bundling de `@opentelemetry/*`). Init chamado em `index.ts` antes do listen. Capture invocado pelo error handler em `app.ts`.
+- 4.6 Impersonate lojista: `POST /api/admin/impersonate/:businessId` — gera JWT 1h `{businessId, email, role:"lojista", impersonated:true}`. Frontend admin abre `/lojista?impersonate=<token>` em nova aba; `lojista-api.ts` consome o token via IIFE no carregamento do módulo (move para localStorage e limpa o query). Audita `lojista.impersonate`.
+
+**Frontend Sprint 4** (admin):
+- `pages/admin/AdminAuditLog.tsx` — tabela de auditoria com filtros tipo/limit, badges coloridos por ação.
+- `pages/admin/AdminReviews.tsx` — moderação reviews com filtros businessId/rating, exclusão recalcula rating do negócio.
+- `pages/admin/AdminLayout.tsx` — links nav adicionais "Reviews" + "Audit Log".
+- `pages/admin/AdminNegocios.tsx` — botão LogIn (impersonate) ao lado de excluir.
+- `pages/lojista/LojistaSenha.tsx` — seção "zona de risco" com modal de exclusão de conta (senha + digite "EXCLUIR" para confirmar).
+- `App.tsx` — rotas `/admin/reviews` e `/admin/audit-log`.
+
 **Sprint 3 — Schema & Backend Consolidation**:
 - 3.1: `search_boosts.updated_at` timestamp adicionado.
 - 3.2: UNIQUE INDEX `reviews_visitor_business_uidx(business_id, visitor_id)` em reviews.

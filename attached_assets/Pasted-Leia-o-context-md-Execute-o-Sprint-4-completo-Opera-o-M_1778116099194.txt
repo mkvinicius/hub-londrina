@@ -1,0 +1,70 @@
+Leia o context.md. Execute o Sprint 4 completo — Operação Madura. Após alterações de banco rode cd lib/db && npx drizzle-kit push. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build. Retorne relatório detalhado com smoke test de cada item.
+
+ITEM 4.1 — Global error handler em app.ts
+Em artifacts/api-server/src/app.ts adicione no final, antes do export, um middleware de erro global:
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  req.log.error({ err, path: req.path, method: req.method }, "Unhandled error");
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: "Erro interno do servidor. Tente novamente." });
+});
+Também adicione handler para promises não capturadas no index.ts:
+process.on("unhandledRejection", (reason) => logger.error({ reason }, "Unhandled rejection"));
+process.on("uncaughtException", (err) => { logger.error({ err }, "Uncaught exception"); process.exit(1); });
+
+ITEM 4.2 — Audit log (tabela admin_actions)
+Crie lib/db/src/schema/admin-actions.ts:
+export const adminActionsTable = pgTable("admin_actions", {
+  id: serial("id").primaryKey(),
+  adminId: integer("admin_id").notNull(),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: integer("target_id"),
+  details: text("details"),
+  ip: text("ip"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+Adicione export em lib/db/src/schema/index.ts. Rode drizzle-kit push.
+Crie função helper em artifacts/api-server/src/lib/audit.ts:
+export async function logAdminAction(adminId: number, action: string, targetType: string, targetId?: number, details?: string, ip?: string) {
+  await db.insert(adminActionsTable).values({ adminId, action, targetType, targetId, details, ip });
+}
+Use essa função nos endpoints admin mais críticos: aprovar/rejeitar cadastro, mudar plano, aprovar/rejeitar banner, aprovar/rejeitar documentação, deletar negócio, criar/deletar boost.
+Adicione endpoint GET /api/admin/audit-log com filtros ?targetType=&adminId=&limit=50.
+Adicione página AdminAuditLog.tsx no painel admin com tabela paginada e filtros.
+Adicione link "Audit Log" no menu lateral do admin.
+
+ITEM 4.3 — Endpoint de exclusão de conta (LGPD)
+Em artifacts/api-server/src/routes/lojista.ts adicione:
+DELETE /api/lojista/account — anonimiza dados do lojista:
+- Atualiza businesses: name="Negócio Removido", description="", phone=null, whatsapp=null, ownerName="Removido", ownerEmail="removed_<id>@deleted.hub", cnpj=null, isVisible=false, status="deleted"
+- Atualiza business_users: email="removed_<id>@deleted.hub", passwordHash="", firstLoginAt=null
+- Cancela assinatura no Stripe se existir (stripe.subscriptions.cancel)
+- Deleta documentos do GCS
+- Retorna 200 { success: true, message: "Conta removida com sucesso" }
+No frontend adicione botão "Excluir minha conta" em LojistaSenha.tsx com modal de confirmação pedindo senha atual antes de executar.
+
+ITEM 4.4 — Moderação de reviews no admin
+Em artifacts/api-server/src/routes/admin.ts adicione:
+DELETE /api/admin/reviews/:id — deleta review por ID, recalcula rating do negócio afetado.
+GET /api/admin/reviews — lista reviews com filtros ?businessId=&rating=&limit=50, ordenado por createdAt DESC.
+No frontend crie AdminReviews.tsx com tabela de reviews, botão deletar, filtros por negócio e rating.
+Adicione link "Reviews" no menu lateral do admin.
+
+ITEM 4.5 — Sentry (free tier)
+Instale: cd ~/workspace/artifacts/api-server && pnpm add @sentry/node
+Em artifacts/api-server/src/index.ts inicialize Sentry antes de qualquer import:
+import * as Sentry from "@sentry/node";
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || "production" });
+}
+Adicione Sentry.captureException(err) no global error handler do item 4.1.
+Se SENTRY_DSN não estiver configurado nos Secrets, o sistema funciona normalmente sem Sentry (graceful degradation).
+Adicione SENTRY_DSN como secret vazio por enquanto — pode ser preenchido quando criar conta no sentry.io.
+
+ITEM 4.6 — Impersonate lojista (suporte)
+Em artifacts/api-server/src/routes/admin.ts adicione:
+POST /api/admin/impersonate/:businessId — gera JWT temporário (1h) com role: "lojista" para o businessId especificado. Loga a ação no audit log.
+No frontend AdminNegocios.tsx adicione botão "Acessar como lojista" em cada negócio que abre nova aba com o token de impersonação já aplicado via /lojista?impersonate=<token>.
+Em lojista-api.ts ao iniciar verificar se há ?impersonate= na URL e se sim salvar o token no localStorage e redirecionar para /lojista sem o query param.
+
+Após todos os itens rode cd ~/workspace/artifacts/api-server && pnpm build. Atualize context.md com Sprint 4 completo. Retorne relatório detalhado de cada item.

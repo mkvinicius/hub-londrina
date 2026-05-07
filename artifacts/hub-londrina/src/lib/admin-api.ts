@@ -94,3 +94,55 @@ export async function updateCategory(id: number, data: Record<string, unknown>) 
 export async function deleteCategory(id: number) {
   return adminFetch(`/api/admin/categories/${id}`, { method: "DELETE" });
 }
+
+// Sprint 4.2 — Audit Log
+export interface AdminAction {
+  id: number;
+  adminId: number;
+  action: string;
+  targetType: string;
+  targetId: number | null;
+  details: string | null;
+  ip: string | null;
+  createdAt: string;
+}
+
+export async function getAuditLog(params: { targetType?: string; adminId?: number; limit?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.targetType) qs.set("targetType", params.targetType);
+  if (params.adminId !== undefined) qs.set("adminId", String(params.adminId));
+  if (params.limit !== undefined) qs.set("limit", String(params.limit));
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return adminFetch(`/api/admin/audit-log${suffix}`) as Promise<{ data: AdminAction[]; count: number }>;
+}
+
+// Sprint 4.4 — Reviews moderation
+export interface AdminReview {
+  id: number;
+  businessId: number;
+  businessName: string | null;
+  author: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  verified: boolean;
+  ownerResponse: string | null;
+}
+
+export async function getAdminReviews(params: { businessId?: number; rating?: number; limit?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.businessId !== undefined) qs.set("businessId", String(params.businessId));
+  if (params.rating !== undefined) qs.set("rating", String(params.rating));
+  if (params.limit !== undefined) qs.set("limit", String(params.limit));
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return adminFetch(`/api/admin/reviews${suffix}`) as Promise<{ data: AdminReview[]; count: number }>;
+}
+
+export async function deleteAdminReview(id: number) {
+  return adminFetch(`/api/admin/reviews/${id}`, { method: "DELETE" });
+}
+
+// Sprint 4.6 — Impersonate lojista
+export async function impersonateLojista(businessId: number): Promise<{ token: string; businessId: number; email: string; expiresIn: number }> {
+  return adminFetch(`/api/admin/impersonate/${businessId}`, { method: "POST" });
+}

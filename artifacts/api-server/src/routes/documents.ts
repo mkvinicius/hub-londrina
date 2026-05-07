@@ -11,6 +11,7 @@ import {
 import { eq, and, inArray } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "../lib/logger";
+import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -387,6 +388,9 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
       await recomputeDocumentationStatus(doc.businessId);
     }
 
+    // Sprint 4.2 — audit log: aprovação de documento
+    await logAdminAction(ADMIN_DEFAULT_ID, "document.approve", "business_document", id, JSON.stringify({ businessId: doc.businessId, documentType: doc.documentType, allApproved }), getReqIp(req));
+
     res.json({ ok: true, allApproved });
     return;
   }
@@ -421,6 +425,9 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
       logger.error({ err }, "[Documents] Falha ao enviar email de rejeição");
     }
   }
+
+  // Sprint 4.2 — audit log: rejeição de documento
+  await logAdminAction(ADMIN_DEFAULT_ID, "document.reject", "business_document", id, JSON.stringify({ businessId: doc.businessId, documentType: doc.documentType, reason: reason!.trim() }), getReqIp(req));
 
   res.json({ ok: true });
 });

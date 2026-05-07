@@ -1,10 +1,11 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
 import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { captureException } from "./lib/sentry";
 
 const app: Express = express();
 
@@ -42,5 +43,13 @@ app.use("/api/uploads", express.static(path.resolve(process.cwd(), "public/uploa
 }));
 
 app.use("/api", router);
+
+// Sprint 4.1 — Global error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  req.log.error({ err, path: req.path, method: req.method }, "Unhandled error");
+  captureException(err, { path: req.path, method: req.method });
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: "Erro interno do servidor. Tente novamente." });
+});
 
 export default app;

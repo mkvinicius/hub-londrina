@@ -20,6 +20,24 @@ export function clearToken() {
   (Object.values(LOJISTA_STORAGE_KEYS) as string[]).forEach(key => localStorage.removeItem(key));
 }
 
+// Sprint 4.6 — captura ?impersonate=<token> da URL e aplica o token de lojista,
+// limpando o query param. Executa uma única vez no carregamento do módulo.
+(function consumeImpersonateToken() {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("impersonate");
+    if (token) {
+      setToken(token);
+      url.searchParams.delete("impersonate");
+      const newUrl = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") + url.hash;
+      window.history.replaceState({}, "", newUrl);
+    }
+  } catch {
+    // noop
+  }
+})();
+
 export function isLojistaAuthenticated(): boolean {
   return !!getToken();
 }
@@ -152,6 +170,14 @@ export async function changePassword(currentPassword: string, newPassword: strin
   return lojistaFetch("/lojista/password", {
     method: "PATCH",
     body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+// Sprint 4.3 — exclusão de conta (LGPD)
+export async function deleteAccount(password: string): Promise<{ success: boolean; message: string }> {
+  return lojistaFetch("/lojista/account", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
   });
 }
 

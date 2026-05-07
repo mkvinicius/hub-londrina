@@ -10,8 +10,16 @@ import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
-import { uploadBufferToGCS } from "../lib/gcsUpload";
+import { uploadBufferToGCS, deleteGCSObject } from "../lib/gcsUpload";
 import { generatePdfReport } from "../lib/pdf-report.js";
+import Stripe from "stripe";
+import { businessDocumentsTable } from "@workspace/db/schema";
+import { logger } from "../lib/logger";
+
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const stripeClient: Stripe | null = STRIPE_SECRET_KEY
+  ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" })
+  : null;
 
 const router: IRouter = Router();
 
@@ -959,6 +967,129 @@ router.get("/lojista/subscriptions", async (req: Request, res: Response) => {
       label: "Banner na Home",
     } : null,
   });
+});
+
+// ─── Sprint 4.3 — DELETE /api/lojista/account (LGPD: anonimização) ───────────
+router.delete("/lojista/account", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista as LojistaPayload;
+  const { password } = (req.body ?? {}) as { password?: string };
+
+  if (!password || typeof password !== "string") {
+    res.status(400).json({ error: "Senha atual é obrigatória" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.businessId, businessId));
+  if (!user) {
+    res.status(404).json({ error: "Conta não encontrada" });
+    return;
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Senha incorreta" });
+    return;
+  }
+
+  // 1. Cancela assinatura Stripe (se existir e Stripe disponível)
+  try {
+    const [sub] = await db
+      .select()
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.businessId, businessId));
+    if (sub?.stripeSubscriptionId && stripeClient) {
+      try {
+        await stripeClient.subscriptions.cancel(sub.stripeSubscriptionId);
+      } catch (err) {
+        logger.warn({ err, businessId }, "[Account Delete] Falha ao cancelar assinatura Stripe (continuando)");
+      }
+      await db
+        .update(subscriptionsTable)
+        .set({ status: "canceled", cancelAtPeriodEnd: false })
+        .where(eq(subscriptionsTable.id, sub.id));
+    }
+  } catch (err) {
+    logger.error({ err, businessId }, "[Account Delete] Erro ao processar assinatura");
+  }
+
+  // 2. Deleta documentos do GCS (best-effort) e da tabela
+  try {
+    const docs = await db
+      .select()
+      .from(businessDocumentsTable)
+      .where(eq(businessDocumentsTable.businessId, businessId));
+    for (const doc of docs) {
+      try {
+        const PREFIX = "/storage/objects/";
+        const gcsPath = doc.fileUrl.startsWith(PREFIX) ? doc.fileUrl.slice(PREFIX.length) : doc.fileUrl;
+        const removed = await deleteGCSObject(gcsPath);
+        if (!removed) {
+          logger.warn({ docId: doc.id, gcsPath }, "[Account Delete] Arquivo GCS não encontrado (já removido)");
+        }
+      } catch (err) {
+        logger.warn({ err, docId: doc.id }, "[Account Delete] Falha ao deletar arquivo GCS (continuando)");
+      }
+    }
+    await db.delete(businessDocumentsTable).where(eq(businessDocumentsTable.businessId, businessId));
+  } catch (err) {
+    logger.error({ err, businessId }, "[Account Delete] Erro ao deletar documentos");
+  }
+
+  const sentinelEmail = `removed_${businessId}@deleted.hub`;
+
+  // 3. Anonimiza business
+  await db
+    .update(businessesTable)
+    .set({
+      name: "Negócio Removido",
+      description: "",
+      phone: null,
+      whatsapp: null,
+      ownerName: "Removido",
+      ownerEmail: sentinelEmail,
+      ownerPhone: null,
+      cnpj: null,
+      isVisible: false,
+      status: "deleted",
+      logoUrl: null,
+      bannerUrl: null,
+      photos: [],
+      instagram: null,
+      website: null,
+      videoUrl: null,
+      tags: [],
+      paymentMethods: [],
+      cep: null,
+      street: null,
+      number: null,
+      neighborhood: null,
+      lat: null,
+      lng: null,
+      boostedUntil: null,
+      homeFeatured: false,
+      planType: "free",
+    })
+    .where(eq(businessesTable.id, businessId));
+
+  // 4. Anonimiza business_user (mantém row para auditoria mas sem PII)
+  await db
+    .update(businessUsersTable)
+    .set({
+      email: sentinelEmail,
+      passwordHash: "",
+      firstLoginAt: null,
+      documentationStatus: null,
+      documentationDeadline: null,
+      documentationRemainingDays: null,
+      documentationTimerPaused: false,
+    })
+    .where(eq(businessUsersTable.id, user.id));
+
+  logger.info({ businessId, userId: user.id }, "[Account Delete] Conta anonimizada (LGPD)");
+
+  res.json({ success: true, message: "Conta removida com sucesso" });
 });
 
 export default router;

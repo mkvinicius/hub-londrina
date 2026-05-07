@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initSentry } from "./lib/sentry";
 import { runStartupSeed } from "./lib/startup-seed";
 import { startBoostExpirationJob } from "./lib/boost-expiration";
 import { startDocumentationJob } from "./lib/documentation-job";
@@ -8,6 +9,15 @@ import { startSubscriptionReminderJob } from "./lib/subscription-reminder-job";
 import { ensureViews } from "./lib/startup-views";
 import fs from "fs";
 import path from "path";
+
+// Sprint 4.1 — handlers de processo (registrados ANTES de qualquer trabalho assíncrono)
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled rejection");
+});
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception");
+  process.exit(1);
+});
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 ["logos", "banners", "photos"].forEach((dir) => {
@@ -38,7 +48,9 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-runStartupSeed()
+// Sprint 4.5 — Sentry (graceful: silencioso se SENTRY_DSN ausente)
+initSentry()
+  .then(() => runStartupSeed())
   .then(() => ensureViews())
   .then(() => {
     app.listen(port, (err) => {

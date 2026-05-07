@@ -20,6 +20,15 @@ export async function uploadBufferToGCS(
   return `/storage/objects/${gcsPath}`;
 }
 
+export async function deleteGCSObject(gcsPath: string): Promise<boolean> {
+  const bucket = objectStorageClient.bucket(BUCKET_ID);
+  const file = bucket.file(gcsPath);
+  const [exists] = await file.exists();
+  if (!exists) return false;
+  await file.delete();
+  return true;
+}
+
 export async function serveGCSObject(gcsPath: string) {
   const bucket = objectStorageClient.bucket(BUCKET_ID);
   const file = bucket.file(gcsPath);
