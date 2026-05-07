@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { businessesTable } from "./businesses";
 
 export const subscriptionsTable = pgTable("subscriptions", {
@@ -17,4 +17,7 @@ export const subscriptionsTable = pgTable("subscriptions", {
   cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (t) => [
+  index("subscriptions_stripe_sub_id_idx").on(t.stripeSubscriptionId),
+  index("subscriptions_status_idx").on(t.status),
+]);

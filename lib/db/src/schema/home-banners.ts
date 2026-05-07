@@ -5,6 +5,7 @@ import {
   text,
   boolean,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { businessesTable } from "./businesses";
 
@@ -32,7 +33,9 @@ export const homeBannersTable = pgTable("home_banners", {
   clicks: integer("clicks").notNull().default(0),
   endsAt: timestamp("ends_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("home_banners_active_status_idx").on(t.active, t.status),
+]);
 
 export type InsertHomeBanner = typeof homeBannersTable.$inferInsert;
 export type HomeBanner = typeof homeBannersTable.$inferSelect;

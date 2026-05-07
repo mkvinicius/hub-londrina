@@ -3,6 +3,7 @@ import { businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
+import { runOnceDaily } from "./job-checkpoint";
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
@@ -130,8 +131,8 @@ async function runCycle() {
 }
 
 export function startDocumentationJob() {
-  // Rodar 1x ao iniciar e depois a cada 24h
-  runCycle();
-  setInterval(runCycle, ONE_DAY);
-  logger.info("Job de documentação iniciado (timer + plano gratuito 30d — intervalo: 24h)");
+  const wrappedCycle = () => runOnceDaily("documentation-job", runCycle);
+  wrappedCycle();
+  setInterval(wrappedCycle, ONE_DAY);
+  logger.info("Job de documentação iniciado (timer + plano gratuito 30d — intervalo: 24h, checkpoint diário)");
 }

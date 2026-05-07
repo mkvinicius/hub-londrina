@@ -167,3 +167,12 @@ Default lojista password: Hub@2026 (all accounts)
 - `businesses.ts` `/zones/:zone/stats` e `/zones/:zone/businesses` removidos (duplicavam `zones.ts:108/165`).
 - `reviews.ts` `/reviews?businessId=` removido (use `/businesses/:id/reviews`).
 - `LojistaAssinaturas.tsx` removido — fundido em `LojistaPlano.tsx` via abas.
+
+**Sprint 3 — Schema & Backend Consolidation**:
+- 3.1: `search_boosts.updated_at` timestamp adicionado.
+- 3.2: UNIQUE INDEX `reviews_visitor_business_uidx(business_id, visitor_id)` em reviews.
+- 3.3: FKs adicionadas — `businesses.category_slug→categories.slug`, `businesses.zone→zones.slug`, `search_boosts.zone→zones.slug`.
+- 3.4: `business_users.email_verified` migrado de `text("false"/"true")` para `boolean("email_verified_bool")`. Backend (`admin.ts`, `auth.ts`) atualizado.
+- 3.5: Índices adicionados em `subscriptions(stripe_subscription_id, status)` e `home_banners(active, status)`.
+- 3.6: Tabela `job_runs` criada. Helper `runOnceDaily()` em `api-server/src/lib/job-checkpoint.ts`. Os 3 jobs (boost-expiration, documentation-job, subscription-job) agora usam checkpoint diário — evitam re-execução em restart do servidor no mesmo dia.
+- 3.7: View `business_placements_active` criada via `ensureViews()` no startup. Endpoint `GET /api/admin/placements` (filtros opcionais `?zone=&planType=`) retorna todos os negócios com destaque ativo (boostedUntil, homeFeatured, zoneFeatured, search_boosts active).

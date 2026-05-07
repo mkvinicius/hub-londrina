@@ -9,6 +9,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { businessesTable } from "./businesses";
+import { zonesTable } from "./zones";
 
 export const boostTypeEnum = pgEnum("boost_type", ["monthly", "avulso"]);
 export const boostContextEnum = pgEnum("boost_context", [
@@ -29,13 +30,14 @@ export const searchBoostsTable = pgTable(
     position: integer("position"),
     boostType: boostTypeEnum("boost_type").notNull(),
     boostContext: boostContextEnum("boost_context").notNull().default("search"),
-    zone: text("zone"),
+    zone: text("zone").references(() => zonesTable.slug),
     status: text("status").notNull().default("active"),
     durationDays: integer("duration_days"),
     price: numeric("price"),
     startsAt: timestamp("starts_at").defaultNow(),
     expiresAt: timestamp("expires_at"),
     createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
     index("search_boosts_status_idx").on(table.status),

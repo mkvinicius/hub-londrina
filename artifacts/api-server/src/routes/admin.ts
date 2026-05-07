@@ -986,7 +986,7 @@ router.get("/admin/cadastros", async (req: Request, res: Response) => {
     emailVerified: businessUsersTable.emailVerified,
   }).from(businessUsersTable);
 
-  const verifiedMap = new Map(userRecords.map(u => [u.businessId, u.emailVerified === "true"]));
+  const verifiedMap = new Map(userRecords.map(u => [u.businessId, !!u.emailVerified]));
   const data = businesses.map(b => ({ ...b, emailVerified: verifiedMap.get(b.id) ?? false }));
 
   const [pendingCount] = await db
@@ -1344,6 +1344,23 @@ router.delete("/admin/zones/:id", validateId, async (req: Request, res: Response
 
   await db.delete(zonesTable).where(eq(zonesTable.id, id));
   res.json({ success: true });
+});
+
+// ─── GET /admin/placements — debug: todas as fontes de destaque ativas ───────
+router.get("/admin/placements", async (req: Request, res: Response) => {
+  const { zone, planType } = req.query as { zone?: string; planType?: string };
+
+  const extraFilters: SQL[] = [];
+  if (zone) extraFilters.push(sql`zone = ${zone}`);
+  if (planType) extraFilters.push(sql`plan_type = ${planType}`);
+
+  const query =
+    extraFilters.length > 0
+      ? sql`SELECT * FROM business_placements_active WHERE ${sql.join(extraFilters, sql` AND `)} ORDER BY plan_type DESC, business_id`
+      : sql`SELECT * FROM business_placements_active ORDER BY plan_type DESC, business_id`;
+
+  const result = await db.execute(query);
+  res.json({ data: result.rows, count: result.rows.length });
 });
 
 export default router;

@@ -1,0 +1,31 @@
+Leia o context.md. Execute o Sprint 3 completo — Consolidar Modelo. Após alterações de banco rode cd lib/db && npx drizzle-kit push. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build. Execute um item por vez e confirme antes de avançar. Retorne relatório detalhado com smoke test de cada item.
+
+ITEM 3.1 — Adicionar coluna updated_at em search_boosts
+Em lib/db/src/schema/search-boosts.ts adicione: updatedAt: timestamp("updated_at").defaultNow(). Rode drizzle-kit push.
+
+ITEM 3.2 — Adicionar UNIQUE constraint em reviews
+Em lib/db/src/schema/reviews.ts adicione unique index em (businessId, visitorId). Rode drizzle-kit push.
+
+ITEM 3.3 — Adicionar FKs faltando
+Em lib/db/src/schema/businesses.ts o campo categorySlug não tem FK para categories.slug. Adicione references(() => categoriesTable.slug) se possível, ou documente no context.md por que não é aplicável. Mesma análise para businesses.zone → zones.slug e search_boosts.zone → zones.slug.
+
+ITEM 3.4 — Corrigir tipo de email_verified em business_users
+Em lib/db/src/schema/business-users.ts o campo emailVerified é text ("true"/"false") em vez de boolean. Criar migration cuidadosa: ALTER TABLE business_users ADD COLUMN email_verified_bool boolean DEFAULT false; UPDATE business_users SET email_verified_bool = (email_verified = 'true'); depois renomear. Rode drizzle-kit push e atualize todos os lugares que leem/escrevem emailVerified no backend.
+
+ITEM 3.5 — Adicionar índices faltando
+Em lib/db/src/schema/subscriptions.ts adicione: index em stripeSubscriptionId e index em status. Em lib/db/src/schema/home-banners.ts adicione index em (active, status). Rode drizzle-kit push.
+
+ITEM 3.6 — Adicionar checkpoint nos jobs
+Crie lib/db/src/schema/job-runs.ts:
+export const jobRunsTable = pgTable("job_runs", {
+  id: serial("id").primaryKey(),
+  jobName: text("job_name").notNull().unique(),
+  lastRunAt: timestamp("last_run_at").notNull(),
+  lastRunStatus: text("last_run_status").notNull().default("success"),
+});
+Adicione export em lib/db/src/schema/index.ts. Rode drizzle-kit push. Em cada job (boost-expiration.ts, documentation-job.ts, subscription-job.ts), antes de executar verificar se já rodou hoje: SELECT lastRunAt FROM job_runs WHERE jobName=X. Se lastRunAt for hoje (mesmo dia UTC), pular execução e logar "job X já executou hoje, pulando". Após execução bem-sucedida, fazer upsert em job_runs.
+
+ITEM 3.7 — Corrigir consolidação das fontes da verdade de destaque
+Criar view SQL business_placements_active que agrega todas as fontes: boostedUntil, homeFeatured, zoneFeatured, search_boosts ativos. Adicionar endpoint GET /api/admin/placements para debug — retorna negócios com todas as fontes de destaque ativas lado a lado. Documentar no context.md como usar a view para diagnosticar ordenação.
+
+Após todos os itens: rode cd ~/workspace/artifacts/api-server && pnpm build. Atualize context.md com Sprint 3 completo. Retorne relatório detalhado de cada item.

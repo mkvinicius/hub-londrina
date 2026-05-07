@@ -271,7 +271,7 @@ router.get("/auth/verify-email", async (req: Request, res: Response) => {
 
   await db
     .update(businessUsersTable)
-    .set({ emailVerified: "true", emailVerificationToken: null })
+    .set({ emailVerified: true, emailVerificationToken: null })
     .where(eq(businessUsersTable.id, user.id));
 
   return res.redirect("https://www.hublondrina.com.br/lojista/login?verified=1");

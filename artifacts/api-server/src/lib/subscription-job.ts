@@ -3,6 +3,7 @@ import { subscriptionsTable, businessesTable } from "@workspace/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "./logger";
+import { runOnceDaily } from "./job-checkpoint";
 
 async function runPastDueDowngradeJob(): Promise<void> {
   try {
@@ -61,9 +62,9 @@ export function startSubscriptionJob(): void {
   const INTERVAL_MS = 24 * 60 * 60 * 1000;
 
   setTimeout(async () => {
-    await runPastDueDowngradeJob();
-    setInterval(runPastDueDowngradeJob, INTERVAL_MS);
+    await runOnceDaily("subscription-job", runPastDueDowngradeJob);
+    setInterval(() => runOnceDaily("subscription-job", runPastDueDowngradeJob), INTERVAL_MS);
   }, 5 * 60 * 1000);
 
-  logger.info("[SubscriptionJob] Job de downgrade past_due agendado (intervalo: 24h, início em 5 min).");
+  logger.info("[SubscriptionJob] Job de downgrade past_due agendado (intervalo: 24h, início em 5 min, checkpoint diário).");
 }

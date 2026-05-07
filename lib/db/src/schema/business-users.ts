@@ -20,7 +20,7 @@ export const businessUsersTable = pgTable(
     passwordHash: text("password_hash").notNull(),
     passwordResetToken: text("password_reset_token"),
     passwordResetExpiresAt: timestamp("password_reset_expires_at"),
-    emailVerified: text("email_verified").notNull().default("false"),
+    emailVerified: boolean("email_verified_bool").notNull().default(false),
     emailVerificationToken: text("email_verification_token"),
     firstLoginAt: timestamp("first_login_at"),
     lastLoginAt: timestamp("last_login_at"),

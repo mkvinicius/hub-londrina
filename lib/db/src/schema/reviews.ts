@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { businessesTable } from "./businesses";
 
@@ -24,7 +25,10 @@ export const reviewsTable = pgTable(
     ownerResponse: text("owner_response"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("reviews_business_id_idx").on(t.businessId)],
+  (t) => [
+    index("reviews_business_id_idx").on(t.businessId),
+    uniqueIndex("reviews_visitor_business_uidx").on(t.businessId, t.visitorId),
+  ],
 );
 
 export type InsertReview = typeof reviewsTable.$inferInsert;

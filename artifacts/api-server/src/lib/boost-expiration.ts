@@ -3,6 +3,7 @@ import { searchBoostsTable, businessesTable, homeBannersTable } from "@workspace
 import { and, asc, eq, isNull, or, gt, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
+import { runOnceDaily } from "./job-checkpoint";
 
 async function expireBoosts() {
   try {
@@ -142,8 +143,12 @@ async function runExpirationCycle() {
   await promoteWaitlist();
 }
 
+async function runExpirationCycleWithCheckpoint() {
+  await runOnceDaily("boost-expiration", runExpirationCycle);
+}
+
 export function startBoostExpirationJob() {
-  runExpirationCycle();
-  setInterval(runExpirationCycle, 60 * 60 * 1000);
-  logger.info("Job de expiração iniciado (boosts, boostedUntil, banners — intervalo: 1h)");
+  runExpirationCycleWithCheckpoint();
+  setInterval(runExpirationCycleWithCheckpoint, 60 * 60 * 1000);
+  logger.info("Job de expiração iniciado (boosts, boostedUntil, banners — intervalo: 1h, checkpoint diário)");
 }

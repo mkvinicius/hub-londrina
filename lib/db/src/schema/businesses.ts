@@ -10,6 +10,8 @@ import {
   index,
   numeric,
 } from "drizzle-orm/pg-core";
+import { categoriesTable } from "./categories";
+import { zonesTable } from "./zones";
 
 export const planTypeEnum = pgEnum("plan_type", [
   "free",
@@ -22,7 +24,7 @@ export const businessesTable = pgTable(
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
-    categorySlug: text("category_slug").notNull(),
+    categorySlug: text("category_slug").notNull().references(() => categoriesTable.slug),
     region: text("region").notNull(),
     description: text("description").notNull(),
     address: text("address").notNull(),
@@ -37,7 +39,7 @@ export const businessesTable = pgTable(
     clicks: integer("clicks").notNull().default(0),
     whatsappClicks: integer("whatsapp_clicks").notNull().default(0),
     isVisible: boolean("is_visible").notNull().default(true),
-    zone: text("zone").notNull().default("centro"),
+    zone: text("zone").notNull().default("centro").references(() => zonesTable.slug),
     cnpj: text("cnpj"),
     ownerName: text("owner_name"),
     ownerEmail: text("owner_email"),
