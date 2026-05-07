@@ -1,0 +1,70 @@
+Leia o context.md. Execute os itens do backlog para levar o sistema a 10/10. Após alterações de banco rode cd lib/db && npx drizzle-kit push. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build. Retorne relatório detalhado de cada item.
+
+ITEM B1 — SSR da página /negocio/:id para SEO local
+Em artifacts/hub-londrina/src/pages/negocio.tsx e no server.mjs, adicione SSR para a página de negócio individual. A página já tem JSON-LD mas é renderizada client-side. Implemente:
+- No server.mjs, detectar rotas /negocio/:id e fazer fetch do negócio no backend antes de renderizar
+- Injetar os dados no __SSR_QUERIES__ igual ao que já existe para a home e páginas de zona
+- Meta tags dinâmicas: title="[Nome do Negócio] em Londrina | Hub Londrina", description=[descrição do negócio], og:image=[foto do negócio]
+- Canonical URL para evitar duplicação
+
+ITEM B2 — IntersectionObserver nos vídeos da vitrine
+Em artifacts/hub-londrina/src/pages/negocio.tsx, onde vídeos são exibidos, substituir autoplay por IntersectionObserver:
+- Vídeo só começa a tocar quando está 50% visível na tela
+- Vídeo pausa automaticamente quando sai da viewport
+- Aplicar também na home se houver vídeos em destaque
+- Adicionar atributo muted e playsinline para compatibilidade mobile
+
+ITEM B3 — Histórico de pagamentos no painel lojista
+Em artifacts/api-server/src/routes/stripe.ts adicione:
+GET /api/stripe/invoices — retorna últimas 10 faturas do lojista via stripe.invoices.list({ customer: stripeCustomerId, limit: 10 })
+Retornar: { id, amount, status, date, description, invoiceUrl, pdfUrl }
+No frontend em artifacts/hub-londrina/src/pages/lojista/LojistaPlano.tsx, na aba "Visão Geral", adicione seção "Histórico de Faturas" com tabela mostrando: data, descrição, valor, status (pago/pendente/falhou), botão "Ver fatura" que abre invoiceUrl em nova aba e botão "Baixar PDF" que abre pdfUrl.
+
+ITEM B4 — Sistema de suporte interno (tickets)
+Crie tabela em lib/db/src/schema/support-tickets.ts:
+export const supportTicketsTable = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id").references(() => businessesTable.id).notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("open"),
+  priority: text("priority").notNull().default("normal"),
+  adminResponse: text("admin_response"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+Rode drizzle-kit push.
+Backend em artifacts/api-server/src/routes/lojista.ts:
+POST /api/lojista/support — cria ticket (subject, message obrigatórios)
+GET /api/lojista/support — lista tickets do lojista com status
+Backend em artifacts/api-server/src/routes/admin.ts:
+GET /api/admin/support — lista todos tickets com filtros ?status=&priority=
+PATCH /api/admin/support/:id — responde ticket (adminResponse, muda status para resolved)
+Email ao lojista quando admin responder (sendTicketRespondido)
+Frontend lojista — criar LojistaSupporte.tsx:
+Formulário para abrir novo ticket (assunto + mensagem)
+Lista de tickets com status e resposta do admin
+Link "Suporte" no menu lateral do lojista
+Frontend admin — criar AdminSupporte.tsx:
+Lista de tickets abertos com prioridade
+Modal para responder com campo de texto
+Filtros por status e prioridade
+Badge com contagem de tickets abertos no menu lateral
+Link "Suporte" no menu lateral do admin
+
+ITEM B5 — Padronizar pílulas visuais nos cards
+Em artifacts/hub-londrina/src/components/BusinessCard.tsx, padronizar os badges:
+- "Patrocinado" → pílula laranja com ícone de raio
+- "Premium" → pílula dourada com ícone de coroa
+- "Verificado" → pílula verde com ícone de check
+- "Bem Avaliado" → pílula azul com ícone de estrela
+- "Mais Avaliado" → pílula roxa com ícone de troféu
+Usar a mesma família visual em todos os cards do site (busca, zona, home, negocio).
+
+ITEM B6 — Hero altura correta no mobile
+Em artifacts/hub-londrina/src/pages/landing.tsx, corrigir o hero para usar altura correta no mobile evitando que a barra de endereço do browser empurre o conteúdo:
+Substituir h-[72vh] ou similar por: className="min-h-[100svh] md:min-h-[80vh]"
+Se svh não for suportado pelo Tailwind atual, adicionar via style: style={{ minHeight: '100svh' }} com fallback style={{ minHeight: '100vh' }}
+
+Após todos os itens rode cd ~/workspace/artifacts/api-server && pnpm build. Atualize context.md com backlog completo. Retorne relatório detalhado de cada item.
