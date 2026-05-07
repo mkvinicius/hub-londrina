@@ -60,18 +60,28 @@ const ERROR_MESSAGES: Record<string, string> = {
   RAZAO_SOCIAL_DUPLICATE: "Razão social já cadastrada na plataforma.",
 };
 
-const PLAN_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  gratuito: { label: "Gratuito", color: "bg-gray-100 text-gray-700 border-gray-200", icon: "🆓" },
-  destaque: { label: "Destaque — R$59,90/mês", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
-  premium: { label: "Premium — R$89,90/mês", color: "bg-amber-50 text-amber-800 border-amber-300", icon: "🏆" },
+const PLAN_LABELS: Record<string, Record<string, { label: string; color: string; icon: string }>> = {
+  gratuito: {
+    mensal: { label: "Gratuito", color: "bg-gray-100 text-gray-700 border-gray-200", icon: "🆓" },
+    anual:  { label: "Gratuito", color: "bg-gray-100 text-gray-700 border-gray-200", icon: "🆓" },
+  },
+  destaque: {
+    mensal: { label: "Destaque — R$59,90/mês", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
+    anual:  { label: "Destaque Anual — R$49,90/mês (cobrado R$598,80/ano)", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
+  },
+  premium: {
+    mensal: { label: "Premium — R$89,90/mês", color: "bg-amber-50 text-amber-800 border-amber-300", icon: "🏆" },
+    anual:  { label: "Premium Anual — R$79,90/mês (cobrado R$958,80/ano)", color: "bg-amber-50 text-amber-800 border-amber-300", icon: "🏆" },
+  },
 };
 
 export default function Cadastro() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const planoParam = params.get("plano") || "gratuito";
+  const cicloParam = params.get("ciclo") === "anual" ? "anual" : "mensal";
   const isPaidPlan = planoParam === "destaque" || planoParam === "premium";
-  const planInfo = PLAN_LABELS[planoParam] || PLAN_LABELS["gratuito"];
+  const planInfo = (PLAN_LABELS[planoParam] ?? PLAN_LABELS["gratuito"])[cicloParam];
 
   const [step, setStep] = useState(1);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -199,7 +209,9 @@ export default function Cadastro() {
         try {
           const cfgResp = await fetch(`${API}/api/stripe/config`);
           const cfg = await cfgResp.json();
-          const priceId = planoParam === "destaque" ? cfg.prices.base_monthly : cfg.prices.premium_monthly;
+          const priceId = planoParam === "destaque"
+            ? (cicloParam === "anual" ? cfg.prices.base_annual : cfg.prices.base_monthly)
+            : (cicloParam === "anual" ? cfg.prices.premium_annual : cfg.prices.premium_monthly);
           if (priceId) {
             const checkoutResp = await fetch(`${API}/api/stripe/checkout`, {
               method: "POST",

@@ -319,7 +319,7 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button onClick={() => navigate("/cadastro?plano=destaque")} className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg flex items-center justify-center gap-2">
+              <Button onClick={() => navigate(`/cadastro?plano=destaque${anual ? "&ciclo=anual" : ""}`)} className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg flex items-center justify-center gap-2">
                 Começar com este plano <ArrowRight className="w-5 h-5" />
               </Button>
             </div>
@@ -358,7 +358,7 @@ export default function Anuncie() {
                   </li>
                 ))}
               </ul>
-              <Button onClick={() => navigate("/cadastro?plano=premium")} className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0 flex items-center justify-center gap-2">
+              <Button onClick={() => navigate(`/cadastro?plano=premium${anual ? "&ciclo=anual" : ""}`)} className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0 flex items-center justify-center gap-2">
                 Começar com este plano <ArrowRight className="w-5 h-5" />
               </Button>
             </div>
