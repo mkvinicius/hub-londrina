@@ -311,10 +311,11 @@ router.post("/auth/forgot-password", forgotLimiter, csrfProtection, async (req: 
     .from(businessesTable)
     .where(eq(businessesTable.id, user.businessId));
 
-  try {
-    const tpl = emails.recuperacaoSenha(business?.ownerName || "Lojista", token);
-    await sendEmail(normalizedEmail, tpl.subject, tpl.html);
-  } catch {}
+  const tpl = emails.recuperacaoSenha(business?.ownerName || "Lojista", token);
+  const sent = await sendEmail(normalizedEmail, tpl.subject, tpl.html);
+  if (!sent) {
+    req.log.warn({ email: normalizedEmail }, "[Auth] Falha ao enviar email de recuperação de senha");
+  }
 
   res.json({ message: GENERIC });
 });
