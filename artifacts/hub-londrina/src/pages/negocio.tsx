@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { csrfFetch } from "@/lib/csrf";
 import {
@@ -16,6 +16,48 @@ import {
   type Review, type Business
 } from "@workspace/api-client-react";
 import { BusinessCard } from "@/components/BusinessCard";
+
+// B2 — vídeo da vitrine: só toca quando ≥50% visível na viewport.
+// Reduz CPU/battery em listas grandes e em tabs em background.
+function VitrineVideo({ src, poster }: { src: string; poster: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    if (typeof IntersectionObserver === "undefined") {
+      // Fallback: ambientes sem IO (SSR/jsdom) — tenta tocar uma vez.
+      video.play().catch(() => {});
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(video);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      poster={poster}
+      className="absolute inset-0 w-full h-full object-cover"
+    >
+      <source src={src} type="video/mp4" />
+    </video>
+  );
+}
 
 function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
   return (
@@ -185,16 +227,7 @@ export default function Negocio() {
   const ratingDist = getRatingDistribution(reviews);
   const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 4);
 
-  useEffect(() => {
-    const tryPlay = () => {
-      document.querySelectorAll<HTMLVideoElement>("video[autoplay]").forEach(v => {
-        if (v.paused) v.play().catch(() => {});
-      });
-    };
-    tryPlay();
-    document.addEventListener("touchstart", tryPlay, { once: true });
-    return () => document.removeEventListener("touchstart", tryPlay);
-  }, []);
+  // B2: vídeos da vitrine usam <VitrineVideo> com IntersectionObserver dedicado.
 
   if (isLoading) {
     return (
@@ -445,9 +478,7 @@ export default function Negocio() {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                           {items.map((item, i) => (
                             <div key={i} className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ height: "240px", boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}>
-                              <video autoPlay muted loop playsInline preload="auto" poster={item.photo} className="absolute inset-0 w-full h-full object-cover">
-                                <source src={item.video} type="video/mp4" />
-                              </video>
+                              <VitrineVideo src={item.video} poster={item.photo} />
                               <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.90) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)" }} />
                               <div className="absolute top-2 right-2">
                                 <span className="text-[8px] font-bold text-white/50 uppercase tracking-wider">▶ ao vivo</span>

@@ -234,3 +234,48 @@ export async function createCategoryBoostCheckout(position: number): Promise<{ u
     body: JSON.stringify({ position }),
   });
 }
+
+// B3 — Histórico de faturas Stripe
+export interface StripeInvoice {
+  id: string;
+  number: string | null;
+  created: number;
+  amountPaid: number;
+  amountDue: number;
+  currency: string;
+  status: string | null;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+  periodStart: number;
+  periodEnd: number;
+}
+export async function getInvoices(): Promise<{ data: StripeInvoice[] }> {
+  return lojistaFetch("/stripe/invoices");
+}
+
+// B4 — Tickets de suporte (lojista)
+export interface SupportTicket {
+  id: number;
+  businessId: number;
+  subject: string;
+  message: string;
+  status: string;
+  priority: string;
+  adminResponse: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export async function getSupportTickets(): Promise<{ data: SupportTicket[] }> {
+  return lojistaFetch("/lojista/support");
+}
+export async function createSupportTicket(input: {
+  subject: string;
+  message: string;
+  priority?: string;
+}): Promise<{ data: SupportTicket }> {
+  return lojistaFetch("/lojista/support", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}

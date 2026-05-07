@@ -210,6 +210,25 @@ ${bizUrls}
         };
         const jsonLdScript = `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`;
 
+        // B1: og:image + canonical
+        const canonicalUrl = `https://www.hublondrina.com.br/negocio/${business.id}`;
+        const ogImage = business.photoUrl || business.bannerUrl || business.logoUrl ||
+          "https://www.hublondrina.com.br/logo.jpeg";
+        const escAttr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+        const safeTitle = escAttr(title);
+        const safeDesc = escAttr(desc);
+        const metaInject = [
+          `<link rel="canonical" href="${escAttr(canonicalUrl)}" />`,
+          `<meta property="og:type" content="business.business" />`,
+          `<meta property="og:url" content="${escAttr(canonicalUrl)}" />`,
+          `<meta property="og:image" content="${escAttr(ogImage)}" />`,
+          `<meta property="og:image:alt" content="${safeTitle}" />`,
+          `<meta name="twitter:card" content="summary_large_image" />`,
+          `<meta name="twitter:title" content="${safeTitle}" />`,
+          `<meta name="twitter:description" content="${safeDesc}" />`,
+          `<meta name="twitter:image" content="${escAttr(ogImage)}" />`,
+        ].join("\n");
+
         let html = template
           .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`)
           .replace("<title>Hub Londrina — Negócio Local</title>", `<title>${title}</title>`)
@@ -217,7 +236,15 @@ ${bizUrls}
             `content="Feito por londrinense, para londrinense. Encontre restaurantes, salões, clínicas e serviços locais em Londrina, PR."`,
             `content="${desc.replace(/"/g, "&quot;")}"`
           )
-          .replace("</head>", `${ssrScript}\n${jsonLdScript}\n</head>`);
+          .replace(
+            `<meta property="og:title" content="Hub Londrina — Negócio Local" />`,
+            `<meta property="og:title" content="${safeTitle}" />`
+          )
+          .replace(
+            `<meta property="og:description" content="Feito por londrinense, para londrinense. Encontre negócios locais em Londrina, PR." />`,
+            `<meta property="og:description" content="${safeDesc}" />`
+          )
+          .replace("</head>", `${metaInject}\n${ssrScript}\n${jsonLdScript}\n</head>`);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(html);
         return;

@@ -1,7 +1,18 @@
 import { useLocation } from "wouter";
-import { MapPin, Star, ArrowRight, Award, MessageCircle, ThumbsUp, ShieldCheck } from "lucide-react";
+import {
+  MapPin,
+  Star,
+  ArrowRight,
+  Crown,
+  MessageCircle,
+  ThumbsUp,
+  CheckCircle2,
+  Trophy,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Business } from "@workspace/api-client-react";
+import type { LucideIcon } from "lucide-react";
 
 interface BusinessCardProps {
   business: Business;
@@ -17,15 +28,50 @@ function getMaisAvaliado(business: Business): boolean {
   return business.reviewsCount >= 20;
 }
 
-function getSemReclamacoes(business: Business): boolean {
+function getVerificado(business: Business): boolean {
   return business.rating >= 4.5 && business.reviewsCount >= 5;
+}
+
+// B5 — Família visual unificada das pílulas (fundo claro + texto/ícone do tom).
+type PillTone = "orange" | "gold" | "green" | "blue" | "purple";
+
+const PILL_TONE: Record<PillTone, string> = {
+  orange: "text-orange-700 bg-orange-50 ring-1 ring-orange-100",
+  gold: "text-amber-700 bg-amber-50 ring-1 ring-amber-100",
+  green: "text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100",
+  blue: "text-blue-700 bg-blue-50 ring-1 ring-blue-100",
+  purple: "text-violet-700 bg-violet-50 ring-1 ring-violet-100",
+};
+
+function Pill({
+  icon: Icon,
+  label,
+  tone,
+  className = "",
+}: {
+  icon: LucideIcon;
+  label: string;
+  tone: PillTone;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${PILL_TONE[tone]} ${className}`}
+    >
+      <Icon className="h-2.5 w-2.5" />
+      {label}
+    </span>
+  );
 }
 
 export function BusinessCard({ business: biz, size = "md", showDistance = false }: BusinessCardProps) {
   const [, navigate] = useLocation();
   const bemAvaliado = getBemAvaliado(biz);
   const maisAvaliado = getMaisAvaliado(biz);
-  const semReclamacoes = getSemReclamacoes(biz) && !bemAvaliado && !maisAvaliado;
+  const verificado = getVerificado(biz) && !bemAvaliado && !maisAvaliado;
+  const isPremium = biz.planType === "premium";
+  const isPatrocinado = (biz as any).boostInfo?.isActive === true;
+  const isImpulsionado = !isPatrocinado && (biz as any)._boostBadge === "Impulsionado";
 
   return (
     <div
@@ -53,36 +99,19 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
           <span className="inline-block text-xs font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider w-fit">
             {biz.categorySlug}
           </span>
-          {(biz as any).boostInfo?.isActive && (
-            <span className="text-xs text-gray-400 font-normal ml-auto">Patrocinado</span>
+
+          {/* Patrocinado / Impulsionado vão para a direita do badge de categoria */}
+          {isPatrocinado && (
+            <Pill icon={Zap} label="Patrocinado" tone="orange" className="ml-auto" />
           )}
-          {!(biz as any).boostInfo?.isActive && (biz as any)._boostBadge === "Impulsionado" && (
-            <span className="text-xs text-purple-500 font-semibold ml-auto">Impulsionado</span>
+          {isImpulsionado && (
+            <Pill icon={Zap} label="Impulsionado" tone="purple" className="ml-auto" />
           )}
-          {bemAvaliado && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-              <ThumbsUp className="h-2.5 w-2.5" />
-              Bem Avaliado
-            </span>
-          )}
-          {maisAvaliado && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-              <Star className="h-2.5 w-2.5" />
-              Mais Avaliado
-            </span>
-          )}
-          {semReclamacoes && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
-              <ShieldCheck className="h-2.5 w-2.5" />
-              Sem Reclamações
-            </span>
-          )}
-          {biz.planType === "premium" && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-              <Award className="h-2.5 w-2.5" />
-              Premium
-            </span>
-          )}
+
+          {isPremium && <Pill icon={Crown} label="Premium" tone="gold" />}
+          {verificado && <Pill icon={CheckCircle2} label="Verificado" tone="green" />}
+          {bemAvaliado && <Pill icon={ThumbsUp} label="Bem Avaliado" tone="blue" />}
+          {maisAvaliado && <Pill icon={Trophy} label="Mais Avaliado" tone="purple" />}
         </div>
         <h3 className="font-bold text-base text-[#3a2512] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight mb-1">
           {biz.name}

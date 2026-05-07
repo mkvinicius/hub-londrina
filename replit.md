@@ -57,6 +57,7 @@ Full-stack local business directory for Londrina, Brazil.
 - `/admin/impulsionamento` — Search boost management (5 monthly positions + avulso boosts)
 - `/admin/home-banners` — Home banner management (CRUD, max 2 active)
 - `/admin/zonas` — Zone CRUD + per-zone featured slots (up to 6 per zone)
+- `/admin/suporte` — Moderação de tickets (B4: filtros status/prioridade, resposta + email auto)
 
 **Zonas (regions)**: 5 zonas canônicas — `centro`, `norte`, `sul`, `leste`, `oeste`. Stored as `businesses.zone` (slug) and `businesses.region` (display name). Zone metadata (name, color, banner, description) lives in the `zones` table; falls back to `lib/zones.ts` constants if a row is missing.
 
@@ -73,6 +74,7 @@ Full-stack local business directory for Londrina, Brazil.
 - `/lojista/produtos` — Product catalog CRUD (locked for non-premium)
 - `/lojista/metricas` — Click analytics (locked for free; chart locked for non-premium)
 - `/lojista/avaliacoes` — Review management (view, respond, copy review link)
+- `/lojista/suporte` — Tickets de suporte (B4: criar/listar com prioridade e status)
 - `/lojista/boost` — Boost (categoria self-service Premium com botões comprar, avulso WhatsApp)
 - `/lojista/plano` — Plano & Assinatura unificado, abas "Visão Geral" (status plano + boosts + banner) e "Mudar Plano" (grade 3 planos consumindo `/api/stripe/config`)
 - `/lojista/assinaturas` — redirect 301-like para `/lojista/plano` (rota aposentada)
@@ -175,6 +177,14 @@ Default lojista password: Hub@2026 (all accounts)
 - 4.4 Moderação reviews admin: `GET /admin/reviews?businessId=&rating=&limit=` (join business name) e `DELETE /admin/reviews/:id` — recalcula `businesses.rating` (AVG) e `reviewsCount` após exclusão.
 - 4.5 Sentry graceful: `lib/sentry.ts` (`initSentry()`, `captureException()`) — silencioso sem `SENTRY_DSN`. Importado de `@sentry/node` (externalizado no esbuild para evitar bundling de `@opentelemetry/*`). Init chamado em `index.ts` antes do listen. Capture invocado pelo error handler em `app.ts`.
 - 4.6 Impersonate lojista: `POST /api/admin/impersonate/:businessId` — gera JWT 1h `{businessId, email, role:"lojista", impersonated:true}`. Frontend admin abre `/lojista?impersonate=<token>` em nova aba; `lojista-api.ts` consome o token via IIFE no carregamento do módulo (move para localStorage e limpa o query). Audita `lojista.impersonate`.
+
+**Sprint Backlog B1-B6** (esta sessão):
+- B1 SSR `/negocio/:id` (`server.mjs`): `og:image`, `canonical`, twitter cards, `og:url`, `og:type` injetados via `replaceMeta()`.
+- B2 Performance: `negocio.tsx` componente `VitrineVideo` com `IntersectionObserver(threshold:0.5)` — toca/pausa conforme visibilidade; substitui `useEffect` global de `play()` em todos os vídeos.
+- B3 Stripe: `GET /api/stripe/invoices` retorna até 24 faturas (`number, amountPaid, status, hostedInvoiceUrl, invoicePdf, periodStart/End`). UI: `LojistaPlano > VisaoGeral > InvoicesSection` (tabela com badge status, links Ver/PDF).
+- B4 Suporte: tabela `support_tickets` (businessId FK cascade, subject 200, message 5000, status open|in_progress|resolved|closed, priority low|normal|high|urgent, adminResponse 5000, respondedAt, createdAt, updatedAt). Endpoints `GET|POST /api/lojista/support` (auth lojista, validação 1-200/1-5000, priority allowlist) e `GET /api/admin/support?status=&priority=&limit=` + `PATCH /api/admin/support/:id` (auto-resolve quando há resposta, audit `support.update`, email `emails.suporteRespondido`). Páginas: `LojistaSuporte.tsx` (criar/listar com filtros visuais), `AdminSuporte.tsx` (tabela + modal resposta + quickStatus). Nav links em `LojistaLayout` (HelpCircle) e `AdminLayout` (MessageSquare).
+- B5 `BusinessCard.tsx` reescrito com `Pill` helper e tons consistentes (orange/gold/green/blue/purple) — Zap (boost), Crown (premium), CheckCircle2 (verificado), ThumbsUp (recomendado), Trophy (top).
+- B6 Hero mobile: `landing.tsx` hero com `min-h-[100svh] md:min-h-0` (preserva style height clamp existente) — usa viewport unit estável em iOS Safari.
 
 **Frontend Sprint 4** (admin):
 - `pages/admin/AdminAuditLog.tsx` — tabela de auditoria com filtros tipo/limit, badges coloridos por ação.

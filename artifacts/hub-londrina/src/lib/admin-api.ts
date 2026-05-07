@@ -24,6 +24,37 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
+// B4 — Tickets de suporte (admin)
+export interface AdminSupportTicket {
+  id: number;
+  businessId: number;
+  businessName: string | null;
+  ownerEmail: string | null;
+  subject: string;
+  message: string;
+  status: string;
+  priority: string;
+  adminResponse: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export async function listSupportTickets(params: { status?: string; priority?: string } = {}): Promise<{ data: AdminSupportTicket[] }> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.priority) qs.set("priority", params.priority);
+  return adminFetch(`/api/admin/support${qs.toString() ? `?${qs.toString()}` : ""}`);
+}
+export async function updateSupportTicket(
+  id: number,
+  patch: { adminResponse?: string; status?: string; priority?: string },
+): Promise<{ data: AdminSupportTicket }> {
+  return adminFetch(`/api/admin/support/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function adminFetch(path: string, options: RequestInit = {}) {
   const token = getToken();
   const res = await fetch(`${API_BASE}${path}`, {

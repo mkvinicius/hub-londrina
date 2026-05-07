@@ -4,7 +4,7 @@ import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 
@@ -1492,6 +1492,101 @@ router.post("/admin/impersonate/:businessId", validateId, async (req: Request, r
 });
 
 // ─── GET /admin/placements — debug: todas as fontes de destaque ativas ───────
+// B4 — Tickets de suporte (admin)
+router.get("/admin/support", async (req: Request, res: Response) => {
+  const status = req.query.status as string | undefined;
+  const priority = req.query.priority as string | undefined;
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+
+  const conds: any[] = [];
+  if (status && ["open", "in_progress", "resolved", "closed"].includes(status)) {
+    conds.push(eq(supportTicketsTable.status, status));
+  }
+  if (priority && ["low", "normal", "high", "urgent"].includes(priority)) {
+    conds.push(eq(supportTicketsTable.priority, priority));
+  }
+
+  const baseQ = db
+    .select({
+      id: supportTicketsTable.id,
+      businessId: supportTicketsTable.businessId,
+      businessName: businessesTable.name,
+      ownerEmail: businessesTable.ownerEmail,
+      subject: supportTicketsTable.subject,
+      message: supportTicketsTable.message,
+      status: supportTicketsTable.status,
+      priority: supportTicketsTable.priority,
+      adminResponse: supportTicketsTable.adminResponse,
+      respondedAt: supportTicketsTable.respondedAt,
+      createdAt: supportTicketsTable.createdAt,
+      updatedAt: supportTicketsTable.updatedAt,
+    })
+    .from(supportTicketsTable)
+    .leftJoin(businessesTable, eq(businessesTable.id, supportTicketsTable.businessId));
+
+  const rows = await (conds.length > 0 ? baseQ.where(and(...conds)) : baseQ)
+    .orderBy(desc(supportTicketsTable.createdAt))
+    .limit(limit);
+
+  res.json({ data: rows });
+});
+
+router.patch("/admin/support/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseId(req);
+  const { adminResponse, status, priority } = req.body ?? {};
+
+  const update: Record<string, unknown> = { updatedAt: new Date() };
+  if (typeof adminResponse === "string" && adminResponse.trim()) {
+    update.adminResponse = adminResponse.trim().slice(0, 5000);
+    update.respondedAt = new Date();
+    if (!status) update.status = "resolved";
+  }
+  if (status && ["open", "in_progress", "resolved", "closed"].includes(status)) {
+    update.status = status;
+  }
+  if (priority && ["low", "normal", "high", "urgent"].includes(priority)) {
+    update.priority = priority;
+  }
+
+  const [row] = await db
+    .update(supportTicketsTable)
+    .set(update)
+    .where(eq(supportTicketsTable.id, id))
+    .returning();
+
+  if (!row) {
+    res.status(404).json({ error: "Ticket não encontrado" });
+    return;
+  }
+
+  // Notifica lojista se houve resposta
+  if (typeof adminResponse === "string" && adminResponse.trim()) {
+    try {
+      const [biz] = await db
+        .select({ ownerEmail: businessesTable.ownerEmail, name: businessesTable.name })
+        .from(businessesTable)
+        .where(eq(businessesTable.id, row.businessId));
+      if (biz?.ownerEmail) {
+        const tpl = emails.suporteRespondido(biz.name, row.subject, update.adminResponse as string);
+        await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+      }
+    } catch (err) {
+      req.log?.warn({ err }, "[Admin Support] Falha ao enviar email de resposta");
+    }
+  }
+
+  await logAdminAction({
+    adminId: ADMIN_DEFAULT_ID,
+    action: "support.update",
+    targetType: "support_ticket",
+    targetId: id,
+    details: JSON.stringify({ status: update.status, priority: update.priority, hasResponse: !!update.adminResponse }),
+    ip: getReqIp(req),
+  });
+
+  res.json({ data: row });
+});
+
 router.get("/admin/placements", async (req: Request, res: Response) => {
   const { zone, planType } = req.query as { zone?: string; planType?: string };
 

@@ -186,8 +186,10 @@ export default function Landing() {
   return (
     <Layout>
       {/* ===== HERO SECTION ===== */}
+      {/* B6: hero ocupa 100svh no mobile (evita "salto" da barra de URL),
+          mantém clamp(480-700px) a partir de md. */}
       <div
-        className="relative w-full"
+        className="relative w-full min-h-[100svh] md:min-h-0"
         style={{ height: "clamp(480px, 72vh, 700px)" }}
       >
         {/* Background image — full, sem ofuscação */}

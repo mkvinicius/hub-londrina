@@ -327,6 +327,46 @@ router.get("/stripe/subscription", async (req: Request, res: Response) => {
   });
 });
 
+// B3 — Histórico de faturas do lojista (Stripe).
+// Lista até 24 faturas mais recentes do customer associado à assinatura ativa.
+router.get("/stripe/invoices", async (req: Request, res: Response) => {
+  const lojista = getLojistaFromToken(req);
+  if (!lojista) return res.status(401).json({ error: "Não autorizado" });
+
+  const [sub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.businessId, lojista.businessId));
+
+  if (!sub?.stripeCustomerId) {
+    return res.json({ data: [] });
+  }
+
+  try {
+    const invoices = await stripe.invoices.list({
+      customer: sub.stripeCustomerId,
+      limit: 24,
+    });
+    const data = invoices.data.map((inv) => ({
+      id: inv.id,
+      number: inv.number,
+      created: inv.created,
+      amountPaid: inv.amount_paid,
+      amountDue: inv.amount_due,
+      currency: inv.currency,
+      status: inv.status,
+      hostedInvoiceUrl: inv.hosted_invoice_url,
+      invoicePdf: inv.invoice_pdf,
+      periodStart: inv.period_start,
+      periodEnd: inv.period_end,
+    }));
+    res.json({ data });
+  } catch (err) {
+    req.log?.error({ err }, "[Stripe] Falha ao listar faturas");
+    res.status(502).json({ error: "Não foi possível obter faturas" });
+  }
+});
+
 router.post("/stripe/webhook", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
   logger.info("[Stripe Webhook] Recebido. Signature header:", sig ? "presente" : "AUSENTE");

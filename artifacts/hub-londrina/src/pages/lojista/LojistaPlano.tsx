@@ -3,11 +3,12 @@ import { useLocation, Link } from "wouter";
 import { LojistaLayout } from "./LojistaLayout";
 import {
   getProfile, getStripeConfig, getSubscription, getSubscriptions,
-  createCheckoutSession, createPortalSession,
+  createCheckoutSession, createPortalSession, getInvoices,
+  type StripeInvoice,
 } from "@/lib/lojista-api";
 import {
   Check, X, Lock, Zap, Crown, Star, AlertCircle, CheckCircle2, ExternalLink,
-  CreditCard, Layout, Clock, XCircle, ArrowRight, RefreshCw,
+  CreditCard, Layout, Clock, XCircle, ArrowRight, RefreshCw, FileText, Download,
 } from "lucide-react";
 
 interface Profile { planType: string; name: string }
@@ -280,10 +281,119 @@ function VisaoGeral({
         )}
       </div>
 
+      <InvoicesSection />
+
       <div className="mt-8 bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4">
         <p className="text-sm text-blue-700">Você receberá lembretes por email 7 dias e 1 dia antes de cada vencimento.</p>
       </div>
     </div>
+  );
+}
+
+// B3 — Histórico de Faturas (Stripe)
+function InvoicesSection() {
+  const [invoices, setInvoices] = useState<StripeInvoice[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getInvoices()
+      .then(res => setInvoices(res.data ?? []))
+      .catch(err => setError(err instanceof Error ? err.message : "Erro ao carregar faturas"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function fmtMoney(amount: number, currency: string) {
+    try {
+      return new Intl.NumberFormat("pt-BR", { style: "currency", currency: (currency || "BRL").toUpperCase() })
+        .format((amount || 0) / 100);
+    } catch {
+      return `R$ ${((amount || 0) / 100).toFixed(2)}`;
+    }
+  }
+
+  function fmtDate(unix: number) {
+    return new Date(unix * 1000).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  const STATUS_CLS: Record<string, string> = {
+    paid: "bg-green-100 text-green-700",
+    open: "bg-blue-100 text-blue-700",
+    draft: "bg-gray-100 text-gray-600",
+    uncollectible: "bg-red-100 text-red-700",
+    void: "bg-gray-100 text-gray-500",
+  };
+
+  return (
+    <>
+      <h2 className="text-base font-bold text-gray-700 mb-3 mt-8 flex items-center gap-2">
+        <FileText className="w-4 h-4 text-gray-500" />
+        Histórico de Faturas
+      </h2>
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        {loading ? (
+          <p className="text-sm text-gray-500">Carregando faturas…</p>
+        ) : error ? (
+          <p className="text-sm text-red-600 flex items-center gap-2"><AlertCircle className="w-4 h-4" />{error}</p>
+        ) : !invoices || invoices.length === 0 ? (
+          <p className="text-sm text-gray-500">Nenhuma fatura encontrada ainda.</p>
+        ) : (
+          <div className="overflow-x-auto -mx-5 px-5">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-gray-400">
+                <tr className="border-b border-gray-100">
+                  <th className="text-left font-semibold py-2">Data</th>
+                  <th className="text-left font-semibold py-2">Número</th>
+                  <th className="text-left font-semibold py-2">Status</th>
+                  <th className="text-right font-semibold py-2">Valor</th>
+                  <th className="text-right font-semibold py-2">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {invoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="py-2.5 text-gray-700">{fmtDate(inv.created)}</td>
+                    <td className="py-2.5 text-gray-500 font-mono text-xs">{inv.number ?? "—"}</td>
+                    <td className="py-2.5">
+                      <span className={`inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_CLS[inv.status ?? ""] ?? "bg-gray-100 text-gray-600"}`}>
+                        {inv.status ?? "—"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right font-semibold text-gray-800">
+                      {fmtMoney(inv.amountPaid || inv.amountDue, inv.currency)}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        {inv.hostedInvoiceUrl && (
+                          <a
+                            href={inv.hostedInvoiceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 hover:text-gray-900 px-2 py-1 rounded-lg border border-gray-200 hover:bg-gray-50"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Ver
+                          </a>
+                        )}
+                        {inv.invoicePdf && (
+                          <a
+                            href={inv.invoicePdf}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#d97706] hover:text-[#b45309] px-2 py-1 rounded-lg border border-orange-200 hover:bg-orange-50"
+                          >
+                            <Download className="w-3 h-3" /> PDF
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

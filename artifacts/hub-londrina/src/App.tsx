@@ -21,6 +21,7 @@ import AdminCadastros from "@/pages/admin/AdminCadastros";
 import AdminAssinaturas from "@/pages/admin/AdminAssinaturas";
 import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 import AdminReviews from "@/pages/admin/AdminReviews";
+import AdminSuporte from "@/pages/admin/AdminSuporte";
 import LojistaLogin from "@/pages/lojista/LojistaLogin";
 import EsqueciSenha from "@/pages/lojista/EsqueciSenha";
 import NovaSenha from "@/pages/lojista/NovaSenha";
@@ -32,6 +33,7 @@ import LojistaProdutos from "@/pages/lojista/LojistaProdutos";
 import LojistaMetricas from "@/pages/lojista/LojistaMetricas";
 import LojistaPlano from "@/pages/lojista/LojistaPlano";
 import LojistaSenha from "@/pages/lojista/LojistaSenha";
+import LojistaSuporte from "@/pages/lojista/LojistaSuporte";
 import LojistaAvaliacoes from "@/pages/lojista/LojistaAvaliacoes";
 import LojistaBoost from "@/pages/lojista/LojistaBoost";
 import LojistaDocumentacao from "@/pages/lojista/LojistaDocumentacao";
@@ -83,6 +85,7 @@ function Router() {
       <Route path="/admin/categorias">{() => <PrivateRoute component={AdminCategorias} />}</Route>
       <Route path="/admin/reviews">{() => <PrivateRoute component={AdminReviews} />}</Route>
       <Route path="/admin/audit-log">{() => <PrivateRoute component={AdminAuditLog} />}</Route>
+      <Route path="/admin/suporte">{() => <PrivateRoute component={AdminSuporte} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>
       <Route path="/lojista/login" component={LojistaLogin} />
       <Route path="/lojista/esqueci-senha" component={EsqueciSenha} />
@@ -98,6 +101,7 @@ function Router() {
       <Route path="/lojista/documentacao">{() => <LojistaPrivateRoute component={LojistaDocumentacao} />}</Route>
       <Route path="/lojista/plano">{() => <LojistaPrivateRoute component={LojistaPlano} />}</Route>
       <Route path="/lojista/senha">{() => <LojistaPrivateRoute component={LojistaSenha} />}</Route>
+      <Route path="/lojista/suporte">{() => <LojistaPrivateRoute component={LojistaSuporte} />}</Route>
       <Route path="/lojista">{() => <LojistaPrivateRoute component={LojistaDashboard} />}</Route>
       <Route component={NotFound} />
     </Switch>

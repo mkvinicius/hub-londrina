@@ -8,7 +8,7 @@ import fs from "fs";
 import os from "os";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable } from "@workspace/db/schema";
+import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable, supportTicketsTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
 import { uploadBufferToGCS, deleteGCSObject } from "../lib/gcsUpload";
 import { generatePdfReport } from "../lib/pdf-report.js";
@@ -1090,6 +1090,42 @@ router.delete("/lojista/account", async (req: Request, res: Response) => {
   logger.info({ businessId, userId: user.id }, "[Account Delete] Conta anonimizada (LGPD)");
 
   res.json({ success: true, message: "Conta removida com sucesso" });
+});
+
+// B4 — Tickets de suporte (lojista)
+router.get("/lojista/support", lojistaAuth, async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista as LojistaPayload;
+  const rows = await db
+    .select()
+    .from(supportTicketsTable)
+    .where(eq(supportTicketsTable.businessId, businessId))
+    .orderBy(desc(supportTicketsTable.createdAt))
+    .limit(100);
+  res.json({ data: rows });
+});
+
+router.post("/lojista/support", lojistaAuth, async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista as LojistaPayload;
+  const subject = String(req.body?.subject ?? "").trim();
+  const message = String(req.body?.message ?? "").trim();
+  const priorityRaw = String(req.body?.priority ?? "normal").trim();
+  const priority = ["low", "normal", "high", "urgent"].includes(priorityRaw) ? priorityRaw : "normal";
+
+  if (!subject || subject.length > 200) {
+    res.status(400).json({ error: "Assunto inválido (1-200 caracteres)" });
+    return;
+  }
+  if (!message || message.length > 5000) {
+    res.status(400).json({ error: "Mensagem inválida (1-5000 caracteres)" });
+    return;
+  }
+
+  const [row] = await db
+    .insert(supportTicketsTable)
+    .values({ businessId, subject, message, priority })
+    .returning();
+
+  res.status(201).json({ data: row });
 });
 
 export default router;

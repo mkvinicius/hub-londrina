@@ -1,0 +1,21 @@
+Leia o context.md. Execute os itens B1 até B6 do backlog. Após alterações de banco rode cd lib/db && npx drizzle-kit push. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build. Retorne relatório detalhado de cada item.
+
+ITEM B1 — SSR da página /negocio/:id para SEO local
+No server.mjs, detectar rotas /negocio/:id e fazer fetch do negócio no backend antes de renderizar. Injetar dados no __SSR_QUERIES__ igual ao que já existe para home e páginas de zona. Meta tags dinâmicas: title="[Nome] em Londrina | Hub Londrina", description=[descrição], og:image=[foto]. Canonical URL para evitar duplicação.
+
+ITEM B2 — IntersectionObserver nos vídeos
+Em negocio.tsx, substituir autoplay por IntersectionObserver. Vídeo só toca quando 50% visível. Pausa quando sai da viewport. Adicionar muted e playsinline para mobile.
+
+ITEM B3 — Histórico de pagamentos no painel lojista
+Em stripe.ts adicione GET /api/stripe/invoices retornando últimas 10 faturas via stripe.invoices.list. Retornar id, amount, status, date, description, invoiceUrl, pdfUrl. Em LojistaPlano.tsx na aba Visão Geral adicione seção Histórico de Faturas com tabela: data, descrição, valor, status, botão Ver fatura e botão Baixar PDF.
+
+ITEM B4 — Sistema de suporte interno
+Crie lib/db/src/schema/support-tickets.ts com campos: id, businessId, subject, message, status (open/resolved), priority (normal/high), adminResponse, respondedAt, createdAt, updatedAt. Adicione export em index.ts. Rode drizzle-kit push. Backend lojista: POST /api/lojista/support e GET /api/lojista/support. Backend admin: GET /api/admin/support com filtros status e priority, PATCH /api/admin/support/:id para responder. Email ao lojista quando admin responder. Frontend lojista: LojistaSupporte.tsx com formulário e lista de tickets, link Suporte no menu. Frontend admin: AdminSupporte.tsx com lista, modal de resposta, badge com contagem de abertos no menu.
+
+ITEM B5 — Padronizar pílulas visuais nos cards
+Em BusinessCard.tsx padronizar badges: Patrocinado pílula laranja com ícone raio, Premium pílula dourada com coroa, Verificado pílula verde com check, Bem Avaliado pílula azul com estrela, Mais Avaliado pílula roxa com troféu. Usar mesma família visual em todos os cards do site.
+
+ITEM B6 — Hero altura correta no mobile
+Em landing.tsx corrigir hero para usar 100svh no mobile. Substituir altura atual por style={{ minHeight: '100svh' }} com fallback para 100vh. Garantir que busca não fica escondida pela barra de endereço do browser.
+
+Após todos os itens rode cd ~/workspace/artifacts/api-server && pnpm build. Atualize context.md. Retorne relatório detalhado.

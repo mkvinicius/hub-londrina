@@ -269,6 +269,22 @@ export const emails = {
     `,
   }),
 
+  suporteRespondido: (nome: string, assunto: string, resposta: string) => ({
+    subject: `💬 Resposta do suporte — ${assunto}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#3d7a28">Sua dúvida foi respondida</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>A equipe Hub Londrina respondeu seu ticket:</p>
+        <p style="background:#f9f9f9;padding:12px;border-radius:6px"><strong>Assunto:</strong> ${assunto}</p>
+        <p style="background:#eef9ee;border-left:4px solid #3d7a28;padding:12px;border-radius:6px;white-space:pre-wrap">${resposta}</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/suporte" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Abrir painel de suporte</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `,
+  }),
+
   recuperacaoSenha: (nome: string, token: string) => ({
     subject: `Redefinir sua senha — Hub Londrina`,
     html: `
