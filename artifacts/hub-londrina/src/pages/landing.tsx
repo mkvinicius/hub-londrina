@@ -417,7 +417,7 @@ export default function Landing() {
               { value: platformStats ? `+${platformStats.businesses}` : "…", label: "Negócios" },
               { value: platformStats ? `+${platformStats.totalUsers}` : "…", label: "Lojistas" },
               { value: platformStats ? String(platformStats.categories) : "…", label: "Categorias" },
-              { value: platformStats ? String(platformStats.regions) : "…", label: "Regiões" },
+              { value: platformStats ? String((platformStats as any).totalZones ?? 5) : "5", label: "Regiões" },
             ].map((stat, i, arr) => (
               <div key={stat.label} className="flex items-center justify-center">
                 <div className="flex flex-col items-center gap-0.5 py-4 px-2">
