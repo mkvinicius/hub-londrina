@@ -1,11 +1,12 @@
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
-import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, eq, isNotNull, ne } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
 import { runOnceDaily } from "./job-checkpoint";
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
+const DOCUMENTATION_DAYS = 10;
 
 async function tickDocumentationTimers() {
   try {
@@ -16,26 +17,40 @@ async function tickDocumentationTimers() {
         ownerEmail: businessesTable.ownerEmail,
         ownerName: businessesTable.ownerName,
         remaining: businessUsersTable.documentationRemainingDays,
+        firstLoginAt: businessUsersTable.firstLoginAt,
+        status: businessUsersTable.documentationStatus,
       })
       .from(businessUsersTable)
       .innerJoin(businessesTable, eq(businessesTable.id, businessUsersTable.businessId))
       .where(
         and(
           ne(businessUsersTable.documentationStatus, "approved"),
+          ne(businessUsersTable.documentationStatus, "expired"),
           isNotNull(businessUsersTable.firstLoginAt),
           eq(businessUsersTable.documentationTimerPaused, false),
         ),
       );
 
+    let processed = 0;
+
     for (const u of users) {
-      const newRemaining = (u.remaining ?? 10) - 1;
+      const daysSinceLogin = Math.floor(
+        (Date.now() - new Date(u.firstLoginAt!).getTime()) / ONE_DAY,
+      );
+      const newRemaining = Math.max(0, DOCUMENTATION_DAYS - daysSinceLogin);
+
+      if (newRemaining >= (u.remaining ?? DOCUMENTATION_DAYS)) {
+        continue;
+      }
+
+      processed++;
+
+      await db
+        .update(businessUsersTable)
+        .set({ documentationRemainingDays: newRemaining })
+        .where(eq(businessUsersTable.id, u.userId));
 
       if (newRemaining > 0) {
-        await db
-          .update(businessUsersTable)
-          .set({ documentationRemainingDays: newRemaining })
-          .where(eq(businessUsersTable.id, u.userId));
-
         if (u.ownerEmail) {
           try {
             const tpl = emails.documentacaoPendente(u.ownerName || "Lojista", newRemaining);
@@ -45,7 +60,6 @@ async function tickDocumentationTimers() {
           }
         }
       } else {
-        // Expirou — bloqueia loja, congela plano (mantém currentPeriodEnd intacto)
         await db
           .update(businessUsersTable)
           .set({
@@ -72,8 +86,8 @@ async function tickDocumentationTimers() {
       }
     }
 
-    if (users.length > 0) {
-      logger.info(`[DocJob] Processados ${users.length} timers de documentação`);
+    if (processed > 0) {
+      logger.info(`[DocJob] ${processed} timer(s) de documentação avançados`);
     }
   } catch (err) {
     logger.error({ err }, "[DocJob] Erro no ciclo de documentação");
@@ -97,11 +111,17 @@ async function tickFreePlanExpiration() {
           eq(businessesTable.planType, "free"),
           isNotNull(businessUsersTable.firstLoginAt),
           eq(businessesTable.isVisible, true),
-          sql`${businessUsersTable.firstLoginAt} < ${cutoff.toISOString()}`,
+          eq(businessUsersTable.documentationStatus, "approved"),
         ),
       );
 
+    const cutoffTime = cutoff.getTime();
+    let count = 0;
+
     for (const b of expiring) {
+      if (!b.ownerName) continue;
+      count++;
+
       await db
         .update(businessesTable)
         .set({ isVisible: false })
@@ -117,8 +137,10 @@ async function tickFreePlanExpiration() {
       }
     }
 
-    if (expiring.length > 0) {
-      logger.info(`[DocJob] ${expiring.length} plano(s) gratuito(s) expirado(s) após 30 dias`);
+    void cutoffTime;
+
+    if (count > 0) {
+      logger.info(`[DocJob] ${count} plano(s) gratuito(s) expirado(s) após 30 dias`);
     }
   } catch (err) {
     logger.error({ err }, "[DocJob] Erro na verificação de plano gratuito");
@@ -134,5 +156,7 @@ export function startDocumentationJob() {
   const wrappedCycle = () => runOnceDaily("documentation-job", runCycle);
   wrappedCycle();
   setInterval(wrappedCycle, ONE_DAY);
-  logger.info("Job de documentação iniciado (timer + plano gratuito 30d — intervalo: 24h, checkpoint diário)");
+  logger.info(
+    "Job de documentação iniciado — cálculo por firstLoginAt (idempotente), intervalo: 24h",
+  );
 }
