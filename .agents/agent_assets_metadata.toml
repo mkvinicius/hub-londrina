@@ -59,3 +59,9 @@ id = "cn4ckMkZs3qK-Q9IBbOFi"
 uri = "file://REGRAS_DE_NEGOCIO.md"
 type = "text"
 title = "Hub Londrina — Regras de Negócio v1.0"
+
+[[outputs]]
+id = "HcjarXNMHq6ls6AqPY5LH"
+uri = "file://PRD-HubLondrina.md"
+type = "text"
+title = "PRD — Hub Londrina: Negócio Local"
