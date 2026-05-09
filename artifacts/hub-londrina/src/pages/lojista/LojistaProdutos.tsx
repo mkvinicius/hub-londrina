@@ -45,16 +45,20 @@ export default function LojistaProdutos() {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
   }
 
-  if (profile?.planType !== "premium") {
+  if (profile?.planType === "free") {
     return (
       <LojistaLayout>
         <h1 className="text-2xl font-black text-gray-800 mb-6">Produtos</h1>
-        <LockedFeature planRequired="premium" currentPlan={profile?.planType || "free"} message="Vitrine de Produtos disponível no plano Premium">
+        <LockedFeature planRequired="destaque" currentPlan={profile?.planType || "free"} message="Vitrine de Produtos disponível nos planos Destaque e Premium">
           <div />
         </LockedFeature>
       </LojistaLayout>
     );
   }
+
+  const PRODUCT_LIMITS: Record<string, number> = { destaque: 10, premium: 999 };
+  const productLimit = PRODUCT_LIMITS[profile?.planType] ?? 0;
+  const reachedLimit = products.length >= productLimit;
 
   function resetForm() {
     setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "" });
@@ -161,15 +165,26 @@ export default function LojistaProdutos() {
 
   return (
     <LojistaLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-black text-gray-800">Produtos</h1>
         {!showForm && (
-          <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl transition-colors text-sm">
+          <button
+            onClick={() => { if (!reachedLimit) { resetForm(); setShowForm(true); } }}
+            disabled={reachedLimit}
+            title={reachedLimit ? `Limite de ${productLimit} produtos atingido. Faça upgrade para Premium.` : ""}
+            className="flex items-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Plus className="w-4 h-4" />
             Novo Produto
           </button>
         )}
       </div>
+      <p className="text-sm text-gray-500 mb-6">
+        {products.length}/{productLimit === 999 ? "ilimitado" : productLimit} produtos cadastrados
+        {profile?.planType === "destaque" && (
+          <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Upgrade para Premium</a> para cadastrar mais</>
+        )}
+      </p>
 
       {msg && (
         <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${msg.startsWith("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>

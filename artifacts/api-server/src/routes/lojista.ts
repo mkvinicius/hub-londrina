@@ -460,8 +460,24 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
   }
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType || "free" });
+  if (!biz || biz.planType === "free") {
+    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType || "free" });
+    return;
+  }
+
+  const PRODUCT_LIMITS: Record<string, number> = { destaque: 10, premium: 999 };
+  const limit = PRODUCT_LIMITS[biz.planType] ?? 0;
+  const [{ count: existing }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(productsTable)
+    .where(eq(productsTable.businessId, businessId));
+  if (existing >= limit) {
+    res.status(400).json({
+      error: `Limite de ${limit} produto(s) atingido para o plano ${biz.planType}. Faça upgrade para Premium para cadastrar mais.`,
+      code: "PRODUCT_LIMIT_REACHED",
+      currentPlan: biz.planType,
+      limit,
+    });
     return;
   }
 
@@ -491,8 +507,8 @@ router.patch("/lojista/products/reorder", async (req: Request, res: Response) =>
   }
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType });
+  if (!biz || biz.planType === "free") {
+    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType });
     return;
   }
 
@@ -513,8 +529,8 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
   const id = parseInt(req.params.id, 10);
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType });
+  if (!biz || biz.planType === "free") {
+    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType });
     return;
   }
 
@@ -547,8 +563,8 @@ router.delete("/lojista/products/:id", validateId, async (req: Request, res: Res
   const id = parseInt(req.params.id, 10);
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Vitrine de produtos disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz?.planType });
+  if (!biz || biz.planType === "free") {
+    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType });
     return;
   }
 
@@ -696,8 +712,8 @@ router.post("/lojista/upload/product-media", memoryProductUpload.single("file"),
   const { businessId } = (req as any).lojista;
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType !== "premium") {
-    res.status(403).json({ error: "Upload de mídia de produto é exclusivo do plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium" });
+  if (!biz || biz.planType === "free") {
+    res.status(403).json({ error: "Upload de mídia de produto disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque" });
     return;
   }
 

@@ -71,7 +71,7 @@ Full-stack local business directory for Londrina, Brazil.
 - `/lojista` — Dashboard (metrics, profile warnings)
 - `/lojista/perfil` — Business profile editor (data, hours, location w/ CEP, tags, payments)
 - `/lojista/fotos` — Logo, banner, gallery uploads (plan limits enforced; logo/banner locked for free)
-- `/lojista/produtos` — Product catalog CRUD (locked for non-premium)
+- `/lojista/produtos` — Product catalog CRUD (Destaque: até 10 produtos, Premium: ilimitado, Free: bloqueado)
 - `/lojista/metricas` — Click analytics (locked for free; chart locked for non-premium)
 - `/lojista/avaliacoes` — Review management (view, respond, copy review link)
 - `/lojista/suporte` — Tickets de suporte (B4: criar/listar com prioridade e status)
@@ -141,7 +141,7 @@ Routes: `POST /api/lojista/login`, `GET|PATCH /api/lojista/profile`, `POST /api/
 Default lojista password: Hub@2026 (all accounts)
 
 **Plan Enforcement**:
-- Backend: all plan checks read from DB (not JWT). Profile PATCH blocks instagram/website for free, videoUrl for non-premium. Products PATCH/DELETE/reorder require premium. Metrics blocks free, chart series only for premium. Review respond requires destaque+. Admin boosts require premium on business.
+- Backend: all plan checks read from DB (not JWT). Profile PATCH blocks instagram/website for free, videoUrl for non-premium. Products CRUD bloqueado só para free (Destaque limite 10, Premium ilimitado — limite enforced no POST). Metrics blocks free, chart series only for premium. Review respond requires destaque+. Admin boosts require premium on business.
 - Frontend: `LockedFeature` component (`src/components/LockedFeature.tsx`) provides inline blur overlay or full-page lock card with plan upgrade CTA. Used in LojistaFotos (logo/banner), LojistaPerfil (instagram/website/videoUrl), LojistaProdutos (full page), LojistaMetricas (full page + chart), LojistaBoost (premium warning).
 - `checkPlan.ts` middleware available at `api-server/src/middleware/checkPlan.ts` (reusable `requirePlan` factory).
 

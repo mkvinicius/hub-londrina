@@ -828,6 +828,13 @@ Lojista id 44 (giovangrc@gmail.com, "Estrategista digital", plano Destaque pago 
 - Plugado em `index.ts` entre `ensureViews()` e `app.listen()`.
 - Cura imediatamente o lojista 44 (e qualquer caso histórico) sem precisar de SQL manual ou re-pagamento.
 
+**6. Produtos liberados para plano Destaque (antes Premium-only)**
+- Sintoma reportado pelo cliente (lojista 44, plano Destaque): "Não encontrou onde cadastrar fotos dos produtos."
+- Causa: `lojista.ts` POST/PATCH/DELETE/reorder/upload product-media exigiam `planType === "premium"`. LojistaProdutos.tsx mostrava `LockedFeature` para qualquer plano que não fosse Premium — ou seja, o lojista Destaque via só uma tela de upgrade, não a vitrine.
+- Decisão de produto (confirmada pelo dono): liberar produtos no Destaque com limite de 10; manter Premium ilimitado; Free continua bloqueado.
+- Backend: 5 endpoints atualizados (POST, PATCH /:id, PATCH reorder, DELETE /:id, POST upload product-media) — checagem mudou de `!== "premium"` para `=== "free"`. POST adicionou enforcement do limite (`PRODUCT_LIMITS = { destaque: 10, premium: 999 }`) com `count(*)` antes do insert. Erros retornam `code: "PRODUCT_LIMIT_REACHED"` com `limit` e `currentPlan`.
+- Frontend: `LojistaProdutos.tsx` agora bloqueia só Free. Header mostra contador "X/Y produtos cadastrados" + CTA "Upgrade para Premium para cadastrar mais" quando o lojista é Destaque. Botão "Novo Produto" desabilita ao atingir o limite.
+
 **5. Fotos não apareciam após upload (404 silencioso)**
 - Sintoma reportado pelo cliente (lojista 44, plano Destaque): "Quando sobe a foto ela não aparece aqui." Screenshot mostrava ícones de imagem quebrada no Logo, Banner e Galeria.
 - Causa: prefixo duplicado em `routes/storage.ts:25`. O `gcsUpload.ts` salva no bucket em `uploads/{folder}/{file}` e retorna a URL `/storage/objects/uploads/{folder}/{file}`. O handler de servir extraía `req.params.filePath = "uploads/{folder}/{file}"` e então chamava `serveGCSObject(\`uploads/${gcsPath}\`)` → procurava `uploads/uploads/{folder}/{file}` no bucket → 404. O frontend recebia 404 em TODA imagem (logo, banner, photos), apesar de o upload estar gravando o objeto corretamente.
@@ -843,6 +850,8 @@ Lojista id 44 (giovangrc@gmail.com, "Estrategista digital", plano Destaque pago 
 - `artifacts/api-server/src/routes/stripe.ts` (linhas 117-134, 820-836)
 - `artifacts/api-server/src/routes/lojista.ts` (linha 46)
 - `artifacts/api-server/src/routes/storage.ts` (linha 30 — fix prefixo duplicado uploads/uploads/)
+- `artifacts/api-server/src/routes/lojista.ts` (5 endpoints de produtos liberados para Destaque + limite 10)
+- `artifacts/hub-londrina/src/pages/lojista/LojistaProdutos.tsx` (relax gate, contador + CTA upgrade)
 - `artifacts/api-server/src/lib/startup-heal.ts` (NOVO)
 - `artifacts/api-server/src/index.ts` (import + chamada no startup)
 - `artifacts/api-server/src/app.ts` (error handler com tratamento de LIMIT_FILE_SIZE)
