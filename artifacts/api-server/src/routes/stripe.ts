@@ -3,10 +3,10 @@ import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
-import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable } from "@workspace/db/schema";
+import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable, vitrineBoostsTable, productsTable } from "@workspace/db/schema";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
-import { categoryLockKey, zoneLockKey, homeSearchLockKey } from "../lib/boost-locks";
+import { categoryLockKey, zoneLockKey, homeSearchLockKey, vitrineSlotLockKey } from "../lib/boost-locks";
 
 const router: IRouter = Router();
 
@@ -910,6 +910,48 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
       }
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
+
+        // R11 — se for subscription de boost vitrine, apenas cancela o slot e
+        // promove o próximo da waitlist. Não mexe no plano do lojista.
+        // Tudo dentro de uma transação com advisory lock para evitar dupla
+        // promoção quando o webhook é entregue múltiplas vezes pelo Stripe.
+        if (subscription.metadata?.kind === "vitrine_boost") {
+          await db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(${vitrineSlotLockKey()})`);
+
+            const [vbRow] = await tx.select().from(vitrineBoostsTable)
+              .where(eq(vitrineBoostsTable.stripeSubscriptionId, subscription.id));
+            if (!vbRow || vbRow.status === "cancelled") return;
+
+            const wasActive = vbRow.status === "active";
+            await tx.update(vitrineBoostsTable)
+              .set({ status: "cancelled", endsAt: new Date(), updatedAt: new Date() })
+              .where(eq(vitrineBoostsTable.id, vbRow.id));
+
+            if (wasActive) {
+              // Reconta vagas (idempotente — outras execuções do webhook
+              // podem ter já promovido alguém).
+              const occupied = await tx.select({ id: vitrineBoostsTable.id })
+                .from(vitrineBoostsTable)
+                .where(eq(vitrineBoostsTable.status, "active"));
+              if (occupied.length < 4) {
+                const [next] = await tx.select().from(vitrineBoostsTable)
+                  .where(eq(vitrineBoostsTable.status, "waitlist"))
+                  .orderBy(vitrineBoostsTable.createdAt)
+                  .limit(1);
+                if (next) {
+                  await tx.update(vitrineBoostsTable)
+                    .set({ status: "active", startsAt: new Date(), updatedAt: new Date() })
+                    .where(eq(vitrineBoostsTable.id, next.id));
+                  logger.info(`[Stripe Webhook] Vitrine: promovido id=${next.id} biz=${next.businessId} da waitlist`);
+                }
+              }
+            }
+            logger.info(`[Stripe Webhook] Vitrine boost cancelado biz=${vbRow.businessId} sub=${subscription.id}`);
+          });
+          break;
+        }
+
         const customerId = subscription.customer as string;
         const sub = await db.select()
           .from(subscriptionsTable)

@@ -6,7 +6,25 @@
 
 ## 2026-05-10
 
-### Vitrine de Produtos — regra definida (implementação pendente)
+### Vitrine de Produtos — backend implementado
+- **DB**: `products` ganhou `videoUrl`, `videoStatus` (enum none/pending/approved/rejected), `videoApprovedAt`, `videoRejectionReason`. Nova tabela `vitrine_boosts` com unique index parcial `WHERE status='active'` por businessId.
+- **Endpoint público**: `GET /api/vitrine` retorna até 12 cards (4 boosts fixos + 8 rotação aleatória de Premium com vídeo aprovado). Devolve `cards: []` se total < 6.
+- **Lojista**:
+  - `POST /lojista/upload/vitrine-video` (Premium-only, MP4 ≤ 20 MB).
+  - `POST/PATCH /lojista/products` aceita `videoUrl` — ao setar/alterar marca `videoStatus='pending'` e zera `videoApprovedAt/RejectionReason`.
+  - `GET /lojista/vitrine-boost/status` — slots ocupados, slot do lojista, elegibilidade.
+  - `POST /lojista/vitrine-boost/checkout` — Stripe subscription R$ 49/mês (price `STRIPE_VITRINE_BOOST_PRICE_ID`). Gates: Premium + ≥1 vídeo aprovado + sem boost ativo/pending. Cria registro `pending` no DB com `stripeSessionId`.
+  - `POST /lojista/vitrine-boost/sync` — confirma sessão pós-checkout, ativa slot ou coloca em `waitlist` se 4 slots cheios.
+- **Admin**:
+  - `GET /admin/vitrine/pending` — fila de vídeos aguardando aprovação.
+  - `GET /admin/vitrine/boosts` — visão dos slots ativos / waitlist / pending.
+  - `POST /admin/products/:id/video/approve` — marca vídeo aprovado (com audit log).
+  - `POST /admin/products/:id/video/reject` { reason } — marca vídeo rejeitado.
+- **Stripe webhook**: `customer.subscription.deleted` com metadata `kind=vitrine_boost` cancela o slot e promove o `waitlist` mais antigo automaticamente; não rebaixa o plano do lojista.
+- **Validação**: `validate-lojista-rules.mjs` ganhou R11.a/b/c (free → 403, premium s/ vídeo → 409 NO_APPROVED_VIDEO, /api/vitrine respeita teto/mínimo).
+- **Pendente próxima sessão**: substituir mock em `landing.tsx` pelo consumo real de `/api/vitrine`; UI lojista (`LojistaProdutos` upload de vídeo) e admin (fila de aprovação).
+
+### Vitrine de Produtos — regra definida
 - Discussão de pricing fechou com: Premium R$ 89,90 inclui 1 vídeo na rotação aleatória da Vitrine; boost "Vitrine Destaque" custa +R$ 49/mês para Premium garantir slot fixo nos 4 primeiros.
 - Decisão de design: 12 cards visuais (4 fixos pagos + 8 rotação Premium); mínimo de 6 para renderizar bloco; vídeo obrigatório para entrar; aprovação admin antes de publicar.
 - Premium sem vídeo não é cobrado nem obrigado — perde aparição e recebe aviso no dashboard ("você está perdendo aparições, suba 1 vídeo").

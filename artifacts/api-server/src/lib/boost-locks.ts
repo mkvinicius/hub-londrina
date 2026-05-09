@@ -33,3 +33,10 @@ export function zoneLockKey(zone: string): number {
 export function homeSearchLockKey(): number {
   return pack(3, 0);
 }
+
+// R11 — Vitrine de Produtos: 4 slots fixos globais (não por zona/categoria).
+// Slot 0 reservado para alocação de slots; slot 1..N pode ser usado para
+// outros locks no mesmo namespace se necessário no futuro.
+export function vitrineSlotLockKey(): number {
+  return pack(4, 0);
+}

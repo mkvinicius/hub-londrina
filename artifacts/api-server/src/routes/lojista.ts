@@ -8,9 +8,10 @@ import fs from "fs";
 import os from "os";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable, supportTicketsTable } from "@workspace/db/schema";
+import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable, supportTicketsTable, vitrineBoostsTable } from "@workspace/db/schema";
 import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
 import { uploadBufferToGCS, deleteGCSObject } from "../lib/gcsUpload";
+import { vitrineSlotLockKey } from "../lib/boost-locks";
 import { generatePdfReport } from "../lib/pdf-report.js";
 import Stripe from "stripe";
 import { businessDocumentsTable } from "@workspace/db/schema";
@@ -452,7 +453,7 @@ router.get("/lojista/products", async (req: Request, res: Response) => {
 
 router.post("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const { name, description, price, mediaUrl, mediaType, whatsappLink } = req.body;
+  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "Nome do produto é obrigatório" });
@@ -491,6 +492,9 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
       mediaUrl: mediaUrl || null,
       mediaType: mediaType || null,
       whatsappLink: whatsappLink || null,
+      videoUrl: videoUrl || null,
+      // R11 — vídeo entra como pending; admin precisa aprovar antes de aparecer na vitrine
+      videoStatus: videoUrl ? "pending" : "none",
     })
     .returning();
 
@@ -534,10 +538,16 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
     return;
   }
 
-  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder"];
+  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  // R11 — qualquer mudança de videoUrl (incluindo remoção) reinicia o ciclo de aprovação
+  if ("videoUrl" in updates) {
+    updates.videoStatus = updates.videoUrl ? "pending" : "none";
+    updates.videoApprovedAt = null;
+    updates.videoRejectionReason = null;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -1106,6 +1116,299 @@ router.get("/lojista/support", lojistaAuth, async (req: Request, res: Response) 
     .orderBy(desc(supportTicketsTable.createdAt))
     .limit(100);
   res.json({ data: rows });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// R11 — Vitrine de Produtos (lojista)
+// ────────────────────────────────────────────────────────────────────────
+const VITRINE_VIDEO_MAX_BYTES = 20 * 1024 * 1024; // 20 MB
+const VITRINE_VIDEO_MIMES = ["video/mp4"];
+const VITRINE_VIDEO_EXTS = [".mp4"];
+
+function vitrineVideoFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (VITRINE_VIDEO_MIMES.includes(file.mimetype) && VITRINE_VIDEO_EXTS.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Apenas vídeos MP4 são aceitos para a vitrine"));
+  }
+}
+
+const vitrineVideoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: VITRINE_VIDEO_MAX_BYTES },
+  fileFilter: vitrineVideoFilter,
+});
+
+// Upload de vídeo da vitrine — Premium-only, MP4 ≤20MB.
+// Retorna apenas a URL; o videoStatus será marcado como pending quando o
+// lojista anexar o vídeo a um produto (POST/PATCH /lojista/products).
+router.post(
+  "/lojista/upload/vitrine-video",
+  vitrineVideoUpload.single("file"),
+  async (req: Request, res: Response) => {
+    const { businessId } = (req as any).lojista as LojistaPayload;
+    const [biz] = await db
+      .select({ planType: businessesTable.planType })
+      .from(businessesTable)
+      .where(eq(businessesTable.id, businessId));
+    if (!biz || biz.planType !== "premium") {
+      res.status(403).json({
+        error: "Vitrine de produtos disponível apenas no plano Premium",
+        code: "PLAN_REQUIRED",
+        requiredPlan: "premium",
+        currentPlan: biz?.planType ?? "free",
+      });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: "Nenhum arquivo enviado" });
+      return;
+    }
+    const filename = `vitrine-${businessId}-${Date.now()}.mp4`;
+    const videoUrl = await uploadBufferToGCS(req.file.buffer, "vitrine", filename, "video/mp4");
+    res.json({ videoUrl });
+  },
+);
+
+// Status da vitrine para o lojista: ocupação dos 4 slots, slot do próprio
+// lojista (se houver), elegibilidade (Premium + ≥1 produto com vídeo aprovado).
+router.get("/lojista/vitrine-boost/status", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista as LojistaPayload;
+  const [biz] = await db
+    .select({ planType: businessesTable.planType })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+
+  const now = new Date();
+
+  const allActive = await db
+    .select()
+    .from(vitrineBoostsTable)
+    .where(and(
+      eq(vitrineBoostsTable.status, "active"),
+      or(sql`${vitrineBoostsTable.endsAt} IS NULL`, sql`${vitrineBoostsTable.endsAt} > ${now}`)!,
+    ));
+  const used = allActive.length;
+  const mine = allActive.find((b) => b.businessId === businessId) ?? null;
+
+  const approvedVideos = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(productsTable)
+    .where(and(
+      eq(productsTable.businessId, businessId),
+      eq(productsTable.videoStatus, "approved"),
+      eq(productsTable.isActive, true),
+    ));
+  const hasApprovedVideo = (approvedVideos[0]?.count ?? 0) > 0;
+
+  res.json({
+    eligible: biz?.planType === "premium" && hasApprovedVideo,
+    planType: biz?.planType ?? "free",
+    hasApprovedVideo,
+    totalSlots: 4,
+    used,
+    available: Math.max(0, 4 - used),
+    mySlot: mine,
+  });
+});
+
+// Inicia checkout do boost "Vitrine Destaque" (R$49/mês recorrente).
+// Gates (R11): Premium + ≥1 produto com videoStatus=approved + sem boost ativo/pendente.
+router.post("/lojista/vitrine-boost/checkout", async (req: Request, res: Response) => {
+  if (!stripeClient) {
+    res.status(500).json({ error: "Stripe não configurado" });
+    return;
+  }
+  const { businessId, email } = (req as any).lojista as LojistaPayload;
+  const priceId = process.env.STRIPE_VITRINE_BOOST_PRICE_ID;
+  if (!priceId) {
+    res.status(500).json({ error: "STRIPE_VITRINE_BOOST_PRICE_ID não configurado" });
+    return;
+  }
+
+  const [biz] = await db
+    .select()
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+  if (biz.planType !== "premium") {
+    res.status(403).json({
+      error: "Boost Vitrine exige plano Premium",
+      code: "PLAN_REQUIRED",
+      requiredPlan: "premium",
+      currentPlan: biz.planType,
+    });
+    return;
+  }
+
+  // R11 — sem vídeo aprovado, não permite o checkout
+  const approved = await db
+    .select({ id: productsTable.id })
+    .from(productsTable)
+    .where(and(
+      eq(productsTable.businessId, businessId),
+      eq(productsTable.videoStatus, "approved"),
+      eq(productsTable.isActive, true),
+    ))
+    .limit(1);
+  if (approved.length === 0) {
+    res.status(409).json({
+      error: "Você precisa de pelo menos um vídeo aprovado pelo admin antes de contratar o boost.",
+      code: "NO_APPROVED_VIDEO",
+    });
+    return;
+  }
+
+  // Reserva atômica do slot pending: o INSERT abaixo dispara o partial
+  // unique index `vitrine_boosts_one_open_per_business` se já existir
+  // pending/active/waitlist deste lojista. Captura como 409 idempotente,
+  // evitando criar Stripe session duplicada em cliques rápidos paralelos.
+  let pendingRowId: number;
+  try {
+    const [row] = await db
+      .insert(vitrineBoostsTable)
+      .values({
+        businessId,
+        productId: approved[0].id,
+        status: "pending",
+      })
+      .returning({ id: vitrineBoostsTable.id });
+    pendingRowId = row.id;
+  } catch (err: any) {
+    // 23505 = unique_violation (Postgres)
+    if (err?.code === "23505") {
+      res.status(409).json({
+        error: "Você já tem um boost de vitrine ativo ou em processamento.",
+        code: "BOOST_ALREADY_EXISTS",
+      });
+      return;
+    }
+    throw err;
+  }
+
+  try {
+    // Reaproveita customerId existente se houver
+    const [existingSub] = await db
+      .select({ stripeCustomerId: subscriptionsTable.stripeCustomerId })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.businessId, businessId));
+
+    let customerId = existingSub?.stripeCustomerId ?? null;
+    if (!customerId) {
+      const customer = await stripeClient.customers.create({
+        email,
+        name: biz.name,
+        metadata: { businessId: String(businessId) },
+      });
+      customerId = customer.id;
+    }
+
+    const FRONTEND_URL = process.env.FRONTEND_URL
+      || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
+
+    const session = await stripeClient.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${FRONTEND_URL}/lojista/boost?vitrine=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${FRONTEND_URL}/lojista/boost?vitrine=cancelled`,
+      metadata: { businessId: String(businessId), kind: "vitrine_boost" },
+      subscription_data: {
+        metadata: { businessId: String(businessId), kind: "vitrine_boost" },
+      },
+      locale: "pt-BR",
+    });
+
+    // Atrela a sessão Stripe ao pending row (UNIQUE em stripeSessionId)
+    await db.update(vitrineBoostsTable)
+      .set({ stripeSessionId: session.id, updatedAt: new Date() })
+      .where(eq(vitrineBoostsTable.id, pendingRowId));
+
+    logger.info(`[Vitrine] Checkout iniciado biz=${businessId} session=${session.id}`);
+    res.json({ url: session.url, sessionId: session.id });
+  } catch (err) {
+    // Stripe falhou — limpa o pending row para liberar nova tentativa.
+    await db.delete(vitrineBoostsTable).where(eq(vitrineBoostsTable.id, pendingRowId));
+    throw err;
+  }
+});
+
+// Sync pós-checkout — confirma a sessão e ativa o boost (idempotente).
+router.post("/lojista/vitrine-boost/sync", async (req: Request, res: Response) => {
+  if (!stripeClient) {
+    res.status(500).json({ error: "Stripe não configurado" });
+    return;
+  }
+  const { businessId } = (req as any).lojista as LojistaPayload;
+  const sessionId = String(req.body?.sessionId ?? "").trim();
+  if (!sessionId) {
+    res.status(400).json({ error: "sessionId obrigatório" });
+    return;
+  }
+
+  const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+  if (Number(session.metadata?.businessId) !== businessId || session.metadata?.kind !== "vitrine_boost") {
+    res.status(403).json({ error: "Sessão não pertence a este lojista" });
+    return;
+  }
+  if (session.payment_status !== "paid" || !session.subscription) {
+    res.status(409).json({ error: "Pagamento ainda não confirmado", status: session.payment_status });
+    return;
+  }
+
+  const subscriptionId = String(session.subscription);
+
+  // Alocação atômica do slot — pg_advisory_xact_lock evita que dois syncs
+  // concorrentes (ex: webhook + retorno do navegador) ambos virem 'active'
+  // quando há só 1 vaga, violando o cap de 4 slots.
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${vitrineSlotLockKey()})`);
+
+    const now = new Date();
+    const occupied = await tx
+      .select({ id: vitrineBoostsTable.id })
+      .from(vitrineBoostsTable)
+      .where(and(
+        eq(vitrineBoostsTable.status, "active"),
+        or(sql`${vitrineBoostsTable.endsAt} IS NULL`, sql`${vitrineBoostsTable.endsAt} > ${now}`)!,
+      ));
+    const newStatus: "active" | "waitlist" = occupied.length < 4 ? "active" : "waitlist";
+
+    const [row] = await tx.select().from(vitrineBoostsTable)
+      .where(eq(vitrineBoostsTable.stripeSessionId, sessionId));
+    if (!row) return { error: "not_found" as const };
+    if (row.status === "active" || row.status === "waitlist") {
+      return { duplicate: true as const, status: row.status };
+    }
+
+    await tx.update(vitrineBoostsTable)
+      .set({
+        status: newStatus,
+        stripeSubscriptionId: subscriptionId,
+        startsAt: newStatus === "active" ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(vitrineBoostsTable.id, row.id));
+
+    return { status: newStatus };
+  });
+
+  if ("error" in result) {
+    res.status(404).json({ error: "Boost não encontrado para a sessão" });
+    return;
+  }
+  if ("duplicate" in result) {
+    res.json({ ok: true, status: result.status, duplicate: true });
+    return;
+  }
+
+  logger.info(`[Vitrine Sync] biz=${businessId} session=${sessionId} -> ${result.status}`);
+  res.json({ ok: true, status: result.status });
 });
 
 router.post("/lojista/support", lojistaAuth, async (req: Request, res: Response) => {

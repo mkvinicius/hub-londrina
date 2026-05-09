@@ -12,6 +12,7 @@ import zonesRouter from "./zones";
 import storageRouter from "./storage";
 import documentsRouter from "./documents";
 import boostsRouter from "./boosts";
+import vitrineRouter from "./vitrine";
 
 const router: IRouter = Router();
 
@@ -22,6 +23,7 @@ router.use(reviewsRouter);
 router.use(searchRouter);
 router.use(adminRouter);
 router.use(boostsRouter);
+router.use(vitrineRouter);
 router.use(lojistaRouter);
 router.use(authRouter);
 router.use(stripeRouter);

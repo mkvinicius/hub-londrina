@@ -4,7 +4,7 @@ import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 
@@ -1601,6 +1601,114 @@ router.get("/admin/placements", async (req: Request, res: Response) => {
 
   const result = await db.execute(query);
   res.json({ data: result.rows, count: result.rows.length });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// R11 — Vitrine de Produtos (admin)
+//   - GET    /admin/vitrine/pending          → fila de vídeos aguardando aprovação
+//   - GET    /admin/vitrine/boosts           → 4 slots ativos + waitlist
+//   - POST   /admin/products/:id/video/approve
+//   - POST   /admin/products/:id/video/reject  { reason }
+// ────────────────────────────────────────────────────────────────────────
+
+router.get("/admin/vitrine/pending", async (_req: Request, res: Response) => {
+  const rows = await db
+    .select({
+      productId: productsTable.id,
+      businessId: productsTable.businessId,
+      productName: productsTable.name,
+      videoUrl: productsTable.videoUrl,
+      videoStatus: productsTable.videoStatus,
+      videoRejectionReason: productsTable.videoRejectionReason,
+      createdAt: productsTable.createdAt,
+      businessName: businessesTable.name,
+      planType: businessesTable.planType,
+    })
+    .from(productsTable)
+    .innerJoin(businessesTable, eq(productsTable.businessId, businessesTable.id))
+    .where(eq(productsTable.videoStatus, "pending"))
+    .orderBy(asc(productsTable.createdAt));
+  res.json({ data: rows });
+});
+
+router.get("/admin/vitrine/boosts", async (_req: Request, res: Response) => {
+  const now = new Date();
+  const rows = await db
+    .select({
+      id: vitrineBoostsTable.id,
+      businessId: vitrineBoostsTable.businessId,
+      productId: vitrineBoostsTable.productId,
+      status: vitrineBoostsTable.status,
+      startsAt: vitrineBoostsTable.startsAt,
+      endsAt: vitrineBoostsTable.endsAt,
+      createdAt: vitrineBoostsTable.createdAt,
+      businessName: businessesTable.name,
+      productName: productsTable.name,
+    })
+    .from(vitrineBoostsTable)
+    .innerJoin(businessesTable, eq(vitrineBoostsTable.businessId, businessesTable.id))
+    .leftJoin(productsTable, eq(vitrineBoostsTable.productId, productsTable.id))
+    .where(or(
+      eq(vitrineBoostsTable.status, "active"),
+      eq(vitrineBoostsTable.status, "waitlist"),
+      eq(vitrineBoostsTable.status, "pending"),
+    ))
+    .orderBy(desc(vitrineBoostsTable.createdAt));
+
+  const active = rows.filter((r) => r.status === "active" && (!r.endsAt || new Date(r.endsAt) > now));
+  const waitlist = rows.filter((r) => r.status === "waitlist");
+  const pending = rows.filter((r) => r.status === "pending");
+
+  res.json({ active, waitlist, pending, totalSlots: 4 });
+});
+
+router.post("/admin/products/:id/video/approve", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const [prod] = await db.select().from(productsTable).where(eq(productsTable.id, id));
+  if (!prod) { res.status(404).json({ error: "Produto não encontrado" }); return; }
+  if (!prod.videoUrl) { res.status(400).json({ error: "Produto não tem vídeo" }); return; }
+
+  await db
+    .update(productsTable)
+    .set({
+      videoStatus: "approved",
+      videoApprovedAt: new Date(),
+      videoRejectionReason: null,
+    })
+    .where(eq(productsTable.id, id));
+
+  await logAdminAction(req, ADMIN_DEFAULT_ID, "vitrine.video.approve", "product", id, {
+    businessId: prod.businessId,
+  });
+
+  res.json({ success: true });
+});
+
+router.post("/admin/products/:id/video/reject", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const reason = String(req.body?.reason ?? "").trim();
+  if (!reason || reason.length > 500) {
+    res.status(400).json({ error: "Motivo da rejeição é obrigatório (1-500 caracteres)" });
+    return;
+  }
+  const [prod] = await db.select().from(productsTable).where(eq(productsTable.id, id));
+  if (!prod) { res.status(404).json({ error: "Produto não encontrado" }); return; }
+
+  await db
+    .update(productsTable)
+    .set({
+      videoStatus: "rejected",
+      videoRejectionReason: reason,
+      videoApprovedAt: null,
+    })
+    .where(eq(productsTable.id, id));
+
+  await logAdminAction(req, ADMIN_DEFAULT_ID, "vitrine.video.reject", "product", id, {
+    businessId: prod.businessId,
+    reason,
+  });
+
+  res.json({ success: true });
 });
 
 export default router;
