@@ -12,7 +12,12 @@ export default function LojistaDashboard() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [location, navigate] = useLocation();
 
-  const isPaymentSuccess = location.includes("payment=success");
+  // Detecta query string da URL (wouter location não inclui ?query)
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  const isPaymentSuccess = search.includes("payment=success");
+  const sessionId = (() => {
+    try { return new URLSearchParams(search).get("session_id"); } catch { return null; }
+  })();
 
   useEffect(() => {
     Promise.all([getProfile(), getMetrics()])
@@ -20,21 +25,35 @@ export default function LojistaDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Polling após redirect do Stripe: aguarda webhook confirmar o plano
+  // Pós-checkout: sincroniza com Stripe imediatamente (não depende do webhook).
+  // Depois faz polling como fallback caso o sync demore.
   useEffect(() => {
     if (!isPaymentSuccess) return;
 
-    // Limpar o ?payment=success da URL sem recarregar a página
+    // Limpar query string da URL sem recarregar a página
     window.history.replaceState({}, "", "/lojista");
 
     let cancelled = false;
-    const MAX_ATTEMPTS = 10;
-    const INTERVAL_MS = 2500;
+    setPaymentPolling(true);
 
-    async function poll(attempt: number) {
-      if (cancelled) return;
+    async function syncAndPoll() {
+      // 1) Sincronizar imediatamente via Stripe API
+      try {
+        const token = localStorage.getItem("lojista_token");
+        await fetch("/api/lojista/stripe/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ sessionId }),
+        });
+      } catch {}
+
+      // 2) Recarregar profile (já deve estar atualizado)
       try {
         const p = await getProfile();
+        if (cancelled) return;
         setProfile(p);
         if (p?.planType && p.planType !== "free") {
           setPaymentPolling(false);
@@ -42,18 +61,34 @@ export default function LojistaDashboard() {
           return;
         }
       } catch {}
-      if (attempt < MAX_ATTEMPTS && !cancelled) {
-        setTimeout(() => poll(attempt + 1), INTERVAL_MS);
-      } else {
-        setPaymentPolling(false);
-        setPaymentConfirmed(true); // mostra sucesso mesmo sem confirmação imediata
+
+      // 3) Fallback: polling caso o sync ainda não tenha refletido
+      const MAX_ATTEMPTS = 6;
+      const INTERVAL_MS = 2500;
+      async function poll(attempt: number) {
+        if (cancelled) return;
+        try {
+          const p = await getProfile();
+          setProfile(p);
+          if (p?.planType && p.planType !== "free") {
+            setPaymentPolling(false);
+            setPaymentConfirmed(true);
+            return;
+          }
+        } catch {}
+        if (attempt < MAX_ATTEMPTS && !cancelled) {
+          setTimeout(() => poll(attempt + 1), INTERVAL_MS);
+        } else {
+          setPaymentPolling(false);
+          setPaymentConfirmed(true);
+        }
       }
+      setTimeout(() => poll(1), 2000);
     }
 
-    setPaymentPolling(true);
-    setTimeout(() => poll(1), 2000);
+    syncAndPoll();
     return () => { cancelled = true; };
-  }, [isPaymentSuccess]);
+  }, [isPaymentSuccess, sessionId]);
 
   if (loading) {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;

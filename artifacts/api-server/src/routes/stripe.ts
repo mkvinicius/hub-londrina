@@ -49,6 +49,144 @@ function getLojistaFromToken(req: Request): { businessId: number; email: string 
   }
 }
 
+// Sincroniza uma subscription do Stripe com o DB local (subscriptions + businesses.planType).
+// Reutilizado por: webhook (checkout.session.completed, invoice.*) e endpoint sync pós-checkout.
+async function syncSubscriptionFromStripe(stripeSubId: string): Promise<{ businessId: number; planType: string; status: string } | null> {
+  const stripeSub = await stripe.subscriptions.retrieve(stripeSubId);
+  const businessId = Number(stripeSub.metadata.businessId);
+  if (!businessId) return null;
+
+  const priceId = stripeSub.items.data[0]?.price.id;
+  const planInfo = PRICE_MAP[priceId];
+  const planType = planInfo?.plan ?? "free";
+
+  const statusMap: Record<string, string> = {
+    active: "active",
+    trialing: "trialing",
+    past_due: "past_due",
+    canceled: "cancelled",
+    unpaid: "past_due",
+    incomplete: "past_due",
+    incomplete_expired: "cancelled",
+    paused: "past_due",
+  };
+  const status = statusMap[stripeSub.status] ?? "cancelled";
+  const isActive = status === "active" || status === "trialing";
+
+  const s = stripeSub as any;
+  const item0 = s.items?.data?.[0];
+  const rawStart: unknown = s.current_period_start ?? item0?.current_period_start;
+  const rawEnd: unknown   = s.current_period_end   ?? item0?.current_period_end;
+  const anchor: number    = s.billing_cycle_anchor ?? Math.floor(Date.now() / 1000);
+  const periodStart = new Date((typeof rawStart === "number" ? rawStart : anchor) * 1000);
+  const periodEnd   = new Date((typeof rawEnd   === "number" ? rawEnd   : anchor + 30 * 24 * 60 * 60) * 1000);
+
+  await db
+    .insert(subscriptionsTable)
+    .values({
+      businessId,
+      stripeCustomerId: String(stripeSub.customer),
+      stripeSubscriptionId: stripeSub.id,
+      stripePriceId: priceId,
+      plan: planType,
+      status,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+    })
+    .onConflictDoUpdate({
+      target: subscriptionsTable.businessId,
+      set: {
+        stripeSubscriptionId: stripeSub.id,
+        stripePriceId: priceId,
+        plan: planType,
+        status,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+        updatedAt: new Date(),
+      },
+    });
+
+  await db
+    .update(businessesTable)
+    .set({ planType: isActive ? planType : "free" })
+    .where(eq(businessesTable.id, businessId));
+
+  // Se o negócio estava pending, auto-aprova após pagamento bem-sucedido.
+  if (isActive) {
+    const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
+    if (biz && biz.status === "pending") {
+      await db.update(businessesTable)
+        .set({ status: "active", isVisible: true })
+        .where(eq(businessesTable.id, businessId));
+      logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) auto-aprovado após pagamento`);
+    }
+  }
+
+  return { businessId, planType, status };
+}
+
+// Sincronização imediata pós-checkout, chamada pelo dashboard quando o lojista
+// volta do Stripe Checkout. Não depende do webhook (caso esteja mal configurado
+// no Stripe Dashboard, o plano ainda é atualizado).
+router.post("/lojista/stripe/sync", async (req: Request, res: Response) => {
+  const lojista = getLojistaFromToken(req);
+  if (!lojista) return res.status(401).json({ error: "Não autorizado" });
+
+  const { sessionId } = req.body as { sessionId?: string };
+
+  try {
+    let stripeSubId: string | null = null;
+
+    if (sessionId) {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      // Garantir que a session pertence a este lojista
+      const sessionBizId = Number(session.metadata?.businessId);
+      if (sessionBizId !== lojista.businessId) {
+        return res.status(403).json({ error: "Session não pertence a este lojista" });
+      }
+      if (session.subscription) {
+        stripeSubId = String(session.subscription);
+      }
+    }
+
+    // Fallback: buscar a subscription mais recente do customer (caso sessionId ausente ou sem sub)
+    if (!stripeSubId) {
+      const [existingSub] = await db
+        .select()
+        .from(subscriptionsTable)
+        .where(eq(subscriptionsTable.businessId, lojista.businessId));
+      if (existingSub?.stripeCustomerId) {
+        const subs = await stripe.subscriptions.list({
+          customer: existingSub.stripeCustomerId,
+          limit: 1,
+          status: "all",
+        });
+        if (subs.data[0]) stripeSubId = subs.data[0].id;
+      }
+    }
+
+    if (!stripeSubId) {
+      return res.status(404).json({ error: "Nenhuma subscription encontrada" });
+    }
+
+    const result = await syncSubscriptionFromStripe(stripeSubId);
+    if (!result) {
+      return res.status(400).json({ error: "Subscription sem businessId no metadata" });
+    }
+    if (result.businessId !== lojista.businessId) {
+      return res.status(403).json({ error: "Subscription pertence a outro lojista" });
+    }
+
+    logger.info(`[Stripe Sync] Lojista ${lojista.businessId} sincronizou plano=${result.planType} status=${result.status}`);
+    return res.json({ ok: true, planType: result.planType, status: result.status });
+  } catch (err: any) {
+    logger.error("[Stripe Sync] Erro:", err.message);
+    return res.status(500).json({ error: "Erro ao sincronizar com Stripe" });
+  }
+});
+
 router.get("/stripe/config", (_req: Request, res: Response) => {
   res.json({
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
@@ -193,7 +331,7 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${FRONTEND_URL}/lojista?payment=success`,
+    success_url: `${FRONTEND_URL}/lojista?payment=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${FRONTEND_URL}/lojista/plano?cancelled=1`,
     metadata: { businessId: String(lojista.businessId) },
     subscription_data: {
@@ -370,19 +508,19 @@ router.get("/stripe/invoices", async (req: Request, res: Response) => {
 
 router.post("/stripe/webhook", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
-  logger.info("[Stripe Webhook] Recebido. Signature header:", sig ? "presente" : "AUSENTE");
+  logger.info({ hasSig: !!sig }, "[Stripe Webhook] Recebido");
 
   if (!sig || !STRIPE_WEBHOOK_SECRET) {
-    logger.error("[Stripe Webhook] Falha: signature ou secret ausente. STRIPE_WEBHOOK_SECRET configurado:", !!STRIPE_WEBHOOK_SECRET);
+    logger.error({ hasSecret: !!STRIPE_WEBHOOK_SECRET }, "[Stripe Webhook] Falha: signature ou secret ausente");
     return res.status(400).json({ error: "Missing signature" });
   }
 
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(req.body as Buffer, sig, STRIPE_WEBHOOK_SECRET);
-    logger.info("[Stripe Webhook] Evento recebido:", event.type, "id:", event.id);
+    logger.info({ type: event.type, id: event.id }, "[Stripe Webhook] Evento recebido");
   } catch (err: any) {
-    logger.error("[Stripe Webhook] Falha na verificação da assinatura:", err.message);
+    logger.error({ msg: err.message }, "[Stripe Webhook] Falha na verificação da assinatura");
     return res.status(400).json({ error: `Webhook error: ${err.message}` });
   }
 
@@ -759,8 +897,12 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         break;
       }
     }
-  } catch (err) {
-    logger.error("Webhook handler error:", err);
+  } catch (err: any) {
+    logger.error({
+      err: { message: err?.message, stack: err?.stack, code: err?.code },
+      eventType: event.type,
+      eventId: event.id,
+    }, "[Stripe Webhook] Handler error");
     return res.status(500).json({ error: "Webhook handler failed" });
   }
 
