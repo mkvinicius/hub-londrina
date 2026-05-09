@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getMetrics } from "@/lib/lojista-api";
-import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { getProfile, getMetrics, lojistaFetch } from "@/lib/lojista-api";
+import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { Link } from "wouter";
+
+type PaymentStatus = "idle" | "syncing" | "success" | "failed";
 
 export default function LojistaDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [paymentPolling, setPaymentPolling] = useState(false);
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [location, navigate] = useLocation();
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
 
-  // Detecta query string da URL (wouter location não inclui ?query)
+  // Detecta query string da URL
   const search = typeof window !== "undefined" ? window.location.search : "";
   const isPaymentSuccess = search.includes("payment=success");
   const sessionId = (() => {
@@ -26,7 +26,6 @@ export default function LojistaDashboard() {
   }, []);
 
   // Pós-checkout: sincroniza com Stripe imediatamente (não depende do webhook).
-  // Depois faz polling como fallback caso o sync demore.
   useEffect(() => {
     if (!isPaymentSuccess) return;
 
@@ -34,59 +33,65 @@ export default function LojistaDashboard() {
     window.history.replaceState({}, "", "/lojista");
 
     let cancelled = false;
-    setPaymentPolling(true);
+    setPaymentStatus("syncing");
 
-    async function syncAndPoll() {
-      // 1) Sincronizar imediatamente via Stripe API
+    async function syncAndVerify() {
+      let syncOk = false;
+      let syncedPlan: string | null = null;
+
+      // 1) Sincronizar imediatamente via Stripe API (response confiável)
       try {
-        const token = localStorage.getItem("lojista_token");
-        await fetch("/api/lojista/stripe/sync", {
+        const result = await lojistaFetch("/lojista/stripe/sync", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
           body: JSON.stringify({ sessionId }),
         });
+        if (result?.ok && result?.planType && result.planType !== "free") {
+          syncOk = true;
+          syncedPlan = result.planType;
+        }
       } catch {}
 
-      // 2) Recarregar profile (já deve estar atualizado)
+      if (cancelled) return;
+
+      // 2) Recarregar profile sempre (mesmo se sync falhou — webhook pode ter rodado)
       try {
         const p = await getProfile();
         if (cancelled) return;
         setProfile(p);
         if (p?.planType && p.planType !== "free") {
-          setPaymentPolling(false);
-          setPaymentConfirmed(true);
+          setPaymentStatus("success");
           return;
         }
       } catch {}
 
-      // 3) Fallback: polling caso o sync ainda não tenha refletido
+      if (cancelled) return;
+
+      // 3) Fallback: polling caso ainda não tenha refletido
       const MAX_ATTEMPTS = 6;
       const INTERVAL_MS = 2500;
       async function poll(attempt: number) {
         if (cancelled) return;
         try {
           const p = await getProfile();
+          if (cancelled) return;
           setProfile(p);
           if (p?.planType && p.planType !== "free") {
-            setPaymentPolling(false);
-            setPaymentConfirmed(true);
+            setPaymentStatus("success");
             return;
           }
         } catch {}
         if (attempt < MAX_ATTEMPTS && !cancelled) {
           setTimeout(() => poll(attempt + 1), INTERVAL_MS);
-        } else {
-          setPaymentPolling(false);
-          setPaymentConfirmed(true);
+        } else if (!cancelled) {
+          // Se o sync confirmou mas profile ainda não atualizou — provavelmente cache; tratar como sucesso parcial.
+          // Se nem o sync confirmou — algo realmente falhou, mostrar erro.
+          setPaymentStatus(syncOk ? "success" : "failed");
         }
       }
       setTimeout(() => poll(1), 2000);
     }
 
-    syncAndPoll();
+    syncAndVerify();
     return () => { cancelled = true; };
   }, [isPaymentSuccess, sessionId]);
 
@@ -115,26 +120,52 @@ export default function LojistaDashboard() {
     <LojistaLayout>
       <h1 className="text-2xl font-black text-gray-800 mb-6">Dashboard</h1>
 
-      {/* Banner de sucesso após pagamento Stripe */}
-      {(isPaymentSuccess || paymentPolling || paymentConfirmed) && (
+      {/* Banner de status do pagamento Stripe */}
+      {paymentStatus === "syncing" && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
-              {paymentPolling
-                ? <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
-                : <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+              <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
             </div>
             <div>
-              <p className="font-bold text-emerald-900 text-sm">
-                {paymentPolling
-                  ? "Confirmando seu pagamento..."
-                  : `Plano ${currentPlanLabel} ativado com sucesso! 🎉`}
+              <p className="font-bold text-emerald-900 text-sm">Confirmando seu pagamento...</p>
+              <p className="text-emerald-700 text-xs mt-0.5">Aguarde alguns segundos enquanto processamos a confirmação.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentStatus === "success" && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-bold text-emerald-900 text-sm">Plano {currentPlanLabel} ativado com sucesso! 🎉</p>
+              <p className="text-emerald-700 text-xs mt-0.5">Seu negócio já conta com todos os benefícios do novo plano.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentStatus === "failed" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+              <XCircle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-amber-900 text-sm">Pagamento recebido, mas a ativação está demorando</p>
+              <p className="text-amber-700 text-xs mt-0.5">
+                O Stripe confirmou seu pagamento mas o sistema ainda não refletiu o novo plano. Atualize a página em alguns segundos. Se o problema persistir, entre em contato pelo suporte.
               </p>
-              <p className="text-emerald-700 text-xs mt-0.5">
-                {paymentPolling
-                  ? "Aguarde alguns segundos enquanto processamos a confirmação."
-                  : "Seu negócio já conta com todos os benefícios do novo plano."}
-              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-xs font-bold text-amber-900 underline hover:text-amber-700"
+              >
+                Atualizar agora
+              </button>
             </div>
           </div>
         </div>
