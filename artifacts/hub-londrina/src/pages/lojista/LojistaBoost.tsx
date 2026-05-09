@@ -295,14 +295,18 @@ export default function LojistaBoost() {
                     </div>
                   ) : !z.eligible ? (
                     <div>
-                      <p className="text-xs text-gray-500 mb-2">Disponível a partir do plano Destaque</p>
-                      <Link
-                        href="/lojista/plano"
-                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl ${BTN_ELEVATION}`}
+                      <button
+                        type="button"
+                        disabled
+                        title="Exclusivo para os planos Destaque e Premium"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed opacity-70"
                       >
-                        Ver planos
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
+                        Comprar destaque — R${z.price}
+                      </button>
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                        Exclusivo para os planos <strong>Destaque</strong> e <strong>Premium</strong>.{" "}
+                        <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+                      </p>
                     </div>
                   ) : z.available > 0 ? (
                     <button
@@ -374,14 +378,18 @@ export default function LojistaBoost() {
                     </div>
                   ) : !h.eligible ? (
                     <div>
-                      <p className="text-xs text-gray-600 mb-2">Exclusivo para o plano Premium</p>
-                      <Link
-                        href="/lojista/plano"
-                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl ${BTN_ELEVATION}`}
+                      <button
+                        type="button"
+                        disabled
+                        title="Exclusivo para o plano Premium"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed opacity-70"
                       >
-                        Ver planos
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
+                        Comprar destaque — R${h.price}
+                      </button>
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                        Exclusivo para o plano <strong>Premium</strong>.{" "}
+                        <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+                      </p>
                     </div>
                   ) : h.available > 0 ? (
                     <button
@@ -444,13 +452,30 @@ export default function LojistaBoost() {
           )}
 
           {(!homeBanner || homeBanner.status === "rejected" || homeBanner.status === "expired") && (
-            <button
-              onClick={handleBuyHomeBanner}
-              disabled={bannerCheckoutLoading}
-              className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${BTN_ELEVATION}`}
-            >
-              {bannerCheckoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Comprar banner — R$299/mês</>}
-            </button>
+            planType !== "premium" ? (
+              <div>
+                <button
+                  type="button"
+                  disabled
+                  title="Exclusivo para o plano Premium"
+                  className="w-full bg-gray-200 text-gray-500 font-bold px-4 py-2.5 rounded-xl text-sm cursor-not-allowed opacity-70 flex items-center justify-center gap-2"
+                >
+                  Comprar banner — R$299/mês
+                </button>
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                  Exclusivo para o plano <strong>Premium</strong>.{" "}
+                  <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={handleBuyHomeBanner}
+                disabled={bannerCheckoutLoading}
+                className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${BTN_ELEVATION}`}
+              >
+                {bannerCheckoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Comprar banner — R$299/mês</>}
+              </button>
+            )
           )}
 
           <p className="text-[11px] text-gray-400 mt-2">
@@ -582,6 +607,15 @@ export default function LojistaBoost() {
                             {catCheckoutLoading === p.position
                               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               : <>Comprar</>}
+                          </button>
+                        ) : catPositions && !catPositions.eligible && !p.occupied ? (
+                          <button
+                            type="button"
+                            disabled
+                            title="Exclusivo para o plano Premium"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 bg-gray-200 rounded-lg cursor-not-allowed opacity-70"
+                          >
+                            Comprar
                           </button>
                         ) : (
                           <span className="text-xs text-gray-300">—</span>

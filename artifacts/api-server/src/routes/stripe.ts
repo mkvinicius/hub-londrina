@@ -545,6 +545,16 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
     });
   }
 
+  const planType = business.planType || "free";
+  if (planType !== "premium") {
+    return res.status(403).json({
+      error: "Banner na Home é exclusivo para o plano Premium.",
+      code: "PLAN_REQUIRED",
+      requiredPlan: "premium",
+      currentPlan: planType,
+    });
+  }
+
   // Não permite comprar se já tem banner ativo ou pending_review
   const existing = await db.select().from(homeBannersTable).where(
     and(

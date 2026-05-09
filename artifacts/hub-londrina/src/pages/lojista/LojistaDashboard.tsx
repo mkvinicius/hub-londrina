@@ -217,9 +217,10 @@ export default function LojistaDashboard() {
                 {planLabels[profile?.planType] || profile?.planType}
               </span>
               <span className="text-sm text-gray-500">
-                {profile?.zone
-                  ? `Zona ${profile.zone.charAt(0).toUpperCase()}${profile.zone.slice(1)}`
-                  : "Zona não definida"}
+                {(() => {
+                  const z = profile?.zone || profile?.region;
+                  return z ? `Zona ${String(z).charAt(0).toUpperCase()}${String(z).slice(1)}` : "Zona não definida";
+                })()}
               </span>
             </div>
           </div>

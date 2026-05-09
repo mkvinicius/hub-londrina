@@ -150,6 +150,10 @@ Default lojista password: Hub@2026 (all accounts)
 - Base (Destaque): R$59,90/mês ou R$598,80/ano (R$49,90/mês)
 - Premium: R$89,90/mês ou R$958,80/ano (R$79,90/mês)
 
+**Bugs lojista free (09/05/2026)**:
+- Dashboard "Zona não definida": `LojistaDashboard.tsx` agora usa fallback `profile?.zone || profile?.region` (DB tem ambos preenchidos pelo cadastro; defensivo contra edge case onde zone vinha vazio).
+- Boost para plano free: `LojistaBoost.tsx` antes mostrava botão "Ver planos" clicável nos cards Zona/Home+Busca e botão de compra normal no Banner Home (R$299) e tabela de categoria. Agora todos esses CTAs aparecem como botão **disabled** cinza com tooltip + alert "Exclusivo planos Destaque/Premium" (zone=destaque+, home_search/home_banner/category=premium-only) e link "Ver planos" no alert. Backend `POST /api/lojista/home-banner/checkout` ganhou gate `planType === "premium"` (antes não checava plano — risco de free conseguir comprar via API direta).
+
 **Visibilidade pós-pagamento (09/05/2026)** — bug crítico corrigido:
 - Sintoma: lojista pagava plano (Destaque/Premium) mas continuava invisível em todas as listagens públicas (`/api/businesses`, `/api/search`, `/api/zones/:slug`).
 - Causa: auth.ts:210 cria negócio com `status="active"` + `isVisible=false` (esperando aprovação de docs em 10d). O auto-aprovar pós-pagamento em stripe.ts:117 e :812 só disparava se `status === "pending"` — jamais o caso real. Resultado: pagamento confirmado, plano vira destaque, mas `is_visible=false` até admin aprovar manualmente.
