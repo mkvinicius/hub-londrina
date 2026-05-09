@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-05-10
+
+### Vitrine de Produtos — regra definida (implementação pendente)
+- Discussão de pricing fechou com: Premium R$ 89,90 inclui 1 vídeo na rotação aleatória da Vitrine; boost "Vitrine Destaque" custa +R$ 49/mês para Premium garantir slot fixo nos 4 primeiros.
+- Decisão de design: 12 cards visuais (4 fixos pagos + 8 rotação Premium); mínimo de 6 para renderizar bloco; vídeo obrigatório para entrar; aprovação admin antes de publicar.
+- Premium sem vídeo não é cobrado nem obrigado — perde aparição e recebe aviso no dashboard ("você está perdendo aparições, suba 1 vídeo").
+- Bloco em `landing.tsx` hoje está 100% mockado (5 produtos hard-coded com vídeos `/videos/vitrine-*.mp4` inexistentes e negócios fictícios). Implementação real fica para próxima sessão.
+- Ver invariantes em `RULES.md` R11.
+
+---
+
 ## 2026-05-09
 
 ### Bugs lojista free — CTAs de boost e fallback de zona

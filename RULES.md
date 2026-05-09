@@ -98,6 +98,33 @@ Toda lógica em `POST /api/stripe/webhook` deve checar duplicatas antes de inser
 
 ---
 
+### R11 · Vitrine de Produtos da Home
+Bloco "Vitrine de Produtos" em `landing.tsx` segue regras estritas:
+
+**Composição visual fixa**: 12 cards no carrossel horizontal.
+- **4 slots fixos** = boost Vitrine Destaque (R$ 49/mês, exclusivo Premium).
+- **8 slots de rotação** = produtos de qualquer Premium com pelo menos 1 vídeo aprovado, embaralhados a cada page load.
+- Se sobrar slot fixo vazio (ninguém comprou boost), promove rotação até completar 12. Carrossel **nunca** mostra menos de 6 cards (se não houver 6, não renderiza o bloco).
+
+**Gates de plano** (backend é fonte de verdade):
+| Plano | Pode aparecer? | Pode comprar boost vitrine? |
+|---|---|---|
+| Free | ❌ | ❌ |
+| Base | ❌ | ❌ |
+| Premium | ✅ se tem ≥1 vídeo aprovado | ✅ +R$ 49/mês |
+
+**Vídeo é obrigatório** para entrar (rotação ou boost). Lojista Premium sem vídeo recebe aviso destacado no `LojistaDashboard.tsx`: *"Você está perdendo aparições na Vitrine. Suba 1 vídeo para ativar."*
+
+**Aprovação admin**: todo vídeo novo entra com `status="pending"` e só aparece após admin aprovar em `/admin/vitrine` (mesma fila do home banner).
+
+**Endpoint público**: `GET /api/vitrine` retorna até 12 cards (4 fixos + 8 aleatórios) com `{productId, businessId, name, price, videoUrl, photoUrl, whatsapp, businessName}`. **Não cacheia em CDN** — randomização precisa rodar a cada request.
+
+**Endpoint compra boost**: `POST /api/lojista/vitrine-boost/checkout` cria Stripe checkout de R$ 49/mês (subscription). Gate `planType === "premium"` antes de criar sessão.
+
+**Esgotado**: quando os 4 slots de boost estão vendidos, `/lojista/boost` mostra "Vitrine Destaque — esgotado este mês" com botão desabilitado.
+
+---
+
 ## 🚧 Workflow de qualidade (para o agente)
 
 ### W1 · "Pronto" exige prova
