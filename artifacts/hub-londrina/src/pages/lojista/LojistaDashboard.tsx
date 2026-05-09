@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getMetrics } from "@/lib/lojista-api";
-import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight } from "lucide-react";
+import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock } from "lucide-react";
 import { Link } from "wouter";
 
 export default function LojistaDashboard() {
@@ -37,6 +37,26 @@ export default function LojistaDashboard() {
   return (
     <LojistaLayout>
       <h1 className="text-2xl font-black text-gray-800 mb-6">Dashboard</h1>
+
+      {profile?._documentationStatus === "pending" && profile?.isVisible === false && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-blue-900 text-sm mb-1">
+                {profile._documentationDaysLeft > 0
+                  ? `Seu negócio será publicado em ${profile._documentationDaysLeft} dia${profile._documentationDaysLeft !== 1 ? "s" : ""}`
+                  : "Seu negócio será publicado em breve"}
+              </h3>
+              <p className="text-blue-700 text-xs">
+                Use esse período para completar seu perfil — adicione logo, fotos e descrição. Após esse prazo, seu negócio aparece automaticamente no diretório público.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-6">
         <div className="flex items-center gap-4">

@@ -60,29 +60,38 @@ async function tickDocumentationTimers() {
           }
         }
       } else {
+        // Período de 10 dias concluído — publicar o negócio automaticamente
         await db
           .update(businessUsersTable)
           .set({
-            documentationStatus: "expired",
+            documentationStatus: "approved",
             documentationRemainingDays: 0,
           })
           .where(eq(businessUsersTable.id, u.userId));
 
         await db
           .update(businessesTable)
-          .set({ isVisible: false, planFrozen: true })
+          .set({ isVisible: true })
           .where(eq(businessesTable.id, u.businessId));
 
         if (u.ownerEmail) {
           try {
-            const tpl = emails.documentacaoExpirada(u.ownerName || "Lojista");
-            await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
+            await sendEmail(
+              u.ownerEmail,
+              "Seu negócio está publicado no Hub Londrina! 🎉",
+              `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+                <h2 style="color:#d97706">Parabéns, ${u.ownerName || "Lojista"}!</h2>
+                <p>Seu negócio já está <strong>visível para todos os usuários</strong> do Hub Londrina.</p>
+                <p>Acesse seu painel para acompanhar as métricas e impulsionar ainda mais sua presença.</p>
+                <p><a href="https://www.hublondrina.com.br/lojista" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Acessar meu painel</a></p>
+              </div>`,
+            );
           } catch (err) {
-            logger.error({ err }, "[DocJob] Falha ao enviar email de bloqueio");
+            logger.error({ err }, "[DocJob] Falha ao enviar email de publicação");
           }
         }
 
-        logger.warn({ businessId: u.businessId }, "[DocJob] Documentação expirada");
+        logger.info({ businessId: u.businessId }, "[DocJob] Negócio publicado automaticamente após 10 dias");
       }
     }
 

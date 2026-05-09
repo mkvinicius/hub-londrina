@@ -247,21 +247,21 @@ export default function Cadastro() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-10 h-10 text-green-600" />
             </div>
-            <h2 className="text-2xl font-black text-gray-800 mb-3">Cadastro recebido!</h2>
+            <h2 className="text-2xl font-black text-gray-800 mb-3">Cadastro realizado!</h2>
             <p className="text-gray-600 mb-2">
-              Nossa equipe vai analisar seu cadastro em até 24h.
+              Você já pode acessar o painel e configurar seu negócio.
             </p>
             <p className="text-gray-500 text-sm mb-4">
-              Você receberá uma confirmação no email <span className="font-semibold text-gray-700">{email}</span>.
+              Seu negócio ficará visível no diretório em <strong className="text-gray-700">10 dias</strong> — tempo para você completar o perfil. Confirmação enviada para <span className="font-semibold text-gray-700">{email}</span>.
             </p>
             {isPaidPlan && (
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 text-sm text-left">
                 <p className="font-semibold text-orange-800 mb-1">Próximo passo: ativar seu plano</p>
-                <p className="text-orange-700">Acesse o painel e clique em "Plano" para assinar o plano {planoParam === "destaque" ? "Destaque" : "Premium"} quando sua conta for aprovada.</p>
+                <p className="text-orange-700">Acesse o painel e clique em "Plano" para assinar o plano {planoParam === "destaque" ? "Destaque" : "Premium"}.</p>
               </div>
             )}
             <Link href="/lojista/login" className="inline-block bg-[#d97706] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#b45309] transition-colors">
-              Ir para o login
+              Acessar o painel
             </Link>
           </div>
         </div>
@@ -562,7 +562,7 @@ export default function Cadastro() {
         <div className="mt-6 grid grid-cols-3 gap-3 text-center">
           {[
             { icon: "🆓", label: "100% gratuito", sub: "para começar" },
-            { icon: "🔍", label: "Revisão em 24h", sub: "pela nossa equipe" },
+            { icon: "📅", label: "Visível em 10 dias", sub: "no diretório público" },
             { icon: "📍", label: "Londrina", sub: "negócios locais" },
           ].map(item => (
             <div key={item.label} className="bg-white/10 rounded-xl p-3">

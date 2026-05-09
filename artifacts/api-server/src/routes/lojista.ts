@@ -63,8 +63,6 @@ function lojistaAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-const PENDING_BLOCK_START = new Date("2026-05-03T00:00:00Z");
-
 // H6: rota legacy desativada. Bypassava email verification, CNPJ check,
 // rate limit, CSRF e marcava isVisible=true sem aprovação. Use /api/auth/register.
 router.post("/lojista/register", (_req: Request, res: Response) => {
@@ -97,34 +95,12 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
     return;
   }
 
-  // Bloqueio: cadastros pendentes criados a partir de 03/05/2026 não logam até aprovação
-  // (PENDING_BLOCK_START definida no módulo; sufixo Z garante UTC independente do TZ do servidor)
-  const [business] = await db
-    .select({ status: businessesTable.status, createdAt: businessesTable.createdAt })
-    .from(businessesTable)
-    .where(eq(businessesTable.id, user.businessId));
-
-  if (business && business.status !== "active" && business.createdAt && business.createdAt >= PENDING_BLOCK_START) {
-    res.status(403).json({
-      error: "Seu cadastro está em análise pela nossa equipe. Você receberá um email assim que for aprovado (em até 24h).",
-      code: "PENDING_APPROVAL",
-    });
-    return;
-  }
-
-  // Primeiro login: iniciar timer de documentação (10 dias)
+  // Registrar primeiro login (timer de documentação já iniciado no cadastro)
   const now = new Date();
   if (!user.firstLoginAt) {
     await db
       .update(businessUsersTable)
-      .set({
-        firstLoginAt: now,
-        lastLoginAt: now,
-        documentationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-        documentationRemainingDays: 10,
-        documentationStatus: "pending",
-        documentationTimerPaused: false,
-      })
+      .set({ firstLoginAt: now, lastLoginAt: now })
       .where(eq(businessUsersTable.id, user.id));
   } else {
     await db
@@ -167,8 +143,20 @@ router.get("/lojista/profile", async (req: Request, res: Response) => {
     )
   );
 
+  const [userRecord] = await db
+    .select({
+      documentationRemainingDays: businessUsersTable.documentationRemainingDays,
+      documentationStatus: businessUsersTable.documentationStatus,
+      documentationDeadline: businessUsersTable.documentationDeadline,
+    })
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.businessId, businessId));
+
   res.json({
     ...business,
+    _documentationDaysLeft: userRecord?.documentationRemainingDays ?? null,
+    _documentationStatus: userRecord?.documentationStatus ?? null,
+    _documentationDeadline: userRecord?.documentationDeadline ?? null,
     _boost: boost ? {
       boostType: boost.boostType,
       position: boost.position,

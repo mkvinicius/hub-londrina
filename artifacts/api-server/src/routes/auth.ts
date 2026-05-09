@@ -208,7 +208,7 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     state: "PR",
     planType: "free",
     isVisible: false,
-    status: "pending",
+    status: "active",
     description: "",
     address: street ? `${street}, ${neighborhood}` : "",
     razaoSocial: razaoSocial ? razaoSocial.trim() : null,
@@ -222,6 +222,10 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     passwordHash,
     businessId: business.id,
     emailVerificationToken: verifyToken,
+    documentationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+    documentationRemainingDays: 10,
+    documentationStatus: "pending",
+    documentationTimerPaused: false,
   }).returning();
 
   try {
@@ -248,7 +252,7 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
   );
 
   res.status(201).json({
-    message: "Cadastro recebido! Nossa equipe vai revisar em até 24h.",
+    message: "Cadastro realizado! Seu negócio será publicado automaticamente em 10 dias.",
     businessId: business.id,
     token: lojistaToken,
   });
