@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getMetrics, lojistaFetch } from "@/lib/lojista-api";
 import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
@@ -6,18 +6,27 @@ import { Link } from "wouter";
 
 type PaymentStatus = "idle" | "syncing" | "success" | "failed";
 
+// Captura UMA VEZ na carga do módulo — antes de qualquer re-render do React.
+// Evita que `window.history.replaceState` (que limpa a URL) faça o useEffect
+// reavaliar deps e disparar cleanup prematuro.
+const INITIAL_PAYMENT_INFO = (() => {
+  if (typeof window === "undefined") return { isSuccess: false, sessionId: null as string | null };
+  const search = window.location.search;
+  const params = new URLSearchParams(search);
+  return {
+    isSuccess: params.get("payment") === "success",
+    sessionId: params.get("session_id"),
+  };
+})();
+
 export default function LojistaDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
-
-  // Detecta query string da URL
-  const search = typeof window !== "undefined" ? window.location.search : "";
-  const isPaymentSuccess = search.includes("payment=success");
-  const sessionId = (() => {
-    try { return new URLSearchParams(search).get("session_id"); } catch { return null; }
-  })();
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
+    INITIAL_PAYMENT_INFO.isSuccess ? "syncing" : "idle"
+  );
+  const syncStartedRef = useRef(false);
 
   useEffect(() => {
     Promise.all([getProfile(), getMetrics()])
@@ -26,14 +35,18 @@ export default function LojistaDashboard() {
   }, []);
 
   // Pós-checkout: sincroniza com Stripe imediatamente (não depende do webhook).
+  // Roda APENAS UMA VEZ por montagem do componente, com deps vazias e flag de guard.
   useEffect(() => {
-    if (!isPaymentSuccess) return;
+    if (!INITIAL_PAYMENT_INFO.isSuccess) return;
+    if (syncStartedRef.current) return;
+    syncStartedRef.current = true;
 
-    // Limpar query string da URL sem recarregar a página
+    const sessionId = INITIAL_PAYMENT_INFO.sessionId;
+
+    // Limpar query string DEPOIS de capturar os valores
     window.history.replaceState({}, "", "/lojista");
 
     let cancelled = false;
-    setPaymentStatus("syncing");
 
     async function syncAndVerify() {
       let syncOk = false;
@@ -93,7 +106,7 @@ export default function LojistaDashboard() {
 
     syncAndVerify();
     return () => { cancelled = true; };
-  }, [isPaymentSuccess, sessionId]);
+  }, []);
 
   if (loading) {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
