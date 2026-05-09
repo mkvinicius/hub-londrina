@@ -20,6 +20,7 @@ if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY env var is required f
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" });
 
 const FRONTEND_URL = process.env.FRONTEND_URL
+  || (process.env.REPLIT_DEPLOYMENT ? "https://www.hublondrina.com.br" : null)
   || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
 
 const ZONE_PRICE_ID = process.env.STRIPE_ZONE_BOOST_PRICE_ID;

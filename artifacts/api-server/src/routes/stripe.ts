@@ -24,6 +24,7 @@ if (!STRIPE_WEBHOOK_SECRET) {
 }
 
 const FRONTEND_URL = process.env.FRONTEND_URL
+  || (process.env.REPLIT_DEPLOYMENT ? "https://www.hublondrina.com.br" : null)
   || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" });
