@@ -451,6 +451,7 @@ export default function LojistaPlano() {
   const [config, setConfig] = useState<StripeConfig | null>(null);
   const [subsData, setSubsData] = useState<SubscriptionsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [polling, setPolling] = useState(false);
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
@@ -459,6 +460,18 @@ export default function LojistaPlano() {
 
   const isSuccess = location.includes("success=1");
   const isCancelled = location.includes("cancelled=1");
+
+  async function reloadData() {
+    const [p, s, subs] = await Promise.all([
+      getProfile(),
+      getSubscription().catch(() => null),
+      getSubscriptions().catch(() => null),
+    ]);
+    setProfile(p);
+    setSub(s);
+    setSubsData(subs);
+    return { p, s };
+  }
 
   useEffect(() => {
     Promise.all([
@@ -475,6 +488,38 @@ export default function LojistaPlano() {
       setTab(planType === "free" ? "change" : "overview");
     }).finally(() => setLoading(false));
   }, []);
+
+  // When Stripe redirects back with ?success=1, poll until the webhook updates the plan
+  useEffect(() => {
+    if (!isSuccess) return;
+
+    let cancelled = false;
+    const MAX_ATTEMPTS = 10;
+    const INTERVAL_MS = 2500;
+
+    async function poll(attempt: number) {
+      if (cancelled) return;
+      try {
+        const { p, s } = await reloadData();
+        const planActive = p?.planType && p.planType !== "free";
+        const subActive = s && (s.status === "active" || s.status === "trialing");
+        if (planActive || subActive) {
+          setPolling(false);
+          setTab("overview");
+          return;
+        }
+      } catch {}
+      if (attempt < MAX_ATTEMPTS && !cancelled) {
+        setTimeout(() => poll(attempt + 1), INTERVAL_MS);
+      } else {
+        setPolling(false);
+      }
+    }
+
+    setPolling(true);
+    setTimeout(() => poll(1), 2000);
+    return () => { cancelled = true; };
+  }, [isSuccess]);
 
   const currentPlan = profile?.planType || "free";
   const planOrder = ["free", "destaque", "premium"];
@@ -565,10 +610,16 @@ export default function LojistaPlano() {
 
       {isSuccess && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+          {polling
+            ? <RefreshCw className="w-5 h-5 text-emerald-600 flex-shrink-0 animate-spin" />
+            : <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />}
           <div>
             <p className="font-bold text-emerald-800">Pagamento confirmado!</p>
-            <p className="text-sm text-emerald-700">Seu plano foi ativado. Pode levar alguns segundos para atualizar.</p>
+            <p className="text-sm text-emerald-700">
+              {polling
+                ? "Aguardando confirmação do pagamento... isso pode levar alguns segundos."
+                : "Seu plano foi ativado com sucesso."}
+            </p>
           </div>
         </div>
       )}

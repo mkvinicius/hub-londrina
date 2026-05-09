@@ -1,23 +1,30 @@
 import { db } from "@workspace/db";
 import { searchBoostsTable, homeBannersTable, businessesTable } from "@workspace/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, lte, isNotNull, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "./logger";
 
-const PANEL_URL = "https://www.hublondrina.com.br/lojista/assinaturas";
+const PANEL_URL = "https://www.hublondrina.com.br/lojista/plano";
 
 function daysUntil(date: Date): number {
   return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
+function addHours(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
 async function sendBoostExpiryReminders(): Promise<void> {
   try {
     const now = new Date();
-    const in8Days = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
-    const in1Day = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
-    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // Boosts expirando em 7 dias (janela: entre 6d23h e 7d23h de agora)
+    // Window for "expiring in ~7 days": expires_at between (now+6d23h) and (now+7d23h)
+    const win7Start = addHours(now, 6 * 24 + 23);
+    const win7End   = addHours(now, 7 * 24 + 23);
+
+    // Window for "expiring in ~1 day": expires_at between now and (now+1d23h)
+    const win1End   = addHours(now, 1 * 24 + 23);
+
     const expiringIn7 = await db
       .select({
         id: searchBoostsTable.id,
@@ -28,13 +35,10 @@ async function sendBoostExpiryReminders(): Promise<void> {
       .from(searchBoostsTable)
       .where(and(
         eq(searchBoostsTable.status, "active"),
-        sql`${searchBoostsTable.expiresAt} > ${in1Day}`,
-        sql`${searchBoostsTable.expiresAt} <= ${in8Days}`,
-        sql`${searchBoostsTable.expiresAt} > ${in7Days} - INTERVAL '1 hour'`,
-        sql`${searchBoostsTable.expiresAt} <= ${in7Days} + INTERVAL '23 hours'`,
+        gt(searchBoostsTable.expiresAt, win7Start),
+        lte(searchBoostsTable.expiresAt, win7End),
       ));
 
-    // Boosts expirando em 1 dia (janela: próximas 24h depois de agora)
     const expiringIn1 = await db
       .select({
         id: searchBoostsTable.id,
@@ -45,8 +49,8 @@ async function sendBoostExpiryReminders(): Promise<void> {
       .from(searchBoostsTable)
       .where(and(
         eq(searchBoostsTable.status, "active"),
-        sql`${searchBoostsTable.expiresAt} > NOW()`,
-        sql`${searchBoostsTable.expiresAt} <= ${in1Day} + INTERVAL '23 hours'`,
+        gt(searchBoostsTable.expiresAt, now),
+        lte(searchBoostsTable.expiresAt, win1End),
       ));
 
     for (const boost of [...expiringIn7, ...expiringIn1]) {
@@ -74,8 +78,13 @@ async function sendBoostExpiryReminders(): Promise<void> {
 async function sendBannerExpiryReminders(): Promise<void> {
   try {
     const now = new Date();
-    const in1Day = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
-    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Window for "expiring in ~7 days"
+    const win7Start = addHours(now, 6 * 24 + 23);
+    const win7End   = addHours(now, 7 * 24 + 23);
+
+    // Window for "expiring in ~1 day"
+    const win1End   = addHours(now, 1 * 24 + 23);
 
     const expiringSoon = await db
       .select({
@@ -86,15 +95,20 @@ async function sendBannerExpiryReminders(): Promise<void> {
       .from(homeBannersTable)
       .where(and(
         eq(homeBannersTable.status, "active"),
-        sql`${homeBannersTable.endsAt} IS NOT NULL`,
-        sql`${homeBannersTable.endsAt} > NOW()`,
-        sql`${homeBannersTable.endsAt} <= ${in7Days} + INTERVAL '23 hours'`,
+        isNotNull(homeBannersTable.endsAt),
+        gt(homeBannersTable.endsAt, now),
+        lte(homeBannersTable.endsAt, win7End),
       ));
 
     for (const banner of expiringSoon) {
       if (!banner.endsAt) continue;
       const days = daysUntil(banner.endsAt);
       if (days !== 7 && days !== 1) continue;
+
+      // Refine: only send for the right window
+      const inWin7 = banner.endsAt > win7Start && banner.endsAt <= win7End;
+      const inWin1 = banner.endsAt > now && banner.endsAt <= win1End;
+      if (!inWin7 && !inWin1) continue;
 
       const [biz] = await db.select({
         ownerEmail: businessesTable.ownerEmail,
@@ -122,7 +136,6 @@ async function runReminderCycle(): Promise<void> {
 export function startSubscriptionReminderJob(): void {
   const INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-  // Dispara 10 min após inicialização, depois todo dia
   setTimeout(async () => {
     await runReminderCycle();
     setInterval(runReminderCycle, INTERVAL_MS);
