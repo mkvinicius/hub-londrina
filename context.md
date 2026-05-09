@@ -1,5 +1,5 @@
 # Hub Londrina — Contexto Completo do Projeto
-# Atualizado: 03/05/2026
+# Atualizado: 09/05/2026
 # LEIA ESTE ARQUIVO ANTES DE QUALQUER ALTERAÇÃO
 
 ---
@@ -781,6 +781,11 @@ pnpm --filter @workspace/api-server run test:payments
 - Checkout, portal, webhook e subscription status funcionando
 - PRICE_IDs corretos como `price_...` (não `prod_...`)
 - Webhook sincroniza `plan` e `status` na tabela `subscriptions`
+- **Sync direto pós-checkout (independente do webhook)**:
+  - `POST /api/lojista/stripe/sync { sessionId }` — planos
+  - `POST /api/lojista/boosts/sync { sessionId }` — boosts (categoria/zona/home_search/banner)
+  - Mesma lógica do webhook (idempotente via `pg_advisory_xact_lock`)
+  - Validação dupla: `session.metadata.businessId === lojista.businessId` + `subscription.businessId === lojista.businessId`
 
 ### Uploads
 - Logo, banner, fotos e mídias de produto via GCS
@@ -791,6 +796,45 @@ Todos inicializados em `src/index.ts`:
 - `startBoostExpirationJob()` — a cada 1h
 - `startDocumentationJob()` — a cada 24h
 - `startSubscriptionJob()` — a cada 24h (início em 5min)
+
+---
+
+## 15.1. CORREÇÕES DE PAGAMENTO — Sessão 09/05/2026
+
+### Problema reportado
+Após pagar plano na Stripe, lojista voltava ao painel mas o banner "Confirmando seu pagamento..." ficava em loop infinito e o plano nunca atualizava.
+
+### Bugs encontrados e corrigidos
+
+**Bug #1 — Token errado no localStorage (`LojistaDashboard.tsx`)**
+- O dashboard chamava `POST /api/lojista/stripe/sync` com `localStorage.getItem("lojista_token")`, mas a chave correta é `"hub_lojista_token"` (definida em `LOJISTA_STORAGE_KEYS` em `lib/lojista-api.ts`).
+- Resultado: 401 Unauthorized confirmado nos logs de produção.
+- Fix: trocado `fetch` manual por `lojistaFetch()` (helper já autenticado).
+
+**Bug #2 — useEffect cleanup prematuro (`LojistaDashboard.tsx`)**
+- O dashboard chamava `window.history.replaceState` para limpar `?payment=success` da URL no mesmo useEffect que rodava o sync. Isso causava re-render → `isPaymentSuccess` recalculado a partir da URL (agora limpa) → deps do useEffect mudavam → cleanup setava `cancelled=true` ANTES do `getProfile()` pós-sync terminar.
+- Logs de prod confirmaram: `[Stripe Sync] Lojista 44 sincronizou plano=destaque status=active` mas nenhum `GET /lojista/profile` subsequente.
+- Fix: capturar `payment=success` e `session_id` UMA VEZ na carga do módulo (constante `INITIAL_PAYMENT_INFO`), useEffect com deps `[]` e guard `useRef` contra dupla execução em StrictMode.
+
+**Bug #3 — Boosts dependiam apenas do webhook**
+- Boosts (categoria/zona/home_search/banner home) só eram ativados via `payment_intent.succeeded` no webhook. Se o webhook estivesse com problema, lojista pagava e ficava sem boost.
+- Fix: criado endpoint `POST /api/lojista/boosts/sync` que replica a lógica idempotente do webhook (advisory locks, checagem de duplicata, fila de espera). `LojistaBoost.tsx` agora chama o sync ao detectar qualquer `*_success=1&session_id=...`.
+- Todos os success_urls de boost foram atualizados para incluir `&session_id={CHECKOUT_SESSION_ID}`.
+
+### Auditoria de segurança (validada por code review)
+
+- **Token correto** — todas as chamadas autenticadas usam `lojistaFetch` (helper único).
+- **Cross-user blocked** — `/api/lojista/stripe/sync` e `/api/lojista/boosts/sync` exigem JWT lojista válido E comparam `session.metadata.businessId === lojista.businessId` (403 Forbidden se diferente).
+- **Pagamento confirmado** — `/boosts/sync` só processa se `session.payment_status === "paid"` (caso contrário retorna `{ ok:false, pending:true }`).
+- **Idempotência** — webhook e sync usam mesmas advisory locks por slot e checagem `existingMine`. Chamadas concorrentes não duplicam linhas em `searchBoosts` ou `home_banners`.
+- **Plano lido sempre do DB** — bloqueios (Instagram/Website, vídeo, produtos, métricas, responder review) refletem mudanças de plano imediatamente. JWT antigo não "lembra" plano antigo.
+- **Fallback sem session_id** (apenas plano) — só busca subscriptions do `stripeCustomerId` já vinculado ao próprio `businessId` no DB.
+
+### Arquivos alterados
+- `artifacts/api-server/src/routes/stripe.ts` — `syncSubscriptionFromStripe()` extraída (linha 54), endpoint `POST /lojista/stripe/sync` (linha 133), endpoint `POST /lojista/boosts/sync` (linha 199), success_url banner home com `session_id` (linha 406), `FRONTEND_URL` com prioridade prod (linha 26), webhook log com `{err}` correto.
+- `artifacts/api-server/src/routes/boosts.ts` — `FRONTEND_URL` com prioridade prod (linha 22), `session_id` em success_urls de boost zone/home_search (linha 215) e categoria (linha 356).
+- `artifacts/hub-londrina/src/pages/lojista/LojistaDashboard.tsx` — máquina de estado `paymentStatus: idle|syncing|success|failed`, captura imutável `INITIAL_PAYMENT_INFO`, banner âmbar para falha real (em vez de sucesso falso), botão "Atualizar agora".
+- `artifacts/hub-londrina/src/pages/lojista/LojistaBoost.tsx` — useEffect refatorado: chama `/lojista/boosts/sync` quando detecta `boost_success`/`cat_success`/`banner=success` + `session_id`; mensagens contextuais por tipo (categoria/zona/home_search/banner) e status (active/waitlist/duplicate/pending).
 
 ---
 

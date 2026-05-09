@@ -150,6 +150,13 @@ Default lojista password: Hub@2026 (all accounts)
 - Base (Destaque): R$59,90/mês ou R$598,80/ano (R$49,90/mês)
 - Premium: R$89,90/mês ou R$958,80/ano (R$79,90/mês)
 
+**Stripe — Sync pós-checkout (09/05/2026)**:
+- `POST /api/lojista/stripe/sync { sessionId }` (auth lojista) — sincroniza plano direto via Stripe API (não depende do webhook). Valida `session.metadata.businessId === lojista.businessId` (403 se diferente). Fallback sem sessionId busca subscription do customer já vinculado ao próprio businessId.
+- `POST /api/lojista/boosts/sync { sessionId }` (auth lojista) — replica lógica idempotente do webhook `payment_intent.succeeded` para boosts (categoria 1-5, zone, home_search) e do `checkout.session.completed` para `kind=home_banner_request`. Usa as mesmas `pg_advisory_xact_lock` e checagens `existingMine`. Só processa se `session.payment_status === "paid"`.
+- Todos os success_urls de checkout incluem `&session_id={CHECKOUT_SESSION_ID}` (planos, boost zone/home_search, boost categoria, banner home).
+- Frontend: `LojistaDashboard.tsx` (planos) e `LojistaBoost.tsx` (boosts) chamam o sync ao detectar `?*success*&session_id=...`. Captura imutável `INITIAL_PAYMENT_INFO` em `LojistaDashboard.tsx` evita cleanup prematuro do useEffect quando a URL é limpa via `replaceState`.
+- Bug histórico: `lojista_token` vs `hub_lojista_token` (chave do localStorage) — agora todas as chamadas autenticadas usam `lojistaFetch()` que pega a chave correta de `LOJISTA_STORAGE_KEYS`.
+
 **Stripe Integration**:
 - Subscriptions table: `lib/db/src/schema/subscriptions.ts` (businessId, stripeCustomerId, stripeSubscriptionId, stripePriceId, plan, status, currentPeriodEnd, cancelAtPeriodEnd)
 - Routes: `artifacts/api-server/src/routes/stripe.ts`

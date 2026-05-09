@@ -209,7 +209,7 @@ router.post("/lojista/boosts/checkout", lojistaAuth, async (req: Request, res: R
     mode: "payment",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${FRONTEND_URL}/lojista/boost?boost_success=1`,
+    success_url: `${FRONTEND_URL}/lojista/boost?boost_success=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${FRONTEND_URL}/lojista/boost?boost_cancelled=1`,
     metadata: {
       businessId: String(lojista.businessId),
@@ -350,7 +350,7 @@ router.post("/lojista/boosts/category-checkout", lojistaAuth, async (req: Reques
     mode: "payment",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${FRONTEND_URL}/lojista/boost?cat_success=1`,
+    success_url: `${FRONTEND_URL}/lojista/boost?cat_success=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${FRONTEND_URL}/lojista/boost?cat_cancelled=1`,
     metadata: {
       businessId: String(lojista.businessId),

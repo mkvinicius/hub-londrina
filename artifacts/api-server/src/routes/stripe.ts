@@ -187,6 +187,177 @@ router.post("/lojista/stripe/sync", async (req: Request, res: Response) => {
   }
 });
 
+// ────────────────────────────────────────────────────────────────────────
+// SYNC PÓS-CHECKOUT DE BOOSTS — independente do webhook.
+// Mesma lógica do payment_intent.succeeded no webhook (idempotente via
+// pg_advisory_xact_lock e checagens de "existingMine"). Categoria, zona,
+// home_search e banner home (kind=home_banner_request).
+// ────────────────────────────────────────────────────────────────────────
+router.post("/lojista/boosts/sync", async (req: Request, res: Response) => {
+  const lojista = getLojistaFromToken(req);
+  if (!lojista) return res.status(401).json({ error: "Não autorizado" });
+
+  const { sessionId } = req.body as { sessionId?: string };
+  if (!sessionId) return res.status(400).json({ error: "sessionId obrigatório" });
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    // Validação de propriedade — impede lojista A de ativar boost de lojista B
+    const sessionBizId = Number(session.metadata?.businessId);
+    if (sessionBizId !== lojista.businessId) {
+      return res.status(403).json({ error: "Session não pertence a este lojista" });
+    }
+
+    // Pagamento precisa estar confirmado pela Stripe
+    if (session.payment_status !== "paid") {
+      return res.json({ ok: false, paymentStatus: session.payment_status, pending: true });
+    }
+
+    const meta = session.metadata || {};
+
+    // Caso A: solicitação de banner Home → cria pending_review
+    if (meta.kind === "home_banner_request") {
+      const { homeBannersTable } = await import("@workspace/db/schema");
+      const dup = await db.select({ id: homeBannersTable.id })
+        .from(homeBannersTable)
+        .where(eq(homeBannersTable.stripeSessionId, session.id));
+      if (dup.length > 0) {
+        return res.json({ ok: true, type: "home_banner", status: "pending_review", duplicate: true });
+      }
+      const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
+      if (!biz) return res.status(404).json({ error: "Negócio não encontrado" });
+      await db.insert(homeBannersTable).values({
+        businessId: lojista.businessId,
+        title: biz.name,
+        imageUrl: biz.logoUrl || "",
+        linkUrl: `/negocio/${lojista.businessId}`,
+        active: false,
+        status: "pending_review",
+        requestedBy: "lojista",
+        stripeSessionId: session.id,
+      });
+      logger.info(`[Boost Sync] Home banner pending_review criado para biz ${lojista.businessId}`);
+      return res.json({ ok: true, type: "home_banner", status: "pending_review" });
+    }
+
+    const boostContext = meta.boostContext;
+
+    // Caso B: boost categoria (5 posições mensais)
+    if (boostContext === "category") {
+      const pos = parseInt(meta.position || "0", 10);
+      if (![1, 2, 3, 4, 5].includes(pos)) {
+        return res.status(400).json({ error: "Posição inválida no metadata" });
+      }
+      const CAT_PRICES: Record<number, number> = { 1: 149, 2: 119, 3: 99, 4: 79, 5: 59 };
+      const lockKey = categoryLockKey(pos);
+
+      const result = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+
+        const existingMine = await tx.select().from(searchBoostsTable).where(and(
+          eq(searchBoostsTable.businessId, lojista.businessId),
+          eq(searchBoostsTable.boostType, "monthly"),
+          eq(searchBoostsTable.boostContext, "category"),
+          or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+        ));
+        if (existingMine.length > 0) return { skipped: true as const };
+
+        const occ = await tx.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
+          eq(searchBoostsTable.boostType, "monthly"),
+          eq(searchBoostsTable.boostContext, "category"),
+          eq(searchBoostsTable.position, pos),
+          eq(searchBoostsTable.status, "active"),
+          or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+        ));
+
+        const status: "active" | "waitlist" = occ.length === 0 ? "active" : "waitlist";
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+        await tx.insert(searchBoostsTable).values({
+          businessId: lojista.businessId,
+          boostType: "monthly",
+          boostContext: "category",
+          position: pos,
+          monthlyBid: String(CAT_PRICES[pos]),
+          status,
+          durationDays: 30,
+          startsAt: status === "active" ? new Date() : null,
+          expiresAt: status === "active" ? expiresAt : null,
+          price: String(CAT_PRICES[pos]),
+        });
+
+        return { skipped: false as const, status, expiresAt };
+      });
+
+      logger.info(`[Boost Sync] categoria pos ${pos} ${result.skipped ? "duplicate" : result.status} — biz ${lojista.businessId}`);
+      return res.json({
+        ok: true,
+        type: "category",
+        position: pos,
+        status: result.skipped ? "duplicate" : result.status,
+      });
+    }
+
+    // Caso C: boost zona ou home+busca (avulso, 6 vagas)
+    if (boostContext === "zone" || boostContext === "home_search") {
+      const zone = meta.zone || "";
+      const lockKey = boostContext === "zone" ? zoneLockKey(zone) : homeSearchLockKey();
+
+      const result = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+
+        const existing = await tx.select().from(searchBoostsTable)
+          .where(and(
+            eq(searchBoostsTable.businessId, lojista.businessId),
+            eq(searchBoostsTable.boostContext, boostContext as any),
+            or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+          ));
+        if (existing.length > 0) return { skipped: true as const };
+
+        const slotConditions = [
+          eq(searchBoostsTable.boostContext, boostContext as any),
+          eq(searchBoostsTable.status, "active"),
+          or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+        ];
+        if (boostContext === "zone" && zone) slotConditions.push(eq(searchBoostsTable.zone, zone));
+        const occupied = await tx.select({ id: searchBoostsTable.id })
+          .from(searchBoostsTable).where(and(...slotConditions));
+
+        const status: "active" | "waitlist" = occupied.length < 6 ? "active" : "waitlist";
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+        await tx.insert(searchBoostsTable).values({
+          businessId: lojista.businessId,
+          boostType: "avulso",
+          boostContext: boostContext as any,
+          zone: boostContext === "zone" ? (zone || null) : null,
+          monthlyBid: "0",
+          status,
+          durationDays: 30,
+          startsAt: status === "active" ? new Date() : null,
+          expiresAt: status === "active" ? expiresAt : null,
+          price: boostContext === "zone" ? "79" : "149",
+        });
+
+        return { skipped: false as const, status, expiresAt };
+      });
+
+      logger.info(`[Boost Sync] ${boostContext} ${result.skipped ? "duplicate" : result.status} — biz ${lojista.businessId}`);
+      return res.json({
+        ok: true,
+        type: boostContext,
+        status: result.skipped ? "duplicate" : result.status,
+      });
+    }
+
+    return res.status(400).json({ error: "Contexto de boost desconhecido na session" });
+  } catch (err: any) {
+    logger.error({ err }, "[Boost Sync] Erro");
+    return res.status(500).json({ error: "Erro ao sincronizar boost" });
+  }
+});
+
 router.get("/stripe/config", (_req: Request, res: Response) => {
   res.json({
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
@@ -400,7 +571,7 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: HOME_BANNER_PRICE_ID, quantity: 1 }],
-    success_url: `${FRONTEND_URL}/lojista/boost?banner=success`,
+    success_url: `${FRONTEND_URL}/lojista/boost?banner=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${FRONTEND_URL}/lojista/boost?banner=cancelled`,
     metadata: { businessId: String(lojista.businessId), kind: "home_banner_request" },
     subscription_data: {

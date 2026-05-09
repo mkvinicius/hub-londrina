@@ -98,26 +98,61 @@ export default function LojistaBoost() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("boost_success") === "1") {
-      setBanner({ type: "success", msg: "Pagamento confirmado! Seu destaque foi ativado (ou colocado na fila se as 6 vagas estavam ocupadas). Verifique seu email." });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (params.get("boost_cancelled") === "1") {
-      setBanner({ type: "info", msg: "Pagamento cancelado. Você pode tentar novamente quando quiser." });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (params.get("cat_success") === "1") {
-      setBanner({ type: "success", msg: "Pagamento confirmado! Seu boost de categoria foi ativado. Verifique seu email." });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (params.get("cat_cancelled") === "1") {
-      setBanner({ type: "info", msg: "Pagamento de boost de categoria cancelado." });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (params.get("banner") === "success") {
-      setBanner({ type: "success", msg: "Pagamento confirmado! Sua solicitação de banner Home está em análise pelo admin. Você será notificado quando for aprovada." });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (params.get("banner") === "cancelled") {
-      setBanner({ type: "info", msg: "Pagamento do banner cancelado." });
+    const sessionId = params.get("session_id");
+    const isBoostSuccess = params.get("boost_success") === "1";
+    const isCatSuccess = params.get("cat_success") === "1";
+    const isBannerSuccess = params.get("banner") === "success";
+    const anySuccess = isBoostSuccess || isCatSuccess || isBannerSuccess;
+
+    // Limpa a URL antes de qualquer trabalho async (capturamos os flags acima)
+    if (params.toString()) {
       window.history.replaceState({}, "", window.location.pathname);
     }
-    loadAll();
+
+    async function maybeSyncAndShow() {
+      if (anySuccess && sessionId) {
+        // Banner provisório enquanto sync roda
+        setBanner({ type: "info", msg: "Confirmando seu pagamento..." });
+        try {
+          const r = await lojistaFetch("/lojista/boosts/sync", {
+            method: "POST",
+            body: JSON.stringify({ sessionId }),
+          });
+          if (r?.ok) {
+            if (r.type === "home_banner") {
+              setBanner({ type: "success", msg: "Pagamento confirmado! Sua solicitação de banner Home está em análise pelo admin. Você será notificado quando for aprovada." });
+            } else if (r.status === "active") {
+              const ctxLabel = r.type === "category" ? `categoria (posição ${r.position}º)` : r.type === "zone" ? "zona" : "Home + Busca";
+              setBanner({ type: "success", msg: `Pagamento confirmado! Seu boost de ${ctxLabel} está ATIVO. Verifique seu email.` });
+            } else if (r.status === "waitlist") {
+              setBanner({ type: "info", msg: "Pagamento confirmado! Você foi colocado na fila de espera (todas as vagas estão ocupadas). Avisaremos quando uma vaga abrir." });
+            } else if (r.status === "duplicate") {
+              setBanner({ type: "info", msg: "Boost já estava ativo. Nenhuma duplicação foi criada." });
+            } else {
+              setBanner({ type: "success", msg: "Pagamento confirmado!" });
+            }
+          } else if (r?.pending) {
+            setBanner({ type: "info", msg: "Pagamento ainda processando pelo Stripe. Atualize a página em alguns segundos." });
+          } else {
+            setBanner({ type: "error", msg: "Pagamento recebido, mas houve um problema na ativação. Atualize a página ou contate o suporte." });
+          }
+        } catch {
+          setBanner({ type: "error", msg: "Pagamento recebido, mas a ativação falhou. Atualize a página ou contate o suporte." });
+        }
+      } else if (anySuccess) {
+        // Fallback (sem session_id na URL — não deve acontecer com fluxo novo)
+        setBanner({ type: "success", msg: "Pagamento confirmado! Verifique seu email." });
+      } else if (params.get("boost_cancelled") === "1") {
+        setBanner({ type: "info", msg: "Pagamento cancelado. Você pode tentar novamente quando quiser." });
+      } else if (params.get("cat_cancelled") === "1") {
+        setBanner({ type: "info", msg: "Pagamento de boost de categoria cancelado." });
+      } else if (params.get("banner") === "cancelled") {
+        setBanner({ type: "info", msg: "Pagamento do banner cancelado." });
+      }
+      await loadAll();
+    }
+
+    maybeSyncAndShow();
   }, []);
 
   async function handleBuyHomeBanner() {
