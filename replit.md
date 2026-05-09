@@ -156,6 +156,7 @@ Default lojista password: Hub@2026 (all accounts)
 - Fix: condição agora é `(status === "pending" || !isVisible)` — pagamento confirmado publica imediatamente. Também marca `business_users.documentationStatus = "approved"` para evitar que o `documentation-job` derrube o negócio depois de 30d (regra do plano free).
 - Backfill: `lib/startup-heal.ts → healPaidInvisibleBusinesses()` roda no startup, encontra negócios com subscription paga ativa + invisível e publica. Idempotente (no-op quando não há nada a curar). Cura biz históricos sem precisar do lojista re-pagar.
 - Limite de upload de imagens elevado de 5MB → 15MB (multer + frontend `LojistaFotos.tsx`); error handler global em `app.ts` agora retorna 413 amigável para `LIMIT_FILE_SIZE` em vez de 500 genérico.
+- Fotos quebradas no painel: `routes/storage.ts` chamava `serveGCSObject(\`uploads/${gcsPath}\`)` mas o `gcsPath` recebido pelo handler já vinha com o prefixo `uploads/...` (a URL salva por `gcsUpload.ts` é `/storage/objects/uploads/{folder}/{file}`). Resultado: buscava `uploads/uploads/photos/...` no bucket → 404 em todos os logos/banners/photos. Fix: passar `gcsPath` direto, sem reprefixar. Curou todas as imagens já no bucket sem migração.
 
 **Stripe — Sync pós-checkout (09/05/2026)**:
 - `POST /api/lojista/stripe/sync { sessionId }` (auth lojista) — sincroniza plano direto via Stripe API (não depende do webhook). Valida `session.metadata.businessId === lojista.businessId` (403 se diferente). Fallback sem sessionId busca subscription do customer já vinculado ao próprio businessId.

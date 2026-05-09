@@ -828,6 +828,12 @@ Lojista id 44 (giovangrc@gmail.com, "Estrategista digital", plano Destaque pago 
 - Plugado em `index.ts` entre `ensureViews()` e `app.listen()`.
 - Cura imediatamente o lojista 44 (e qualquer caso histórico) sem precisar de SQL manual ou re-pagamento.
 
+**5. Fotos não apareciam após upload (404 silencioso)**
+- Sintoma reportado pelo cliente (lojista 44, plano Destaque): "Quando sobe a foto ela não aparece aqui." Screenshot mostrava ícones de imagem quebrada no Logo, Banner e Galeria.
+- Causa: prefixo duplicado em `routes/storage.ts:25`. O `gcsUpload.ts` salva no bucket em `uploads/{folder}/{file}` e retorna a URL `/storage/objects/uploads/{folder}/{file}`. O handler de servir extraía `req.params.filePath = "uploads/{folder}/{file}"` e então chamava `serveGCSObject(\`uploads/${gcsPath}\`)` → procurava `uploads/uploads/{folder}/{file}` no bucket → 404. O frontend recebia 404 em TODA imagem (logo, banner, photos), apesar de o upload estar gravando o objeto corretamente.
+- Fix: `serveGCSObject(gcsPath)` sem reprefixar. Como o objeto JÁ está salvo em `uploads/...` no bucket, todas as fotos historicamente "perdidas" reaparecem imediatamente após o restart.
+- Verificado em dev via `curl -I /api/storage/objects/uploads/photos/test.jpg` retorna 404 limpo (file not found, não erro).
+
 **4. Limite de upload (5MB → 15MB)**
 - `lojista.ts:46` — `memoryUpload` multer agora aceita até 15MB (fotos, logo, banner).
 - `LojistaFotos.tsx:46` — guarda frontend atualizada com mensagem incluindo o tamanho do arquivo enviado.
@@ -836,6 +842,7 @@ Lojista id 44 (giovangrc@gmail.com, "Estrategista digital", plano Destaque pago 
 ### Arquivos alterados
 - `artifacts/api-server/src/routes/stripe.ts` (linhas 117-134, 820-836)
 - `artifacts/api-server/src/routes/lojista.ts` (linha 46)
+- `artifacts/api-server/src/routes/storage.ts` (linha 30 — fix prefixo duplicado uploads/uploads/)
 - `artifacts/api-server/src/lib/startup-heal.ts` (NOVO)
 - `artifacts/api-server/src/index.ts` (import + chamada no startup)
 - `artifacts/api-server/src/app.ts` (error handler com tratamento de LIMIT_FILE_SIZE)

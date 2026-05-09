@@ -22,7 +22,9 @@ router.get("/storage/objects/*filePath", async (req: Request, res: Response) => 
       return;
     }
 
-    const result = await serveGCSObject(`uploads/${gcsPath}`);
+    // gcsPath já vem com o prefixo "uploads/..." (ex: "uploads/photos/photo-X.jpg")
+    // gerado por gcsUpload.ts. NÃO prefixar de novo — causava double "uploads/uploads/".
+    const result = await serveGCSObject(gcsPath);
     if (!result) {
       res.status(404).json({ error: "File not found" });
       return;
