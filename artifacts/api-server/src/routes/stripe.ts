@@ -113,14 +113,20 @@ async function syncSubscriptionFromStripe(stripeSubId: string): Promise<{ busine
     .set({ planType: isActive ? planType : "free" })
     .where(eq(businessesTable.id, businessId));
 
-  // Se o negócio estava pending, auto-aprova após pagamento bem-sucedido.
+  // Pagamento confirmado = autorização para publicar imediatamente.
+  // O fluxo de documentação (10 dias) é para planos gratuitos; quem paga
+  // não pode ficar invisível esperando aprovação manual.
   if (isActive) {
     const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
-    if (biz && biz.status === "pending") {
+    if (biz && (biz.status === "pending" || !biz.isVisible)) {
       await db.update(businessesTable)
         .set({ status: "active", isVisible: true })
         .where(eq(businessesTable.id, businessId));
-      logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) auto-aprovado após pagamento`);
+      // Marca documentação como aprovada para não cair na expiração de 30d do plano free
+      await db.update(businessUsersTable)
+        .set({ documentationStatus: "approved", documentationRemainingDays: 0 })
+        .where(eq(businessUsersTable.businessId, businessId));
+      logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) publicado após pagamento (plano=${planType})`);
     }
   }
 
@@ -808,12 +814,15 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             if (sub) {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
 
-              // Auto-aprovar negócio pending após pagamento bem-sucedido
-              if (biz && biz.status === "pending") {
+              // Pagamento confirmado = publicar imediatamente (mesmo se status=active mas isVisible=false)
+              if (biz && (biz.status === "pending" || !biz.isVisible)) {
                 await db.update(businessesTable)
                   .set({ status: "active", isVisible: true })
                   .where(eq(businessesTable.id, sub.businessId));
-                logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) auto-aprovado após pagamento`);
+                await db.update(businessUsersTable)
+                  .set({ documentationStatus: "approved", documentationRemainingDays: 0 })
+                  .where(eq(businessUsersTable.businessId, sub.businessId));
+                logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento`);
                 try {
                   const tpl = emails.cadastroAprovado(biz.ownerName || "Lojista", biz.name);
                   if (biz.ownerEmail) await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);

@@ -799,6 +799,50 @@ Todos inicializados em `src/index.ts`:
 
 ---
 
+## 15.2. BUG CRÍTICO DE VISIBILIDADE — 09/05/2026 (tarde)
+
+### Sintoma reportado pelo cliente
+> "fiz tudo... plano pago no 59 e 90 configurei tudo... fui no comando de pesquisa pra pesquisar empresa que foi cadastrado não está aparecendo lá em serviços... fui nos plano de assinatura também aqui pra divulgação ele liberou falou que vai estar aparecendo mas também não tá... as fotos aqui deu bug elas não deixa subir"
+
+Lojista id 44 (giovangrc@gmail.com, "Estrategista digital", plano Destaque pago R$59,90) — `is_visible=false` no DB.
+
+### Causa raiz
+- `artifacts/api-server/src/routes/auth.ts:210` cria todo negócio novo com `status="active"` + `isVisible=false` (esperando aprovação de documentação em 10 dias).
+- `stripe.ts:117` (sync) e `stripe.ts:812` (webhook) auto-publicavam o negócio APENAS quando `biz.status === "pending"` — condição que NUNCA acontece no fluxo real (auth já cria com "active").
+- Consequência: lojista paga plano, `plan_type` vira destaque/premium, subscription fica ativa, mas `is_visible` continua false até admin aprovar manualmente OU 10 dias passarem.
+- Encontrados 2 negócios em produção neste estado: id 21 (seed) e id 44 (cliente real).
+
+### Correções aplicadas
+
+**1. `stripe.ts:117` — `syncSubscriptionFromStripe()`**
+- Condição mudou de `status === "pending"` para `(status === "pending" || !isVisible)`.
+- Marca `business_users.documentationStatus="approved"` + `documentationRemainingDays=0` para evitar que `tickFreePlanExpiration()` (em documentation-job.ts) derrube o negócio depois de 30d caso volte para free.
+
+**2. `stripe.ts:812` — webhook `checkout.session.completed`**
+- Mesma correção da #1 + email `cadastroAprovado` enviado.
+
+**3. `lib/startup-heal.ts` — `healPaidInvisibleBusinesses()` (NOVO)**
+- Backfill idempotente que roda no startup do servidor.
+- SELECT JOIN businesses+subscriptions WHERE plan IN (destaque,premium) AND sub.status IN (active,trialing) AND (isVisible=false OR status=pending).
+- UPDATE em lote: `isVisible=true, status='active'` nos negócios + `documentationStatus='approved'` nos usuários.
+- Plugado em `index.ts` entre `ensureViews()` e `app.listen()`.
+- Cura imediatamente o lojista 44 (e qualquer caso histórico) sem precisar de SQL manual ou re-pagamento.
+
+**4. Limite de upload (5MB → 15MB)**
+- `lojista.ts:46` — `memoryUpload` multer agora aceita até 15MB (fotos, logo, banner).
+- `LojistaFotos.tsx:46` — guarda frontend atualizada com mensagem incluindo o tamanho do arquivo enviado.
+- `app.ts` — error handler global retorna 413 com mensagem amigável para `LIMIT_FILE_SIZE` em vez de 500 genérico (lojistas com smartphones modernos batiam 5MB facilmente — explica "as fotos não deixam subir").
+
+### Arquivos alterados
+- `artifacts/api-server/src/routes/stripe.ts` (linhas 117-134, 820-836)
+- `artifacts/api-server/src/routes/lojista.ts` (linha 46)
+- `artifacts/api-server/src/lib/startup-heal.ts` (NOVO)
+- `artifacts/api-server/src/index.ts` (import + chamada no startup)
+- `artifacts/api-server/src/app.ts` (error handler com tratamento de LIMIT_FILE_SIZE)
+- `artifacts/hub-londrina/src/pages/lojista/LojistaFotos.tsx` (linha 46)
+
+---
+
 ## 15.1. CORREÇÕES DE PAGAMENTO — Sessão 09/05/2026
 
 ### Problema reportado

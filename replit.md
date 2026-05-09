@@ -150,6 +150,13 @@ Default lojista password: Hub@2026 (all accounts)
 - Base (Destaque): R$59,90/mês ou R$598,80/ano (R$49,90/mês)
 - Premium: R$89,90/mês ou R$958,80/ano (R$79,90/mês)
 
+**Visibilidade pós-pagamento (09/05/2026)** — bug crítico corrigido:
+- Sintoma: lojista pagava plano (Destaque/Premium) mas continuava invisível em todas as listagens públicas (`/api/businesses`, `/api/search`, `/api/zones/:slug`).
+- Causa: auth.ts:210 cria negócio com `status="active"` + `isVisible=false` (esperando aprovação de docs em 10d). O auto-aprovar pós-pagamento em stripe.ts:117 e :812 só disparava se `status === "pending"` — jamais o caso real. Resultado: pagamento confirmado, plano vira destaque, mas `is_visible=false` até admin aprovar manualmente.
+- Fix: condição agora é `(status === "pending" || !isVisible)` — pagamento confirmado publica imediatamente. Também marca `business_users.documentationStatus = "approved"` para evitar que o `documentation-job` derrube o negócio depois de 30d (regra do plano free).
+- Backfill: `lib/startup-heal.ts → healPaidInvisibleBusinesses()` roda no startup, encontra negócios com subscription paga ativa + invisível e publica. Idempotente (no-op quando não há nada a curar). Cura biz históricos sem precisar do lojista re-pagar.
+- Limite de upload de imagens elevado de 5MB → 15MB (multer + frontend `LojistaFotos.tsx`); error handler global em `app.ts` agora retorna 413 amigável para `LIMIT_FILE_SIZE` em vez de 500 genérico.
+
 **Stripe — Sync pós-checkout (09/05/2026)**:
 - `POST /api/lojista/stripe/sync { sessionId }` (auth lojista) — sincroniza plano direto via Stripe API (não depende do webhook). Valida `session.metadata.businessId === lojista.businessId` (403 se diferente). Fallback sem sessionId busca subscription do customer já vinculado ao próprio businessId.
 - `POST /api/lojista/boosts/sync { sessionId }` (auth lojista) — replica lógica idempotente do webhook `payment_intent.succeeded` para boosts (categoria 1-5, zone, home_search) e do `checkout.session.completed` para `kind=home_banner_request`. Usa as mesmas `pg_advisory_xact_lock` e checagens `existingMine`. Só processa se `session.payment_status === "paid"`.

@@ -40,7 +40,7 @@ function imageFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilter
   }
 }
 
-const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter });
+const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 }, fileFilter: imageFilter });
 
 interface LojistaPayload { businessId: number; email: string; role: string }
 

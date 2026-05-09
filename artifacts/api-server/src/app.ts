@@ -46,6 +46,14 @@ app.use("/api", router);
 
 // Sprint 4.1 — Global error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  // Multer: arquivo maior que o limite configurado
+  const anyErr = err as any;
+  if (anyErr?.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: "Arquivo muito grande. O limite por imagem é de 15MB." });
+  }
+  if (anyErr?.code === "LIMIT_UNEXPECTED_FILE") {
+    return res.status(400).json({ error: "Campo de arquivo inválido. Use o formulário oficial." });
+  }
   req.log.error({ err, path: req.path, method: req.method }, "Unhandled error");
   captureException(err, { path: req.path, method: req.method });
   if (res.headersSent) return next(err);

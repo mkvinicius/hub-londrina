@@ -40,8 +40,8 @@ export default function LojistaFotos() {
       setMsg(`Erro: limite de ${maxPhotos} foto(s) atingido para o plano ${profile.planType}.`);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setMsg("Erro: arquivo maior que 5MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      setMsg(`Erro: arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB excede o limite de 15MB. Tente reduzir a foto antes de enviar.`);
       return;
     }
     if (!/^image\/(jpeg|jpg|png|webp|gif)$/i.test(file.type)) {
