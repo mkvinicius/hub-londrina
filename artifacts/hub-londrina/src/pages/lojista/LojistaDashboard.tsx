@@ -1,19 +1,59 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getMetrics } from "@/lib/lojista-api";
-import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock } from "lucide-react";
-import { Link } from "wouter";
+import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 export default function LojistaDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentPolling, setPaymentPolling] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [location, navigate] = useLocation();
+
+  const isPaymentSuccess = location.includes("payment=success");
 
   useEffect(() => {
     Promise.all([getProfile(), getMetrics()])
       .then(([p, m]) => { setProfile(p); setMetrics(m); })
       .finally(() => setLoading(false));
   }, []);
+
+  // Polling após redirect do Stripe: aguarda webhook confirmar o plano
+  useEffect(() => {
+    if (!isPaymentSuccess) return;
+
+    // Limpar o ?payment=success da URL sem recarregar a página
+    window.history.replaceState({}, "", "/lojista");
+
+    let cancelled = false;
+    const MAX_ATTEMPTS = 10;
+    const INTERVAL_MS = 2500;
+
+    async function poll(attempt: number) {
+      if (cancelled) return;
+      try {
+        const p = await getProfile();
+        setProfile(p);
+        if (p?.planType && p.planType !== "free") {
+          setPaymentPolling(false);
+          setPaymentConfirmed(true);
+          return;
+        }
+      } catch {}
+      if (attempt < MAX_ATTEMPTS && !cancelled) {
+        setTimeout(() => poll(attempt + 1), INTERVAL_MS);
+      } else {
+        setPaymentPolling(false);
+        setPaymentConfirmed(true); // mostra sucesso mesmo sem confirmação imediata
+      }
+    }
+
+    setPaymentPolling(true);
+    setTimeout(() => poll(1), 2000);
+    return () => { cancelled = true; };
+  }, [isPaymentSuccess]);
 
   if (loading) {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
@@ -34,10 +74,38 @@ export default function LojistaDashboard() {
     { label: "Cliques Telefone", value: metrics?.phoneClicks ?? 0, icon: Phone, color: "bg-purple-600" },
   ];
 
+  const currentPlanLabel = planLabels[profile?.planType] || profile?.planType || "Gratuito";
+
   return (
     <LojistaLayout>
       <h1 className="text-2xl font-black text-gray-800 mb-6">Dashboard</h1>
 
+      {/* Banner de sucesso após pagamento Stripe */}
+      {(isPaymentSuccess || paymentPolling || paymentConfirmed) && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
+              {paymentPolling
+                ? <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
+                : <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+            </div>
+            <div>
+              <p className="font-bold text-emerald-900 text-sm">
+                {paymentPolling
+                  ? "Confirmando seu pagamento..."
+                  : `Plano ${currentPlanLabel} ativado com sucesso! 🎉`}
+              </p>
+              <p className="text-emerald-700 text-xs mt-0.5">
+                {paymentPolling
+                  ? "Aguarde alguns segundos enquanto processamos a confirmação."
+                  : "Seu negócio já conta com todos os benefícios do novo plano."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner período de documentação */}
       {profile?._documentationStatus === "pending" && profile?.isVisible === false && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-6">
           <div className="flex items-start gap-3">

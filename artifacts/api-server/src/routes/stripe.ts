@@ -192,7 +192,7 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${FRONTEND_URL}/lojista/plano?success=1`,
+    success_url: `${FRONTEND_URL}/lojista?payment=success`,
     cancel_url: `${FRONTEND_URL}/lojista/plano?cancelled=1`,
     metadata: { businessId: String(lojista.businessId) },
     subscription_data: {
