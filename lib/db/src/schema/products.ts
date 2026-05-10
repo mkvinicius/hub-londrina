@@ -40,6 +40,7 @@ export const productsTable = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     // R11 — Vitrine de Produtos
     videoUrl: text("video_url"),
+    instagramReelUrl: text("instagram_reel_url"),
     videoStatus: productVideoStatusEnum("video_status").notNull().default("none"),
     videoApprovedAt: timestamp("video_approved_at"),
     videoRejectionReason: text("video_rejection_reason"),

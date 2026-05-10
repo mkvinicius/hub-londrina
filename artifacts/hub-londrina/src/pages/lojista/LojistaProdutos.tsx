@@ -19,6 +19,7 @@ interface Product {
   videoUrl: string | null;
   videoStatus: "none" | "pending" | "approved" | "rejected" | null;
   videoRejectionReason: string | null;
+  instagramReelUrl: string | null;
 }
 
 export default function LojistaProdutos() {
@@ -27,7 +28,7 @@ export default function LojistaProdutos() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "" });
   const [vitrineUploading, setVitrineUploading] = useState(false);
   const vitrineFileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -66,7 +67,7 @@ export default function LojistaProdutos() {
   const reachedLimit = products.length >= productLimit;
 
   function resetForm() {
-    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "" });
+    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "" });
     setShowForm(false);
     setEditId(null);
     setMediaMode("url");
@@ -82,6 +83,7 @@ export default function LojistaProdutos() {
       mediaType: p.mediaType || "image",
       whatsappLink: p.whatsappLink || "",
       videoUrl: p.videoUrl || "",
+      instagramReelUrl: p.instagramReelUrl || "",
     });
     setEditId(p.id);
     setShowForm(true);
@@ -317,6 +319,18 @@ export default function LojistaProdutos() {
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-gray-700 mb-1">Link WhatsApp</label>
               <input value={form.whatsappLink} onChange={e => setForm(f => ({ ...f, whatsappLink: e.target.value }))} placeholder="https://wa.me/5543..." className={inputCls} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-1">Reel do Instagram (opcional)</label>
+              <input
+                value={form.instagramReelUrl}
+                onChange={e => setForm(f => ({ ...f, instagramReelUrl: e.target.value }))}
+                placeholder="https://www.instagram.com/reel/..."
+                className={inputCls}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Se preenchido, o card do produto na vitrine vira um botão "Ver no Instagram" que abre o Reel em nova aba.
+              </p>
             </div>
 
             {profile?.planType === "premium" && (

@@ -60,6 +60,7 @@ export const businessesTable = pgTable(
     paymentMethods: text("payment_methods").array().default([]),
     tags: text("tags").array().default([]),
     videoUrl: text("video_url"),
+    instagramPosts: text("instagram_posts").array().notNull().default([]),
     boostedUntil: timestamp("boosted_until"),
     homeFeatured: boolean("home_featured").notNull().default(false),
     zoneFeatured: boolean("zone_featured").notNull().default(false),

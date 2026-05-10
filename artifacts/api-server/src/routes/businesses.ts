@@ -305,6 +305,7 @@ router.get("/businesses/:id/products", validateId, async (req: Request, res: Res
       whatsappLink: productsTable.whatsappLink,
       videoUrl: productsTable.videoUrl,
       videoStatus: productsTable.videoStatus,
+      instagramReelUrl: productsTable.instagramReelUrl,
       sortOrder: productsTable.sortOrder,
     })
     .from(productsTable)

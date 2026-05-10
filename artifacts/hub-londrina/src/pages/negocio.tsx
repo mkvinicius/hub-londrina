@@ -71,6 +71,114 @@ interface PublicProduct {
   whatsappLink: string | null;
   videoUrl: string | null;
   videoStatus: string | null;
+  instagramReelUrl: string | null;
+}
+
+// Renderiza embeds do Instagram via blockquote oEmbed (Premium-only).
+// Free/Base veem CTA para upgrade. O script embed.js é carregado uma vez
+// e processa todos os blockquotes presentes na página.
+function InstagramTab({
+  isPremium,
+  posts,
+  instagramHandle,
+}: {
+  isPremium: boolean;
+  posts: string[];
+  instagramHandle: string | null | undefined;
+}) {
+  // Defesa em profundidade: filtra qualquer URL malformada antes de entregar ao
+  // embed.js de terceiro. Backend já valida/canoniza, mas dados legados ou
+  // resposta corrompida não devem virar input arbitrário do script.
+  const safePosts = posts.filter((url) => {
+    if (typeof url !== "string") return false;
+    try {
+      const u = new URL(url);
+      if (u.protocol !== "https:") return false;
+      const h = u.hostname.toLowerCase();
+      if (h !== "instagram.com" && h !== "www.instagram.com") return false;
+      return /^\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(u.pathname);
+    } catch { return false; }
+  });
+
+  useEffect(() => {
+    if (!isPremium || safePosts.length === 0) return;
+    const SCRIPT_ID = "instagram-embed-script";
+    const ig = (window as any).instgrm;
+    if (ig?.Embeds?.process) {
+      ig.Embeds.process();
+      return;
+    }
+    if (document.getElementById(SCRIPT_ID)) return;
+    const s = document.createElement("script");
+    s.id = SCRIPT_ID;
+    s.async = true;
+    s.src = "https://www.instagram.com/embed.js";
+    document.body.appendChild(s);
+  }, [isPremium, safePosts]);
+
+  if (!isPremium) {
+    const handle = (instagramHandle || "").replace(/^@/, "");
+    const igUrl = handle ? `https://www.instagram.com/${handle}/` : null;
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#E1306C] via-[#F77737] to-[#FCAF45] flex items-center justify-center">
+          <Instagram className="w-8 h-8 text-white" />
+        </div>
+        <h3 className="font-black text-xl text-[#3a2512] dark:text-gray-100 mb-2">Feed do Instagram</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-5 max-w-md mx-auto">
+          Este recurso é exclusivo do <strong className="text-[#d97706]">plano Premium</strong>.
+          Negócios Premium podem mostrar até 12 posts ou reels diretamente no perfil.
+        </p>
+        {igUrl && (
+          <a
+            href={igUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#E1306C] to-[#F77737] hover:opacity-90 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-opacity"
+          >
+            <Instagram className="w-4 h-4" />
+            Ver perfil @{handle}
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (safePosts.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+        <Instagram className="w-12 h-12 mx-auto mb-3 text-gray-200" />
+        <p className="text-sm text-gray-400">
+          Este negócio ainda não adicionou posts do Instagram ao perfil.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Instagram</h2>
+        <span className="text-xs text-gray-400 font-medium">{safePosts.length} {safePosts.length === 1 ? "post" : "posts"}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {safePosts.map((url, i) => (
+          <div key={`${url}-${i}`} className="overflow-hidden">
+            <blockquote
+              className="instagram-media"
+              data-instgrm-permalink={url}
+              data-instgrm-version="14"
+              style={{ background: "#FFF", border: 0, margin: 0, padding: 0, width: "100%" }}
+            >
+              <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#d97706] text-sm font-bold">
+                Ver no Instagram
+              </a>
+            </blockquote>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function BusinessVitrine({
@@ -116,6 +224,15 @@ function BusinessVitrine({
           {products.map((item) => {
             const showVideo = item.videoUrl && item.videoStatus === "approved";
             const poster = item.mediaUrl || "";
+            const reelUrl = (() => {
+              if (!item.instagramReelUrl) return null;
+              try {
+                const u = new URL(item.instagramReelUrl);
+                if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+                const h = u.hostname.toLowerCase();
+                return (h === "instagram.com" || h === "www.instagram.com") ? u.toString() : null;
+              } catch { return null; }
+            })();
             // Defensive guard: só aceita https://wa.me/* ou api.whatsapp.com/*.
             // Backend já sanitiza, mas validamos no cliente também para rejeitar dados antigos.
             const safeLink = (() => {
@@ -140,11 +257,34 @@ function BusinessVitrine({
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
                 )}
+                {reelUrl && !showVideo && (
+                  <a
+                    href={reelUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Ver Reel no Instagram"
+                    className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-[#E1306C] via-[#F77737] to-[#FCAF45] text-white shadow-lg hover:scale-110 transition-transform"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Instagram className="h-4 w-4" />
+                  </a>
+                )}
                 <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.90) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)" }} />
                 <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-1.5">
                   <p className="text-white font-black text-sm leading-tight line-clamp-2">{item.name}</p>
                   {item.price && <p className="text-white font-bold text-base leading-tight">R$ {item.price}</p>}
-                  {waHref && (
+                  {reelUrl ? (
+                    <a
+                      href={reelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#E1306C] to-[#F77737] hover:opacity-90 text-white font-bold text-[11px] rounded-full py-1.5 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Instagram className="h-3 w-3" />
+                      Ver no Instagram
+                    </a>
+                  ) : waHref ? (
                     <a
                       href={waHref}
                       target="_blank"
@@ -155,7 +295,7 @@ function BusinessVitrine({
                       <MessageCircle className="h-3 w-3" />
                       Pedir no WhatsApp
                     </a>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
@@ -586,6 +726,9 @@ export default function Negocio() {
                   <TabsTrigger value="avaliacoes" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Avaliações ({reviews.length})
                   </TabsTrigger>
+                  <TabsTrigger value="instagram" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
+                    Instagram
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="sobre" className="focus-visible:outline-none">
@@ -617,6 +760,14 @@ export default function Negocio() {
 
                 <TabsContent value="vitrine" className="focus-visible:outline-none">
                   <BusinessVitrine businessId={business.id} businessName={business.name} whatsapp={business.whatsapp} />
+                </TabsContent>
+
+                <TabsContent value="instagram" className="focus-visible:outline-none">
+                  <InstagramTab
+                    isPremium={business.planType === "premium"}
+                    posts={(business as any).instagramPosts ?? []}
+                    instagramHandle={business.instagram}
+                  />
                 </TabsContent>
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">

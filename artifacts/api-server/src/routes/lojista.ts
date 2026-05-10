@@ -434,6 +434,69 @@ router.patch("/lojista/location", async (req: Request, res: Response) => {
   res.json({ lat, lng, address });
 });
 
+// Instagram embeds (Premium) — lista de URLs públicas (post/reel/tv) que aparecem
+// na aba Instagram do perfil público via blockquote oEmbed.
+//
+// Validação estrita: parse via URL, força HTTPS, host exato instagram.com (com ou
+// sem www), e pathname /p|/reel|/tv/<shortcode>/ (shortcode = [A-Za-z0-9_-]+).
+// Normaliza para forma canônica: https://www.instagram.com/<type>/<code>/
+// (sem query string nem fragmento) — o embed.js do Instagram não precisa deles
+// e mantê-los só amplia a superfície de input para o script third-party.
+const INSTAGRAM_SHORTCODE_RE = /^\/(p|reel|tv)\/([A-Za-z0-9_-]+)\/?$/;
+const INSTAGRAM_MAX_POSTS = 12;
+
+function canonicalizeInstagramUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let u: URL;
+  try { u = new URL(trimmed); } catch { return null; }
+  if (u.protocol !== "https:") return null;
+  const host = u.hostname.toLowerCase();
+  if (host !== "instagram.com" && host !== "www.instagram.com") return null;
+  const m = u.pathname.match(INSTAGRAM_SHORTCODE_RE);
+  if (!m) return null;
+  return `https://www.instagram.com/${m[1]}/${m[2]}/`;
+}
+
+router.patch("/lojista/instagram-posts", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const { posts } = req.body as { posts?: unknown };
+
+  if (!Array.isArray(posts)) {
+    res.status(400).json({ error: "Campo 'posts' deve ser um array de URLs" });
+    return;
+  }
+  if (posts.length > INSTAGRAM_MAX_POSTS) {
+    res.status(400).json({ error: `Máximo ${INSTAGRAM_MAX_POSTS} posts permitidos`, code: "INSTAGRAM_LIMIT" });
+    return;
+  }
+
+  const cleaned: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of posts) {
+    if (typeof raw === "string" && raw.trim() === "") continue;
+    const canon = canonicalizeInstagramUrl(raw);
+    if (!canon) {
+      res.status(400).json({ error: `URL inválida: ${String(raw)}. Use links do Instagram (post/reel/tv).`, code: "INVALID_INSTAGRAM_URL" });
+      return;
+    }
+    if (seen.has(canon)) continue;
+    seen.add(canon);
+    cleaned.push(canon);
+  }
+
+  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
+  if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
+  if (biz.planType !== "premium") {
+    res.status(403).json({ error: "Aba Instagram disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz.planType });
+    return;
+  }
+
+  await db.update(businessesTable).set({ instagramPosts: cleaned } as any).where(eq(businessesTable.id, businessId));
+  res.json({ posts: cleaned });
+});
+
 router.get("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   const products = await db
@@ -466,7 +529,7 @@ function sanitizeWhatsappLink(raw: unknown): string | null {
 
 router.post("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl } = req.body;
+  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl, instagramReelUrl } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "Nome do produto é obrigatório" });
@@ -476,6 +539,15 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
   if (whatsappLink && !sanitizeWhatsappLink(whatsappLink)) {
     res.status(400).json({ error: "Link de WhatsApp inválido. Use https://wa.me/...", code: "INVALID_WHATSAPP_LINK" });
     return;
+  }
+
+  let canonicalReel: string | null = null;
+  if (instagramReelUrl) {
+    canonicalReel = canonicalizeInstagramUrl(instagramReelUrl);
+    if (!canonicalReel) {
+      res.status(400).json({ error: "Link do Instagram inválido. Use https://www.instagram.com/reel/... ou /p/...", code: "INVALID_INSTAGRAM_URL" });
+      return;
+    }
   }
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
@@ -511,6 +583,7 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
       mediaType: mediaType || null,
       whatsappLink: sanitizeWhatsappLink(whatsappLink),
       videoUrl: videoUrl || null,
+      instagramReelUrl: canonicalReel,
       // R11 — vídeo entra como pending; admin precisa aprovar antes de aparecer na vitrine
       videoStatus: videoUrl ? "pending" : "none",
     })
@@ -556,7 +629,7 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
     return;
   }
 
-  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl"];
+  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl", "instagramReelUrl"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -568,6 +641,18 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
       return;
     }
     updates.whatsappLink = sanitized;
+  }
+  if ("instagramReelUrl" in updates) {
+    if (updates.instagramReelUrl) {
+      const canon = canonicalizeInstagramUrl(updates.instagramReelUrl);
+      if (!canon) {
+        res.status(400).json({ error: "Link do Instagram inválido. Use https://www.instagram.com/reel/... ou /p/...", code: "INVALID_INSTAGRAM_URL" });
+        return;
+      }
+      updates.instagramReelUrl = canon;
+    } else {
+      updates.instagramReelUrl = null;
+    }
   }
   // R11 — qualquer mudança de videoUrl (incluindo remoção) reinicia o ciclo de aprovação
   if ("videoUrl" in updates) {

@@ -30,6 +30,7 @@ import LojistaDashboard from "@/pages/lojista/LojistaDashboard";
 import LojistaPerfil from "@/pages/lojista/LojistaPerfil";
 import LojistaFotos from "@/pages/lojista/LojistaFotos";
 import LojistaProdutos from "@/pages/lojista/LojistaProdutos";
+import LojistaInstagram from "@/pages/lojista/LojistaInstagram";
 import LojistaMetricas from "@/pages/lojista/LojistaMetricas";
 import LojistaPlano from "@/pages/lojista/LojistaPlano";
 import LojistaSenha from "@/pages/lojista/LojistaSenha";
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/lojista/perfil">{() => <LojistaPrivateRoute component={LojistaPerfil} />}</Route>
       <Route path="/lojista/fotos">{() => <LojistaPrivateRoute component={LojistaFotos} />}</Route>
       <Route path="/lojista/produtos">{() => <LojistaPrivateRoute component={LojistaProdutos} />}</Route>
+      <Route path="/lojista/instagram">{() => <LojistaPrivateRoute component={LojistaInstagram} />}</Route>
       <Route path="/lojista/metricas">{() => <LojistaPrivateRoute component={LojistaMetricas} />}</Route>
       <Route path="/lojista/avaliacoes">{() => <LojistaPrivateRoute component={LojistaAvaliacoes} />}</Route>
       <Route path="/lojista/boost">{() => <LojistaPrivateRoute component={LojistaBoost} />}</Route>
