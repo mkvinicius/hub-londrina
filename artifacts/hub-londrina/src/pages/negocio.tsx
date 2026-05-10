@@ -311,7 +311,7 @@ export default function Negocio() {
   useEffect(() => {
     if (!id || !Number.isFinite(id)) navigate("/");
   }, []);
-  const [activeTab, setActiveTab] = useState("sobre");
+  const [activeTab, setActiveTab] = useState("fotos");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -502,18 +502,29 @@ export default function Negocio() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left — Tabs */}
             <div className="lg:col-span-2 space-y-6">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              {(() => {
+                // Galeria pode vir tanto do array `photos` (uploads novos via LojistaFotos)
+                // quanto do `photoUrl` legado (seed antigo / capa única).
+                const galleryPhotos = [
+                  ...((business as any).photos ?? []).filter((p: any) => typeof p === "string" && p),
+                  ...(business.photoUrl && !((business as any).photos ?? []).includes(business.photoUrl) ? [business.photoUrl] : []),
+                ];
+                const hasFotos = galleryPhotos.length > 0;
+                // Se não tem fotos, cai para "sobre" como aba default
+                const effectiveTab = activeTab === "fotos" && !hasFotos ? "sobre" : activeTab;
+                return (
+              <Tabs value={effectiveTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
-                  <TabsTrigger value="sobre" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
-                    Sobre
-                  </TabsTrigger>
-                  {business.photoUrl && (
+                  {hasFotos && (
                     <TabsTrigger value="fotos" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                       Fotos
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="vitrine" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Vitrine
+                  </TabsTrigger>
+                  <TabsTrigger value="sobre" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
+                    Sobre
                   </TabsTrigger>
                   <TabsTrigger value="avaliacoes" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Avaliações ({reviews.length})
@@ -527,18 +538,21 @@ export default function Negocio() {
                   </div>
                 </TabsContent>
 
-                {business.photoUrl && (
+                {hasFotos && (
                   <TabsContent value="fotos" className="focus-visible:outline-none">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                       <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-4">Galeria de Fotos</h2>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <div className="aspect-square rounded-xl overflow-hidden">
-                          <img
-                            src={business.photoUrl}
-                            alt={business.name}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          />
-                        </div>
+                        {galleryPhotos.map((url: string, i: number) => (
+                          <div key={i} className="aspect-square rounded-xl overflow-hidden">
+                            <img
+                              src={url}
+                              alt={`${business.name} — foto ${i + 1}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover hover:scale-105 transition-transform"
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </TabsContent>
@@ -626,6 +640,8 @@ export default function Negocio() {
                   </div>
                 </TabsContent>
               </Tabs>
+                );
+              })()}
             </div>
 
             {/* Right Sidebar */}

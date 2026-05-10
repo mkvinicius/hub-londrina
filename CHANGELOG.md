@@ -6,6 +6,10 @@
 
 ## 2026-05-10
 
+### UX — reordenação de abas e correção da galeria no perfil público
+- **Bug "Fotos" sumida**: aba era condicional a `business.photoUrl` (campo legado de capa única), mas as fotos enviadas pelo lojista vão para o array `photos` (via `uploadPhoto`). Negócios sem `photoUrl` antigo não viam a aba mesmo com galeria preenchida. Corrigido: aba aparece sempre que `photos.length > 0` OU `photoUrl` existe; galeria renderiza todas as fotos do array com `loading="lazy"`.
+- **Reordenação**: ordem das abas agora é Fotos → Vitrine → Sobre → Avaliações (antes: Sobre → Fotos → Vitrine → Avaliações). Default abre em "Fotos"; se o negócio não tem fotos, cai automaticamente para "Sobre".
+
 ### Bugfix — perfil público `/negocio/:id` não exibia dados reais
 - **Banner do hero**: header só lia `business.photoUrl` e ignorava `bannerUrl` (campo populado pelo `uploadBanner` em `LojistaFotos`). Agora usa `bannerUrl ?? photoUrl`. Capa enviada pelo lojista aparece imediatamente após upload.
 - **Vitrine**: aba mostrava arrays mock por categoria (Sobremesa do Chef, Frango na Brasa…) ignorando os produtos cadastrados. Criado endpoint público `GET /api/businesses/:id/products` (filtra `isActive=true`, ordena por `sortOrder`, expõe shape mínimo + `videoStatus` para gating de vídeo aprovado). `negocio.tsx` agora consome esse endpoint via novo componente `BusinessVitrine` com loading skeleton e empty state.
