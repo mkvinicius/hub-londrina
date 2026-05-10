@@ -3,7 +3,7 @@ import { searchBoostsTable, businessesTable, homeBannersTable } from "@workspace
 import { and, asc, eq, isNull, or, gt, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
-import { runOnceDaily } from "./job-checkpoint";
+import { runWithCheckpoint } from "./job-checkpoint";
 
 async function expireBoosts() {
   try {
@@ -144,11 +144,14 @@ async function runExpirationCycle() {
 }
 
 async function runExpirationCycleWithCheckpoint() {
-  await runOnceDaily("boost-expiration", runExpirationCycle);
+  // Roda toda hora pra liberar vagas/promover waitlist com no máximo 1h de atraso.
+  // Antes era gateado por runOnceDaily — efetivamente 1x/dia, o que segurava
+  // promoção da fila e prejudicava a UX dos boosts pagos.
+  await runWithCheckpoint("boost-expiration", runExpirationCycle);
 }
 
 export function startBoostExpirationJob() {
   runExpirationCycleWithCheckpoint();
   setInterval(runExpirationCycleWithCheckpoint, 60 * 60 * 1000);
-  logger.info("Job de expiração iniciado (boosts, boostedUntil, banners — intervalo: 1h, checkpoint diário)");
+  logger.info("Job de expiração iniciado (boosts, boostedUntil, banners — intervalo: 1h, sem gate diário)");
 }

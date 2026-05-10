@@ -3,6 +3,33 @@ import { jobRunsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
+/**
+ * Executa `fn` e registra o resultado em `job_runs` (observabilidade).
+ * Sem gate de tempo — o caller decide a frequência via setInterval.
+ * Use isto pra jobs que precisam rodar com granularidade fina (ex: expiração horária).
+ */
+export async function runWithCheckpoint(jobName: string, fn: () => Promise<void>): Promise<void> {
+  let status = "success";
+  try {
+    await fn();
+  } catch (err) {
+    status = "error";
+    logger.error({ err }, `[JobCheckpoint] ${jobName} falhou`);
+  } finally {
+    try {
+      await db
+        .insert(jobRunsTable)
+        .values({ jobName, lastRunAt: new Date(), lastRunStatus: status })
+        .onConflictDoUpdate({
+          target: jobRunsTable.jobName,
+          set: { lastRunAt: new Date(), lastRunStatus: status },
+        });
+    } catch (err) {
+      logger.error({ err }, `[JobCheckpoint] falha ao gravar checkpoint de ${jobName}`);
+    }
+  }
+}
+
 export async function runOnceDaily(jobName: string, fn: () => Promise<void>): Promise<void> {
   const todayUtc = new Date();
   todayUtc.setUTCHours(0, 0, 0, 0);
