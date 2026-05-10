@@ -6,6 +6,13 @@
 
 ## 2026-05-10
 
+### UX — Logo e banner liberados para TODOS os planos (inclusive Gratuito)
+- **Motivo**: identidade visual básica não deve ser gate de plano. Um diretório fica feio com metade dos lojistas sem foto de perfil/banner. Diferenciais Premium continuam onde fazem sentido: vitrine de produtos, vídeo de apresentação, boosts, métricas avançadas, selo Premium.
+- **Backend**: removidas as guardas `business.planType === "free"` em `POST /api/lojista/upload/logo` e `POST /api/lojista/upload/banner` (`artifacts/api-server/src/routes/lojista.ts`). Outros gates (Instagram/Website, vídeo, vitrine, métricas, resposta a reviews, PDF) permanecem inalterados.
+- **Frontend**:
+  - `LojistaFotos.tsx` — removidos os wrappers `<LockedFeature planRequired="destaque">` ao redor das seções de Logo e Banner; removida a guarda pré-upload e o `import` órfão do componente. Botão "Enviar" agora visível em qualquer plano.
+  - `LojistaPlano.tsx` — `"Logo e banner"` agora aparece como `included: true` no descritor do plano Gratuito; removido do plano Base (passou a ser implícito em "Tudo do Gratuito"). Adicionado `"Selo Destaque"` como diferencial visível do Base.
+
 ### Bugfix — imagens dos negócios quebradas em todo o site público
 - **Sintoma**: card de busca aparecia com fundo marrom sólido (sem foto da empresa). Vitrine da home, banners de zona e mini-logos no admin idem.
 - **Causa**: mesmo bug do perfil — uploads chegam como path relativo `/storage/objects/...` e estavam sendo usados crus em vários componentes (`BusinessCard`, `landing.tsx` vitrine, `categorias.tsx`, `zona.tsx`, `AdminHomeBanners.tsx`). `LojistaDashboard.tsx` tinha um hack manual `profile.logoUrl.startsWith("/") ? \`/api${url}\` : url` no avatar do dashboard.

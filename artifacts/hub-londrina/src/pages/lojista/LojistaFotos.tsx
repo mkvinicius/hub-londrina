@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, uploadLogo, uploadBanner, uploadPhoto, deletePhoto } from "@/lib/lojista-api";
 import { Upload, Trash2, ImageIcon } from "lucide-react";
-import { LockedFeature } from "@/components/LockedFeature";
 
 export default function LojistaFotos() {
   const [profile, setProfile] = useState<any>(null);
@@ -27,15 +26,10 @@ export default function LojistaFotos() {
   const planLimits: Record<string, number> = { free: 1, destaque: 10, premium: 999 };
   const maxPhotos = planLimits[profile.planType] || 1;
   const photos = profile.photos || [];
-  const isFree = profile.planType === "free";
 
   async function handleUpload(type: "logo" | "banner" | "photo", file: File) {
-    // H8: guardas defensivas pré-upload — evita gastar banda do lojista quando
-    // a regra de plano já reprovaria no servidor.
-    if ((type === "logo" || type === "banner") && isFree) {
-      setMsg(`Erro: ${type === "logo" ? "Logo" : "Banner"} disponível apenas no plano Destaque ou superior.`);
-      return;
-    }
+    // Logo e banner liberados para todos os planos (identidade visual básica).
+    // Galeria continua limitada por plano.
     if (type === "photo" && photos.length >= maxPhotos) {
       setMsg(`Erro: limite de ${maxPhotos} foto(s) atingido para o plano ${profile.planType}.`);
       return;
@@ -112,43 +106,6 @@ export default function LojistaFotos() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <LockedFeature planRequired="destaque" currentPlan={profile.planType} inline message="Logo disponível no plano Destaque ou superior">
-          <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Logo</h2>
-              {!isFree && <FileInput type="logo" />}
-            </div>
-            <div className="flex justify-center">
-              {profile.logoUrl ? (
-                <img src={imgSrc(profile.logoUrl)} alt="Logo" className="w-32 h-32 rounded-full object-cover border-4 border-gray-200" />
-              ) : (
-                <div className="w-32 h-32 rounded-full bg-gray-100 flex items-center justify-center border-4 border-gray-200">
-                  <ImageIcon className="w-12 h-12 text-gray-300" />
-                </div>
-              )}
-            </div>
-          </section>
-        </LockedFeature>
-
-        <LockedFeature planRequired="destaque" currentPlan={profile.planType} inline message="Banner disponível no plano Destaque ou superior">
-          <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Banner</h2>
-              {!isFree && <FileInput type="banner" />}
-            </div>
-            <div className="flex justify-center">
-              {profile.bannerUrl ? (
-                <img src={imgSrc(profile.bannerUrl)} alt="Banner" className="w-full aspect-video rounded-xl object-cover border border-gray-200" />
-              ) : (
-                <div className="w-full aspect-video rounded-xl bg-gray-100 flex items-center justify-center border border-gray-200">
-                  <ImageIcon className="w-16 h-16 text-gray-300" />
-                </div>
-              )}
-            </div>
-          </section>
-        </LockedFeature>
-      </div>
 
       <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <div className="flex items-center justify-between mb-4">

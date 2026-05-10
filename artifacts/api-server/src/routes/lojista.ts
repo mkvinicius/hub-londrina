@@ -263,15 +263,13 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
+// Logo e banner são identidade visual básica — disponíveis em TODOS os planos
+// (inclusive Gratuito). Diferenciais Premium estão em vitrine, vídeo, boost
+// e métricas avançadas, não em poder mostrar uma foto de perfil.
 router.post("/lojista/upload/logo", memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
-    return;
-  }
-  const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!business || business.planType === "free") {
-    res.status(403).json({ error: "Logo disponível apenas nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: business?.planType || "free" });
     return;
   }
   const ext = path.extname(req.file.originalname) || ".jpg";
@@ -285,11 +283,6 @@ router.post("/lojista/upload/banner", memoryUpload.single("file"), async (req: R
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
-    return;
-  }
-  const [business] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!business || business.planType === "free") {
-    res.status(403).json({ error: "Banner disponível apenas nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: business?.planType || "free" });
     return;
   }
   const ext = path.extname(req.file.originalname) || ".jpg";
