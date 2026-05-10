@@ -187,9 +187,10 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
             onClick={(e) => e.stopPropagation()}
             className="mt-auto"
           >
-            <Button className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl text-sm font-bold h-10 shadow-none flex items-center gap-2 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm">
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp
+            <Button className="group relative w-full overflow-hidden bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white rounded-2xl text-sm font-bold h-11 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/25 shadow-[0_10px_24px_-6px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-8px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-110 active:translate-y-0 active:shadow-[0_4px_12px_-2px_rgba(34,197,94,0.5),inset_0_1px_0_rgba(255,255,255,0.3)]">
+              <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
+              <MessageCircle className="h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative" />
+              <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">WhatsApp</span>
             </Button>
           </a>
         ) : (

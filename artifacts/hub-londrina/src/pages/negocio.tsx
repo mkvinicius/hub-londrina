@@ -289,11 +289,12 @@ function BusinessVitrine({
                       href={waHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1dbd59] text-white font-bold text-[11px] rounded-full py-1.5 transition-colors"
+                      className="group relative overflow-hidden flex items-center justify-center gap-1.5 bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white font-bold text-[11px] rounded-full py-2 ring-1 ring-inset ring-white/25 shadow-[0_6px_16px_-4px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_22px_-6px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)]"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <MessageCircle className="h-3 w-3" />
-                      Pedir no WhatsApp
+                      <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
+                      <MessageCircle className="h-3 w-3 drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)] relative" />
+                      <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">Pedir no WhatsApp</span>
                     </a>
                   ) : null}
                 </div>
@@ -629,9 +630,10 @@ export default function Negocio() {
                   rel="noopener noreferrer"
                   className="flex-shrink-0"
                 >
-                  <Button className="bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl px-5 h-10 font-bold flex items-center gap-2 shadow-none text-sm">
-                    <MessageCircle className="h-4 w-4" />
-                    WhatsApp
+                  <Button className="group relative overflow-hidden bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white rounded-xl px-6 h-11 font-bold flex items-center gap-2 text-sm ring-1 ring-inset ring-white/25 shadow-[0_10px_24px_-6px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-8px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-110 active:translate-y-0">
+                    <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
+                    <MessageCircle className="h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative" />
+                    <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">WhatsApp</span>
                   </Button>
                 </a>
               )}
