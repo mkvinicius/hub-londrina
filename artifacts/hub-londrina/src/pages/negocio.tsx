@@ -464,33 +464,35 @@ export default function Negocio() {
   return (
     <Layout>
       <div className="pb-20 bg-[#FBF7F2] dark:bg-gray-900 min-h-screen transition-colors">
-        {/* Hero — padrão Hub Modern (header gradient marrom + banner + logo flutuante na divisa) */}
+        {/* Hero — banner full-bleed com Voltar/Favoritar flutuando sobre a foto.
+            Removido strip marrom redundante (nome do negócio já aparece logo abaixo). */}
         <div className="bg-white dark:bg-gray-800 shadow-sm">
-          {/* Header gradiente */}
-          <div className="bg-gradient-to-r from-[#6F4E37] to-[#3a2512] text-white px-4 md:px-8 py-3.5 flex items-center justify-between">
+          {/* Banner com badges flutuantes */}
+          <div className="relative max-w-7xl mx-auto">
+            {/* Voltar — botão flutuante com fundo escuro e backdrop-blur pra contraste em qualquer foto */}
             <button
               onClick={() => navigate("/busca")}
-              className="flex items-center gap-1.5 text-white/85 hover:text-white text-sm font-semibold transition-colors"
+              aria-label="Voltar"
+              className="absolute top-3 left-3 md:top-5 md:left-5 z-20 flex items-center gap-1.5 bg-black/55 hover:bg-black/70 text-white text-sm font-bold pl-2.5 pr-3.5 py-2 rounded-full backdrop-blur-md ring-1 ring-white/20 shadow-lg transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </button>
-            <span className="font-['Playfair_Display'] font-bold text-base md:text-lg truncate max-w-[60%] text-center">
-              {business.name}
-            </span>
+
+            {/* Favoritar — flutuante no canto superior direito */}
             <button
               onClick={() => setIsFavorite(!isFavorite)}
               aria-label="Favoritar"
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                isFavorite ? "bg-rose-500/90 text-white" : "bg-white/15 text-white/90 hover:bg-white/25"
+              className={`absolute top-3 right-3 md:top-5 md:right-5 z-20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md ring-1 shadow-lg transition-colors ${
+                isFavorite
+                  ? "bg-rose-500 text-white ring-white/30"
+                  : "bg-black/55 hover:bg-black/70 text-white ring-white/20"
               }`}
             >
               <Heart className={`w-4 h-4 ${isFavorite ? "fill-white" : ""}`} />
             </button>
-          </div>
 
-          {/* Banner com badges flutuantes */}
-          <div className="relative max-w-7xl mx-auto">
+
             {(() => {
               // Capa: lojista sobe banner em "Fotos" (bannerUrl). Fallback para photoUrl (capa antiga).
               const heroImg = imgSrc((business as any).bannerUrl || business.photoUrl);
@@ -505,8 +507,8 @@ export default function Negocio() {
               );
             })()}
 
-            {/* Rating no canto superior direito do banner */}
-            <div className="absolute top-3 right-3 md:top-5 md:right-5 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] shadow-sm">
+            {/* Rating — canto inferior direito do banner pra liberar o topo direito pro favoritar */}
+            <div className="absolute bottom-3 right-3 md:bottom-5 md:right-5 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] shadow-sm">
               <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
               {business.rating}
               <span className="font-medium opacity-60 text-[10px]">({business.reviewsCount})</span>
@@ -531,9 +533,10 @@ export default function Negocio() {
               </div>
             </div>
 
-            {/* Premium badge bottom-right */}
+            {/* Premium badge — flutua sobre a divisa banner/conteúdo (deslocado pra esquerda
+                pra não brigar com o rating no canto inferior direito). */}
             {business.planType === "premium" && (
-              <div className="absolute -bottom-3 right-5 md:right-8">
+              <div className="absolute -bottom-3 right-24 md:right-32">
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full ring-1 ring-amber-100 shadow-sm">
                   <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Premium
                 </span>

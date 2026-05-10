@@ -212,7 +212,18 @@ export default function LojistaDashboard() {
             <img src={imgSrc(profile.logoUrl)} alt="Logo" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
           )}
           <div>
-            <h2 className="text-xl font-bold text-gray-800">{profile?.name}</h2>
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              {profile?.name}
+              {profile?.verified && (
+                <span
+                  title="Negócio verificado pela equipe Hub Londrina"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full ring-1 ring-emerald-200"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  Verificado
+                </span>
+              )}
+            </h2>
             <div className="flex items-center gap-3 mt-1">
               <span className={`text-xs font-bold text-white px-3 py-1 rounded-full ${planColors[profile?.planType] || "bg-gray-400"}`}>
                 {planLabels[profile?.planType] || profile?.planType}

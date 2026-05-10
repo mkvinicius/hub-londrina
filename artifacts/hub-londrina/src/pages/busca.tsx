@@ -337,7 +337,8 @@ export default function Busca() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {homeFeatured.map((biz: any) => (
                   <div key={biz.id} className="relative">
-                    <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
+                    {/* Patrocinado pin — bottom-right pra não cobrir o rating ("Novo") em top-left */}
+                    <div className="absolute bottom-[180px] sm:bottom-[200px] right-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
                       <Star className="h-2.5 w-2.5 fill-white" />
                       Patrocinado
                     </div>
@@ -563,15 +564,10 @@ export default function Busca() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                     {paginated.map((biz) => (
-                      <div key={biz.id} className="relative">
-                        {(biz as any)._boostBadge && (
-                          <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
-                            <Zap className="h-2.5 w-2.5" />
-                            {(biz as any)._boostBadge}
-                          </div>
-                        )}
-                        <BusinessCard business={biz} showDistance={nearbyMode} />
-                      </div>
+                      // BusinessCard já renderiza Patrocinado/Impulsionado em bottom-3 left-3
+                      // baseado em boostInfo/_boostBadge — não duplicamos overlay aqui (evita
+                      // sobreposição com o rating "Novo" em top-3 left-3).
+                      <BusinessCard key={biz.id} business={biz} showDistance={nearbyMode} />
                     ))}
                   </div>
 
