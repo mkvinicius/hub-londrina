@@ -3,7 +3,7 @@ import { useLocation, Link } from "wouter";
 import { LojistaLayout } from "./LojistaLayout";
 import {
   getProfile, getStripeConfig, getSubscription, getSubscriptions,
-  createCheckoutSession, createPortalSession, getInvoices,
+  createCheckoutSession, createPortalSession, changePlan, getInvoices,
   type StripeInvoice,
 } from "@/lib/lojista-api";
 import {
@@ -568,6 +568,32 @@ export default function LojistaPlano() {
     }
   }
 
+  // Troca de plano direto pela API (com proração). Não passa pelo portal,
+  // que não permite switch sem configuração manual no Stripe Dashboard.
+  async function handleChangePlan(plan: typeof PLANS_LIST[number], direction: "upgrade" | "downgrade") {
+    const priceId = cycle === "annual" ? plan.priceIdAnnual : plan.priceIdMonthly;
+    if (!priceId) {
+      alert("Preço não configurado para este plano.");
+      return;
+    }
+    const verb = direction === "upgrade" ? "fazer upgrade" : "fazer downgrade";
+    const ok = window.confirm(
+      `Confirmar ${verb} para o plano ${plan.label} (${cycle === "annual" ? "anual" : "mensal"})?\n\n` +
+      `A diferença será calculada automaticamente (proração) e cobrada/creditada no seu próximo ciclo.`
+    );
+    if (!ok) return;
+
+    setCheckingOut(plan.key);
+    try {
+      await changePlan(priceId);
+      alert(`Plano alterado para ${plan.label}. Atualizando...`);
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || "Erro ao trocar de plano");
+      setCheckingOut(null);
+    }
+  }
+
   if (loading) {
     return (
       <LojistaLayout>
@@ -722,11 +748,13 @@ export default function LojistaPlano() {
                   )}
                   {isUpgrade && isSubscribed && sub?.plan !== plan.key && (
                     <button
-                      onClick={handlePortal}
-                      disabled={openingPortal}
-                      className="w-full py-3 rounded-xl font-bold text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                      onClick={() => handleChangePlan(plan, "upgrade")}
+                      disabled={checkingOut === plan.key}
+                      className={`w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 ${
+                        plan.key === "premium" ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-[#d97706] hover:bg-[#b45309] text-white"
+                      }`}
                     >
-                      Alterar para {plan.label}
+                      {checkingOut === plan.key ? "Alterando..." : `Alterar para ${plan.label}`}
                     </button>
                   )}
                   {isCurrent && (
@@ -735,11 +763,11 @@ export default function LojistaPlano() {
                   {isDowngrade && (
                     isSubscribed ? (
                       <button
-                        onClick={handlePortal}
-                        disabled={openingPortal}
-                        className="w-full py-3 rounded-xl font-bold text-sm border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50 transition-colors disabled:opacity-60 text-xs"
+                        onClick={() => handleChangePlan(plan, "downgrade")}
+                        disabled={checkingOut === plan.key}
+                        className="w-full py-3 rounded-xl font-bold text-sm border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-60"
                       >
-                        Fazer downgrade para {plan.label}
+                        {checkingOut === plan.key ? "Alterando..." : `Fazer downgrade para ${plan.label}`}
                       </button>
                     ) : (
                       <div className="w-full py-3 rounded-xl text-center border border-dashed border-gray-200 text-gray-400 text-xs">

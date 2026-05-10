@@ -633,6 +633,72 @@ router.post("/stripe/portal", async (req: Request, res: Response) => {
   res.json({ url: portal.url });
 });
 
+// Troca de plano direta via API (sem passar pelo portal Stripe).
+// O portal por padrão não permite "switch plan" sem configuração manual no Dashboard,
+// então fazemos a troca aqui: stripe.subscriptions.update com proração automática.
+// Usado pelos botões "Alterar para X" no painel do lojista quando ele já tem assinatura ativa.
+router.post("/stripe/change-plan", async (req: Request, res: Response) => {
+  const lojista = getLojistaFromToken(req);
+  if (!lojista) return res.status(401).json({ error: "Não autorizado" });
+
+  const { priceId } = req.body as { priceId?: string };
+  if (!priceId || !PRICE_MAP[priceId]) {
+    return res.status(400).json({ error: "Price ID inválido" });
+  }
+  const targetPlan = PRICE_MAP[priceId];
+
+  const [sub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.businessId, lojista.businessId));
+
+  if (!sub?.stripeSubscriptionId) {
+    return res.status(404).json({
+      error: "Você ainda não tem assinatura ativa. Use o botão 'Assinar plano'.",
+      code: "NO_SUBSCRIPTION",
+    });
+  }
+  if (sub.status !== "active" && sub.status !== "trialing") {
+    return res.status(400).json({
+      error: "Sua assinatura não está ativa. Resolva o pagamento pendente antes de trocar de plano.",
+      code: "SUBSCRIPTION_INACTIVE",
+    });
+  }
+  if (sub.stripePriceId === priceId) {
+    return res.status(400).json({ error: "Você já está nesse plano." });
+  }
+
+  try {
+    const stripeSub = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+    const itemId = stripeSub.items.data[0]?.id;
+    if (!itemId) {
+      return res.status(500).json({ error: "Subscription sem itens no Stripe." });
+    }
+
+    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      items: [{ id: itemId, price: priceId }],
+      proration_behavior: "create_prorations",
+      metadata: { businessId: String(lojista.businessId) },
+    });
+
+    // Reflete no DB local imediatamente (sem esperar webhook).
+    const result = await syncSubscriptionFromStripe(sub.stripeSubscriptionId);
+
+    logger.info(
+      `[Stripe Change Plan] Lojista ${lojista.businessId} trocou plano: ${sub.stripePriceId} -> ${priceId} (${targetPlan.plan}/${targetPlan.cycle})`
+    );
+
+    return res.json({
+      ok: true,
+      planType: result?.planType ?? targetPlan.plan,
+      cycle: targetPlan.cycle,
+    });
+  } catch (err: any) {
+    logger.error("[Stripe Change Plan] Erro:", err.message);
+    return res.status(500).json({ error: err.message || "Erro ao trocar de plano" });
+  }
+});
+
 router.get("/stripe/subscription", async (req: Request, res: Response) => {
   const lojista = getLojistaFromToken(req);
   if (!lojista) return res.status(401).json({ error: "Não autorizado" });

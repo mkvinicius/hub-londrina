@@ -6,6 +6,12 @@
 
 ## 2026-05-10
 
+### Bugfix — "Alterar para Premium" não trocava de plano
+- **Sintoma**: lojista no plano Base clicava em "Alterar para Premium" e era redirecionado ao portal do Stripe, que mostrava só "Cancels Jun 9 / Don't cancel subscription" — sem opção de trocar de plano.
+- **Causa**: o portal do Stripe Billing **não permite "switch plan"** sem configuração manual no Dashboard (Settings → Customer portal → Subscriptions → Customers can switch plans + lista de produtos). Mesmo configurado, depende de manutenção fora do código.
+- **Correção**: novo endpoint `POST /api/stripe/change-plan` que faz `stripe.subscriptions.update(subId, { items, proration_behavior: "create_prorations" })` e ressincroniza o DB local imediatamente. Cliente expõe `changePlan(priceId)` em `lib/lojista-api.ts`. Os botões "Alterar para X" e "Fazer downgrade para Y" no painel agora chamam essa rota com `window.confirm` explicando proração — o portal continua acessível pelo botão "Gerenciar assinatura" (cancelar / atualizar cartão / faturas).
+- **Validações backend**: priceId no PRICE_MAP, sub existe + ativa, não é o mesmo plano. Erros traduzidos em PT-BR.
+
 ### Bugfix — banner/logo do lojista quebrados no perfil público
 - **Causa**: uploads (logo, banner, galeria) são salvos como path relativo `/storage/objects/...` e o painel do lojista os resolve via helper `imgSrc()` que prepende `${VITE_API_URL}/api`. Em `negocio.tsx`, as URLs eram usadas cruas → o `<img>` ficava quebrado (mostrando `?` no header marrom).
 - **Logo nunca renderizado**: o avatar circular do negócio (`logoUrl`) não existia em lugar nenhum no perfil público — o lojista subia mas a foto não aparecia para o cliente.

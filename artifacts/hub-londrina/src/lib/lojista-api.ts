@@ -216,6 +216,14 @@ export async function createPortalSession(): Promise<{ url: string }> {
   return lojistaFetch("/stripe/portal", { method: "POST" });
 }
 
+// Troca direta de plano via API (sem portal). Aplica proração automática no Stripe.
+export async function changePlan(priceId: string): Promise<{ ok: true; planType: string; cycle: string }> {
+  return lojistaFetch("/stripe/change-plan", {
+    method: "POST",
+    body: JSON.stringify({ priceId }),
+  });
+}
+
 export async function getSubscription() {
   return lojistaFetch("/stripe/subscription");
 }
