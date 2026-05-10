@@ -6,6 +6,11 @@
 
 ## 2026-05-10
 
+### Bugfix — banner/logo do lojista quebrados no perfil público
+- **Causa**: uploads (logo, banner, galeria) são salvos como path relativo `/storage/objects/...` e o painel do lojista os resolve via helper `imgSrc()` que prepende `${VITE_API_URL}/api`. Em `negocio.tsx`, as URLs eram usadas cruas → o `<img>` ficava quebrado (mostrando `?` no header marrom).
+- **Logo nunca renderizado**: o avatar circular do negócio (`logoUrl`) não existia em lugar nenhum no perfil público — o lojista subia mas a foto não aparecia para o cliente.
+- **Correção**: criado helper compartilhado `imgSrc()` em `lib/utils.ts` (passa absolutas/data/blob direto, prepende `${VITE_API_URL}/api` em paths relativos). Aplicado no banner do hero, na galeria de fotos e no logo. Logo agora aparece como avatar circular 24/28px com borda branca sobre o banner (alinhado ao nome do negócio, oculto em mobile <sm para não competir com o título).
+
 ### UX — reordenação de abas e correção da galeria no perfil público
 - **Bug "Fotos" sumida**: aba era condicional a `business.photoUrl` (campo legado de capa única), mas as fotos enviadas pelo lojista vão para o array `photos` (via `uploadPhoto`). Negócios sem `photoUrl` antigo não viam a aba mesmo com galeria preenchida. Corrigido: aba aparece sempre que `photos.length > 0` OU `photoUrl` existe; galeria renderiza todas as fotos do array com `loading="lazy"`.
 - **Reordenação**: ordem das abas agora é Fotos → Vitrine → Sobre → Avaliações (antes: Sobre → Fotos → Vitrine → Avaliações). Default abre em "Fotos"; se o negócio não tem fotos, cai automaticamente para "Sobre".

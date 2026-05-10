@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { csrfFetch } from "@/lib/csrf";
+import { imgSrc } from "@/lib/utils";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
   MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send,
@@ -369,9 +370,9 @@ export default function Negocio() {
         {/* Hero Section */}
         <div className="relative h-[320px] bg-[#3a2512] overflow-hidden">
           {(() => {
-            // Capa do negócio: o lojista pode subir banner em "Fotos" (bannerUrl).
-            // Caímos para photoUrl como fallback (foto de capa antiga).
-            const heroImg = (business as any).bannerUrl || business.photoUrl;
+            // Capa: lojista sobe banner em "Fotos" (bannerUrl). Fallback para photoUrl (capa antiga).
+            // Uploads vêm como path relativo `/storage/objects/...` — imgSrc resolve para URL completa.
+            const heroImg = imgSrc((business as any).bannerUrl || business.photoUrl);
             return heroImg ? (
               <img
                 src={heroImg}
@@ -411,13 +412,24 @@ export default function Negocio() {
                 </span>
               )}
             </div>
-            <h1 className="font-black text-3xl md:text-4xl text-white mb-1 leading-tight drop-shadow">
-              {business.name}
-            </h1>
-            <p className="text-white/70 text-sm flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 text-[#d97706]" />
-              {business.region}, Londrina - PR
-            </p>
+            <div className="flex items-end gap-4">
+              {(business as any).logoUrl && (
+                <img
+                  src={imgSrc((business as any).logoUrl)}
+                  alt={`Logo ${business.name}`}
+                  className="hidden sm:block w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-4 border-white shadow-xl flex-shrink-0 bg-white"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <h1 className="font-black text-3xl md:text-4xl text-white mb-1 leading-tight drop-shadow">
+                  {business.name}
+                </h1>
+                <p className="text-white/70 text-sm flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-[#d97706]" />
+                  {business.region}, Londrina - PR
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -546,7 +558,7 @@ export default function Negocio() {
                         {galleryPhotos.map((url: string, i: number) => (
                           <div key={i} className="aspect-square rounded-xl overflow-hidden">
                             <img
-                              src={url}
+                              src={imgSrc(url)}
                               alt={`${business.name} — foto ${i + 1}`}
                               loading="lazy"
                               className="w-full h-full object-cover hover:scale-105 transition-transform"
