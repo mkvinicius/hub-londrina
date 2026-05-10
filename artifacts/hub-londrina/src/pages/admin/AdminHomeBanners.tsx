@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
+import { imgSrc } from "@/lib/utils";
 import { ImageIcon, Plus, Trash2, Eye, EyeOff, RefreshCw, Check, X, Clock, ShoppingBag } from "lucide-react";
 
 interface Banner {
@@ -212,7 +213,7 @@ export default function AdminHomeBanners() {
               </select>
               {selectedBiz && (
                 <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-2">
-                  {selectedBiz.logoUrl && <img src={selectedBiz.logoUrl} alt="" className="w-6 h-6 rounded object-cover" />}
+                  {selectedBiz.logoUrl && <img src={imgSrc(selectedBiz.logoUrl)} alt="" className="w-6 h-6 rounded object-cover" />}
                   Título do banner = nome do negócio • link = /negocio/{selectedBiz.id}
                 </p>
               )}

@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ArrowRight, MapPin } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { imgSrc } from "@/lib/utils";
 import { BusinessCard } from "@/components/BusinessCard";
 import { getCategoryIcon } from "@/lib/icons";
 import { zoneConfig, type ZoneSlug } from "@/lib/zones";
@@ -90,7 +91,7 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
         style={{
           backgroundColor: cfg.bgColor,
           minHeight: "280px",
-          backgroundImage: cfg.bannerUrl ? `linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)), url(${cfg.bannerUrl})` : undefined,
+          backgroundImage: cfg.bannerUrl ? `linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)), url(${imgSrc(cfg.bannerUrl)})` : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}

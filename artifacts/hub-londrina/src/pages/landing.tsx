@@ -10,6 +10,7 @@ import { Layout } from "@/components/Layout";
 import { useListCategories, useListBusinesses } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
 import { BusinessCard } from "@/components/BusinessCard";
+import { imgSrc } from "@/lib/utils";
 
 interface VitrineCardData {
   productId: number;
@@ -66,7 +67,7 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
       }}
     >
       {p.photoUrl && (
-        <div className="absolute inset-0" style={{ backgroundImage: `url(${p.photoUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+        <div className="absolute inset-0" style={{ backgroundImage: `url(${imgSrc(p.photoUrl)})`, backgroundSize: "cover", backgroundPosition: "center" }} />
       )}
       <video
         ref={videoRef}

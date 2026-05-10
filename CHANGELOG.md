@@ -6,6 +6,11 @@
 
 ## 2026-05-10
 
+### Bugfix — imagens dos negócios quebradas em todo o site público
+- **Sintoma**: card de busca aparecia com fundo marrom sólido (sem foto da empresa). Vitrine da home, banners de zona e mini-logos no admin idem.
+- **Causa**: mesmo bug do perfil — uploads chegam como path relativo `/storage/objects/...` e estavam sendo usados crus em vários componentes (`BusinessCard`, `landing.tsx` vitrine, `categorias.tsx`, `zona.tsx`, `AdminHomeBanners.tsx`). `LojistaDashboard.tsx` tinha um hack manual `profile.logoUrl.startsWith("/") ? \`/api${url}\` : url` no avatar do dashboard.
+- **Correção**: `imgSrc()` aplicado em todos os componentes que renderizam mídia de negócios (cards, vitrine, banners de zona, avatar do dashboard do lojista, mini-logo no AdminHomeBanners). Hack manual no LojistaDashboard removido em favor do helper. `BusinessCard` agora também prioriza `bannerUrl` sobre `photoUrl` (consistente com o perfil) e adiciona `loading="lazy"`.
+
 ### Bugfix — "Alterar para Premium" não trocava de plano
 - **Sintoma**: lojista no plano Base clicava em "Alterar para Premium" e era redirecionado ao portal do Stripe, que mostrava só "Cancels Jun 9 / Don't cancel subscription" — sem opção de trocar de plano.
 - **Causa**: o portal do Stripe Billing **não permite "switch plan"** sem configuração manual no Dashboard (Settings → Customer portal → Subscriptions → Customers can switch plans + lista de produtos). Mesmo configurado, depende de manutenção fora do código.

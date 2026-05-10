@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getMetrics, lojistaFetch } from "@/lib/lojista-api";
+import { imgSrc } from "@/lib/utils";
 import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { Link } from "wouter";
 
@@ -208,7 +209,7 @@ export default function LojistaDashboard() {
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-6">
         <div className="flex items-center gap-4">
           {profile?.logoUrl && (
-            <img src={profile.logoUrl.startsWith("/") ? `/api${profile.logoUrl}` : profile.logoUrl} alt="Logo" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
+            <img src={imgSrc(profile.logoUrl)} alt="Logo" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
           )}
           <div>
             <h2 className="text-xl font-bold text-gray-800">{profile?.name}</h2>

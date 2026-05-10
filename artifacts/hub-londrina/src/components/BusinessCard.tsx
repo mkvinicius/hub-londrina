@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { imgSrc } from "@/lib/utils";
 import type { Business } from "@workspace/api-client-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -83,15 +84,21 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
           <Star className="h-3.5 w-3.5 fill-[#d97706] text-[#d97706]" />
           {biz.rating > 0 ? biz.rating : "Novo"}
         </div>
-        {biz.photoUrl ? (
-          <img
-            src={biz.photoUrl}
-            alt={biz.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
-        )}
+        {(() => {
+          // Capa do card: prioriza bannerUrl (subido em "Fotos" do painel), cai em photoUrl.
+          // imgSrc resolve `/storage/objects/...` (paths relativos) para URL completa do servidor.
+          const cardImg = imgSrc((biz as any).bannerUrl || biz.photoUrl);
+          return cardImg ? (
+            <img
+              src={cardImg}
+              alt={biz.name}
+              loading="lazy"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+          );
+        })()}
       </div>
 
       <div className="p-4 flex flex-col flex-grow">

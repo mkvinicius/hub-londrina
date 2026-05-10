@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useListCategories } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
+import { imgSrc } from "@/lib/utils";
 import type { Category } from "@workspace/api-client-react";
 
 const CATEGORY_PHOTOS: Record<string, string> = {
@@ -19,7 +20,7 @@ const CATEGORY_PHOTOS: Record<string, string> = {
 };
 
 function getCategoryPhoto(category: Category): string {
-  if (category.photoUrl) return category.photoUrl;
+  if (category.photoUrl) return imgSrc(category.photoUrl);
   const key = Object.keys(CATEGORY_PHOTOS).find(
     (k) => category.slug.includes(k) || k.includes(category.slug)
   );
