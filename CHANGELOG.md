@@ -24,6 +24,13 @@
 - **Validação**: `validate-lojista-rules.mjs` ganhou R11.a/b/c (free → 403, premium s/ vídeo → 409 NO_APPROVED_VIDEO, /api/vitrine respeita teto/mínimo).
 - **Pendente próxima sessão**: substituir mock em `landing.tsx` pelo consumo real de `/api/vitrine`; UI lojista (`LojistaProdutos` upload de vídeo) e admin (fila de aprovação).
 
+### Vitrine de Produtos — UI completa
+- **Landing**: `landing.tsx` agora consome `GET /api/vitrine` via TanStack Query (`staleTime: 0`, `gcTime: 0` para respeitar a rotação aleatória do servidor). Mock 5-produtos removido. `VitrineCard` reescrito com shape do servidor (`{productId, businessId, name, price, videoUrl, photoUrl, whatsapp, businessName, fixed}`), badge "★ destaque" para slots fixos, click → `/negocio/:id`, WhatsApp com mensagem pré-preenchida. Bloco inteiro só renderiza se `cards.length > 0` (servidor já aplica regra "<6 esconde").
+- **Lojista**: `LojistaProdutos.tsx` ganhou seção "Vídeo da Vitrine" no formulário de produto (Premium-only) com upload MP4 ≤ 20 MB para `/lojista/upload/vitrine-video`, validação client-side de tipo/tamanho, badge de status (aprovado/pendente/rejeitado + motivo) e botão "Trocar/Remover". Lista de produtos exibe pill colorida com `videoStatus` para visibilidade rápida.
+- **Admin**: `AdminImpulsionamento.tsx` ganhou seção `AdminVitrineSection` no topo com (a) fila "Aguardando aprovação" com preview `<video controls>` + botões Aprovar/Rejeitar (motivo via prompt → enviado ao lojista) e (b) painel "Slots fixos pagos" mostrando `active`/`waitlist` (4 vagas).
+- **API client**: `lojista-api.ts` ganhou `uploadVitrineVideo / getVitrineBoostStatus / createVitrineBoostCheckout / syncVitrineBoost`. `admin-api.ts` ganhou `getAdminVitrinePending / getAdminVitrineBoosts / approveVitrineVideo / rejectVitrineVideo` com tipos.
+- **Decisão**: CTA "Vitrine Destaque R$49/mês" em `LojistaBoost.tsx` adiada para follow-up — Premium já entra na rotação automaticamente ao ter vídeo aprovado; o boost de slot fixo é uma evolução, não bloqueador.
+
 ### Vitrine de Produtos — regra definida
 - Discussão de pricing fechou com: Premium R$ 89,90 inclui 1 vídeo na rotação aleatória da Vitrine; boost "Vitrine Destaque" custa +R$ 49/mês para Premium garantir slot fixo nos 4 primeiros.
 - Decisão de design: 12 cards visuais (4 fixos pagos + 8 rotação Premium); mínimo de 6 para renderizar bloco; vídeo obrigatório para entrar; aprovação admin antes de publicar.

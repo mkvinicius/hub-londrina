@@ -279,3 +279,36 @@ export async function createSupportTicket(input: {
     body: JSON.stringify(input),
   });
 }
+
+// ===== R11 — Vitrine de Produtos =====
+export interface VitrineBoostStatus {
+  occupiedSlots: number;
+  totalSlots: number;
+  myBoost: { id: number; status: "active" | "pending" | "waitlist" | "cancelled"; productId: number | null } | null;
+  hasApprovedVideo: boolean;
+  approvedVideoCount: number;
+}
+export async function getVitrineBoostStatus(): Promise<VitrineBoostStatus> {
+  return lojistaFetch("/lojista/vitrine-boost/status");
+}
+export async function createVitrineBoostCheckout(): Promise<{ url: string; sessionId: string }> {
+  return lojistaFetch("/lojista/vitrine-boost/checkout", { method: "POST", body: JSON.stringify({}) });
+}
+export async function syncVitrineBoost(sessionId: string): Promise<{ ok: boolean; status: string; duplicate?: boolean }> {
+  return lojistaFetch("/lojista/vitrine-boost/sync", { method: "POST", body: JSON.stringify({ sessionId }) });
+}
+export async function uploadVitrineVideo(file: File): Promise<{ videoUrl: string }> {
+  const token = getLojistaToken();
+  const fd = new FormData();
+  fd.append("video", file);
+  const res = await fetch(`${API_BASE}/api/lojista/upload/vitrine-video`, {
+    method: "POST",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: fd,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}

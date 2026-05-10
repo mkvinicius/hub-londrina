@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
-import { adminFetch } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket, Home } from "lucide-react";
+import { adminFetch, getAdminVitrinePending, getAdminVitrineBoosts, approveVitrineVideo, rejectVitrineVideo, type AdminVitrinePending, type AdminVitrineBoost } from "@/lib/admin-api";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket, Home, Video, Check, AlertTriangle } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -57,6 +57,167 @@ const AVULSO_OPTIONS = [
   { days: 15, label: "15 dias", price: "R$49", value: 49 },
   { days: 30, label: "30 dias", price: "R$79", value: 79 },
 ];
+
+function AdminVitrineSection() {
+  const [pending, setPending] = useState<AdminVitrinePending[]>([]);
+  const [boosts, setBoosts] = useState<AdminVitrineBoost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [msg, setMsg] = useState("");
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [a, b] = await Promise.all([getAdminVitrinePending(), getAdminVitrineBoosts()]);
+      setPending(a.data || []);
+      setBoosts(b.data || []);
+    } catch (e: any) {
+      setMsg(`Erro: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  async function handleApprove(id: number) {
+    setBusyId(id); setMsg("");
+    try {
+      await approveVitrineVideo(id);
+      setMsg("Vídeo aprovado.");
+      await reload();
+    } catch (e: any) { setMsg(`Erro: ${e.message}`); }
+    finally { setBusyId(null); }
+  }
+
+  async function handleReject(id: number) {
+    const reason = prompt("Motivo da rejeição (será enviado ao lojista):");
+    if (!reason || !reason.trim()) return;
+    setBusyId(id); setMsg("");
+    try {
+      await rejectVitrineVideo(id, reason.trim());
+      setMsg("Vídeo rejeitado.");
+      await reload();
+    } catch (e: any) { setMsg(`Erro: ${e.message}`); }
+    finally { setBusyId(null); }
+  }
+
+  const activeSlots = boosts.filter(b => b.status === "active");
+  const waitlist = boosts.filter(b => b.status === "waitlist");
+
+  return (
+    <section className="mb-10 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-black text-gray-800 flex items-center gap-2">
+            <Video className="w-5 h-5 text-[#FF9800]" />
+            Vitrine de Produtos
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Aprovação de vídeos · {activeSlots.length}/4 slots fixos ativos
+            {waitlist.length > 0 && ` · ${waitlist.length} na waitlist`}
+          </p>
+        </div>
+        <button onClick={reload} className="p-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-[#FF9800]">
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </div>
+
+      {msg && (
+        <div className={`mb-3 p-2.5 rounded-lg text-xs font-medium ${msg.startsWith("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {msg}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Fila de aprovação */}
+        <div>
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" /> Aguardando aprovação ({pending.length})
+          </h3>
+          {loading ? (
+            <div className="text-xs text-gray-400">Carregando...</div>
+          ) : pending.length === 0 ? (
+            <div className="text-xs text-gray-400 bg-gray-50 rounded-xl p-4 text-center">Nenhum vídeo aguardando.</div>
+          ) : (
+            <div className="space-y-2">
+              {pending.map(p => (
+                <div key={p.id} className="border border-gray-100 rounded-xl p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{p.businessName}</p>
+                    </div>
+                  </div>
+                  {p.videoUrl && (
+                    <video src={p.videoUrl} controls muted className="w-full max-h-48 rounded-lg bg-black mb-2" />
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApprove(p.id)}
+                      disabled={busyId === p.id}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-xs font-bold disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Aprovar
+                    </button>
+                    <button
+                      onClick={() => handleReject(p.id)}
+                      disabled={busyId === p.id}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-bold disabled:opacity-50"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" /> Rejeitar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Slots fixos + waitlist */}
+        <div>
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Slots fixos pagos ({activeSlots.length}/4)
+          </h3>
+          {loading ? (
+            <div className="text-xs text-gray-400">Carregando...</div>
+          ) : activeSlots.length === 0 && waitlist.length === 0 ? (
+            <div className="text-xs text-gray-400 bg-gray-50 rounded-xl p-4 text-center">Nenhum boost de Vitrine ativo.</div>
+          ) : (
+            <div className="space-y-2">
+              {activeSlots.map(b => (
+                <div key={b.id} className="border border-amber-200 bg-amber-50/50 rounded-xl p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-800 truncate">{b.businessName || "—"}</p>
+                      <p className="text-[11px] text-gray-500 truncate">Produto: {b.productName || "—"}</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">FIXO</span>
+                  </div>
+                </div>
+              ))}
+              {waitlist.length > 0 && (
+                <>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-3">Waitlist</h4>
+                  {waitlist.map(b => (
+                    <div key={b.id} className="border border-gray-100 rounded-xl p-3 opacity-70">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-gray-700 truncate">{b.businessName || "—"}</p>
+                          <p className="text-[11px] text-gray-400 truncate">Aguardando vaga liberar</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -282,6 +443,8 @@ export default function AdminImpulsionamento() {
 
   return (
     <AdminLayout>
+      <AdminVitrineSection />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-gray-800 flex items-center gap-2">

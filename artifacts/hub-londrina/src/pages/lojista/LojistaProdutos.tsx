@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken } from "@/lib/lojista-api";
-import { Plus, Trash2, Edit2, X, Check, Upload, Link2 } from "lucide-react";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo } from "@/lib/lojista-api";
+import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle } from "lucide-react";
 import { LockedFeature } from "@/components/LockedFeature";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -16,6 +16,9 @@ interface Product {
   whatsappLink: string | null;
   isActive: boolean;
   sortOrder: number;
+  videoUrl: string | null;
+  videoStatus: "none" | "pending" | "approved" | "rejected" | null;
+  videoRejectionReason: string | null;
 }
 
 export default function LojistaProdutos() {
@@ -24,7 +27,9 @@ export default function LojistaProdutos() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "" });
+  const [vitrineUploading, setVitrineUploading] = useState(false);
+  const vitrineFileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [mediaMode, setMediaMode] = useState<"url" | "upload">("url");
@@ -61,7 +66,7 @@ export default function LojistaProdutos() {
   const reachedLimit = products.length >= productLimit;
 
   function resetForm() {
-    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "" });
+    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "" });
     setShowForm(false);
     setEditId(null);
     setMediaMode("url");
@@ -76,11 +81,37 @@ export default function LojistaProdutos() {
       mediaUrl: p.mediaUrl || "",
       mediaType: p.mediaType || "image",
       whatsappLink: p.whatsappLink || "",
+      videoUrl: p.videoUrl || "",
     });
     setEditId(p.id);
     setShowForm(true);
     setMediaMode("url");
     setUploadPreview(p.mediaUrl || null);
+  }
+
+  async function handleVitrineVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/mp4") && !file.name.toLowerCase().endsWith(".mp4")) {
+      setMsg("Erro: somente arquivos MP4 são aceitos no vídeo da Vitrine.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setMsg("Erro: vídeo da Vitrine deve ter até 20 MB.");
+      return;
+    }
+    setVitrineUploading(true);
+    setMsg("");
+    try {
+      const { videoUrl } = await uploadVitrineVideo(file);
+      setForm(f => ({ ...f, videoUrl }));
+      setMsg("Vídeo enviado! Será revisado pela equipe Hub Londrina antes de aparecer na Vitrine.");
+    } catch (err: any) {
+      setMsg(`Erro: ${err.message}`);
+    } finally {
+      setVitrineUploading(false);
+      if (vitrineFileRef.current) vitrineFileRef.current.value = "";
+    }
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -287,6 +318,80 @@ export default function LojistaProdutos() {
               <label className="block text-sm font-bold text-gray-700 mb-1">Link WhatsApp</label>
               <input value={form.whatsappLink} onChange={e => setForm(f => ({ ...f, whatsappLink: e.target.value }))} placeholder="https://wa.me/5543..." className={inputCls} />
             </div>
+
+            {profile?.planType === "premium" && (
+              <div className="md:col-span-2 border-t border-gray-100 pt-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Video className="w-4 h-4 text-[#FF9800]" />
+                  <label className="text-sm font-bold text-gray-700">Vídeo da Vitrine (opcional)</label>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  MP4 vertical de até 20 MB / 60s. Após o upload, nossa equipe revisa antes do
+                  vídeo entrar na rotação aleatória da home (até 12 vagas).
+                </p>
+
+                {(() => {
+                  const editing = editId ? products.find(p => p.id === editId) : null;
+                  const status = editing?.videoStatus ?? (form.videoUrl ? "pending" : "none");
+                  const reason = editing?.videoRejectionReason;
+                  if (status === "approved") return (
+                    <div className="mb-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-bold">
+                      <Check className="w-3.5 h-3.5" /> Aprovado — está rodando na Vitrine
+                    </div>
+                  );
+                  if (status === "pending") return (
+                    <div className="mb-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold">
+                      <Clock className="w-3.5 h-3.5" /> Aguardando aprovação do admin
+                    </div>
+                  );
+                  if (status === "rejected") return (
+                    <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 text-red-700 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold mb-1"><AlertTriangle className="w-3.5 h-3.5" /> Vídeo rejeitado</div>
+                      {reason && <div className="text-red-600">{reason}</div>}
+                      <div className="text-red-600 mt-1">Faça upload de um novo vídeo para reenviar.</div>
+                    </div>
+                  );
+                  return null;
+                })()}
+
+                <input
+                  type="file"
+                  ref={vitrineFileRef}
+                  accept="video/mp4"
+                  onChange={handleVitrineVideoUpload}
+                  className="hidden"
+                />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => vitrineFileRef.current?.click()}
+                    disabled={vitrineUploading}
+                    className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#FF9800] text-gray-700 hover:text-[#FF9800] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+                  >
+                    {vitrineUploading ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    {vitrineUploading ? "Enviando..." : (form.videoUrl ? "Trocar vídeo" : "Enviar vídeo MP4")}
+                  </button>
+                  {form.videoUrl && (
+                    <>
+                      <a href={form.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#FF9800] font-bold hover:underline">
+                        Ver vídeo enviado
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, videoUrl: "" }))}
+                        className="text-xs text-red-500 font-bold hover:underline"
+                      >
+                        Remover
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 mt-4">
             <button onClick={handleSave} disabled={saving || !form.name} className="flex items-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50">
@@ -314,6 +419,19 @@ export default function LojistaProdutos() {
                 <h3 className="font-bold text-gray-800 truncate">{p.name}</h3>
                 {p.description && <p className="text-sm text-gray-500 truncate">{p.description}</p>}
               </div>
+              {p.videoUrl && p.videoStatus && p.videoStatus !== "none" && (
+                <span
+                  title={p.videoStatus === "rejected" ? p.videoRejectionReason || "Vídeo rejeitado" : undefined}
+                  className={`hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                    p.videoStatus === "approved" ? "bg-green-100 text-green-700"
+                    : p.videoStatus === "pending" ? "bg-amber-100 text-amber-700"
+                    : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  <Video className="w-3 h-3" />
+                  {p.videoStatus === "approved" ? "Vitrine" : p.videoStatus === "pending" ? "Aguardando" : "Rejeitado"}
+                </span>
+              )}
               {p.price && (
                 <span className="text-lg font-bold text-[#d97706] whitespace-nowrap">R$ {p.price}</span>
               )}

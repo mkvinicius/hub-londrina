@@ -177,3 +177,40 @@ export async function deleteAdminReview(id: number) {
 export async function impersonateLojista(businessId: number): Promise<{ token: string; businessId: number; email: string; expiresIn: number }> {
   return adminFetch(`/api/admin/impersonate/${businessId}`, { method: "POST" });
 }
+
+// ===== R11 — Vitrine de Produtos (admin) =====
+export interface AdminVitrinePending {
+  id: number;
+  name: string;
+  videoUrl: string | null;
+  videoStatus: string;
+  videoRejectionReason: string | null;
+  businessId: number;
+  businessName: string | null;
+}
+export interface AdminVitrineBoost {
+  id: number;
+  businessId: number;
+  productId: number | null;
+  status: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  businessName: string | null;
+  productName: string | null;
+}
+export async function getAdminVitrinePending(): Promise<{ data: AdminVitrinePending[] }> {
+  return adminFetch("/api/admin/vitrine/pending");
+}
+export async function getAdminVitrineBoosts(): Promise<{ data: AdminVitrineBoost[] }> {
+  return adminFetch("/api/admin/vitrine/boosts");
+}
+export async function approveVitrineVideo(productId: number) {
+  return adminFetch(`/api/admin/products/${productId}/video/approve`, { method: "POST" });
+}
+export async function rejectVitrineVideo(productId: number, reason: string) {
+  return adminFetch(`/api/admin/products/${productId}/video/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
