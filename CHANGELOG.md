@@ -6,6 +6,11 @@
 
 ## 2026-05-10
 
+### Bugfix — perfil público `/negocio/:id` não exibia dados reais
+- **Banner do hero**: header só lia `business.photoUrl` e ignorava `bannerUrl` (campo populado pelo `uploadBanner` em `LojistaFotos`). Agora usa `bannerUrl ?? photoUrl`. Capa enviada pelo lojista aparece imediatamente após upload.
+- **Vitrine**: aba mostrava arrays mock por categoria (Sobremesa do Chef, Frango na Brasa…) ignorando os produtos cadastrados. Criado endpoint público `GET /api/businesses/:id/products` (filtra `isActive=true`, ordena por `sortOrder`, expõe shape mínimo + `videoStatus` para gating de vídeo aprovado). `negocio.tsx` agora consome esse endpoint via novo componente `BusinessVitrine` com loading skeleton e empty state.
+- **Hardening de segurança**: `products.whatsappLink` era armazenado cru e renderizado direto como `href` — permitia `javascript:` / phishing. Adicionada `sanitizeWhatsappLink()` em `POST/PATCH /lojista/products` (allowlist `https://wa.me`, `api.whatsapp.com`, `whatsapp.com`) e guarda defensiva equivalente no frontend para neutralizar dados antigos. Links inválidos caem no `wa.me/<whatsapp do negócio>` padrão.
+
 ### Vitrine de Produtos — backend implementado
 - **DB**: `products` ganhou `videoUrl`, `videoStatus` (enum none/pending/approved/rejected), `videoApprovedAt`, `videoRejectionReason`. Nova tabela `vitrine_boosts` com unique index parcial `WHERE status='active'` por businessId.
 - **Endpoint público**: `GET /api/vitrine` retorna até 12 cards (4 boosts fixos + 8 rotação aleatória de Premium com vídeo aprovado). Devolve `cards: []` se total < 6.

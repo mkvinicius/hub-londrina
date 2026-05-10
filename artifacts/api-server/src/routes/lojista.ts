@@ -451,12 +451,37 @@ router.get("/lojista/products", async (req: Request, res: Response) => {
   res.json({ data: products });
 });
 
+// Sanitiza link de WhatsApp informado pelo lojista. Aceita só wa.me / api.whatsapp.com
+// (https). Bloqueia javascript:, data:, e qualquer outro domínio para evitar XSS/phishing
+// quando o link é renderizado como href no perfil público (vitrine).
+function sanitizeWhatsappLink(raw: unknown): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "https:") return null;
+    const host = u.hostname.toLowerCase();
+    if (host === "wa.me" || host === "api.whatsapp.com" || host === "whatsapp.com") {
+      return u.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 router.post("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "Nome do produto é obrigatório" });
+    return;
+  }
+
+  if (whatsappLink && !sanitizeWhatsappLink(whatsappLink)) {
+    res.status(400).json({ error: "Link de WhatsApp inválido. Use https://wa.me/...", code: "INVALID_WHATSAPP_LINK" });
     return;
   }
 
@@ -491,7 +516,7 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
       price: price || null,
       mediaUrl: mediaUrl || null,
       mediaType: mediaType || null,
-      whatsappLink: whatsappLink || null,
+      whatsappLink: sanitizeWhatsappLink(whatsappLink),
       videoUrl: videoUrl || null,
       // R11 — vídeo entra como pending; admin precisa aprovar antes de aparecer na vitrine
       videoStatus: videoUrl ? "pending" : "none",
@@ -542,6 +567,14 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  if ("whatsappLink" in updates) {
+    const sanitized = sanitizeWhatsappLink(updates.whatsappLink);
+    if (updates.whatsappLink && !sanitized) {
+      res.status(400).json({ error: "Link de WhatsApp inválido. Use https://wa.me/...", code: "INVALID_WHATSAPP_LINK" });
+      return;
+    }
+    updates.whatsappLink = sanitized;
   }
   // R11 — qualquer mudança de videoUrl (incluindo remoção) reinicia o ciclo de aprovação
   if ("videoUrl" in updates) {

@@ -4,7 +4,7 @@ import { sendEmail, emails } from "../services/email";
 import { csrfProtection } from "../middleware/csrf";
 import { validateId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable, businessUsersTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable, businessUsersTable, productsTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte, inArray } from "drizzle-orm";
 import {
   ListBusinessesQueryParams,
@@ -288,6 +288,29 @@ router.get("/businesses/:id", businessViewLimiter, validateId, async (req: Reque
     .catch(() => {});
 
   res.json({ ...business, category, reviews, boostInfo });
+});
+
+// Lista pública de produtos de um negócio (usado pela aba Vitrine do perfil).
+// Filtra somente isActive=true para não vazar rascunhos do lojista.
+router.get("/businesses/:id/products", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const products = await db
+    .select({
+      id: productsTable.id,
+      name: productsTable.name,
+      description: productsTable.description,
+      price: productsTable.price,
+      mediaUrl: productsTable.mediaUrl,
+      mediaType: productsTable.mediaType,
+      whatsappLink: productsTable.whatsappLink,
+      videoUrl: productsTable.videoUrl,
+      videoStatus: productsTable.videoStatus,
+      sortOrder: productsTable.sortOrder,
+    })
+    .from(productsTable)
+    .where(and(eq(productsTable.businessId, id), eq(productsTable.isActive, true)))
+    .orderBy(asc(productsTable.sortOrder), desc(productsTable.id));
+  res.json({ data: products });
 });
 
 router.get("/businesses/:id/reviews", validateId, async (req: Request, res: Response) => {

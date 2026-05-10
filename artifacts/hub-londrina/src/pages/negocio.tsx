@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { csrfFetch } from "@/lib/csrf";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
@@ -56,6 +57,111 @@ function VitrineVideo({ src, poster }: { src: string; poster: string }) {
     >
       <source src={src} type="video/mp4" />
     </video>
+  );
+}
+
+interface PublicProduct {
+  id: number;
+  name: string;
+  description: string | null;
+  price: string | null;
+  mediaUrl: string | null;
+  mediaType: string | null;
+  whatsappLink: string | null;
+  videoUrl: string | null;
+  videoStatus: string | null;
+}
+
+function BusinessVitrine({
+  businessId,
+  businessName,
+  whatsapp,
+}: {
+  businessId: number;
+  businessName: string;
+  whatsapp: string | null | undefined;
+}) {
+  const BASE = (import.meta as any).env?.VITE_API_URL || "";
+  const { data, isLoading } = useQuery<{ data: PublicProduct[] }>({
+    queryKey: ["/api/businesses", businessId, "products"],
+    queryFn: () => fetch(`${BASE}/api/businesses/${businessId}/products`).then(r => r.json()),
+    enabled: Number.isFinite(businessId),
+  });
+
+  const products = data?.data ?? [];
+  const waBase = whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, "")}` : null;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Vitrine de Produtos</h2>
+        {products.length > 0 && (
+          <span className="text-xs text-gray-400 font-medium">Peça pelo WhatsApp</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" style={{ height: 240 }} />
+          ))}
+        </div>
+      ) : products.length === 0 ? (
+        <div className="text-center py-10 text-gray-400">
+          <p className="text-sm">Este negócio ainda não cadastrou produtos na vitrine.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {products.map((item) => {
+            const showVideo = item.videoUrl && item.videoStatus === "approved";
+            const poster = item.mediaUrl || "";
+            // Defensive guard: só aceita https://wa.me/* ou api.whatsapp.com/*.
+            // Backend já sanitiza, mas validamos no cliente também para rejeitar dados antigos.
+            const safeLink = (() => {
+              if (!item.whatsappLink) return null;
+              try {
+                const u = new URL(item.whatsappLink);
+                if (u.protocol !== "https:") return null;
+                const h = u.hostname.toLowerCase();
+                return (h === "wa.me" || h === "api.whatsapp.com" || h === "whatsapp.com") ? u.toString() : null;
+              } catch { return null; }
+            })();
+            const waHref = safeLink
+              || (waBase
+                ? `${waBase}?text=${encodeURIComponent(`Olá! Vi o produto *${item.name}* da *${businessName}* no Hub Londrina e tenho interesse.`)}`
+                : null);
+            return (
+              <div key={item.id} className="relative rounded-xl overflow-hidden group cursor-pointer bg-gray-200 dark:bg-gray-700" style={{ height: 240, boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}>
+                {showVideo ? (
+                  <VitrineVideo src={item.videoUrl!} poster={poster} />
+                ) : poster ? (
+                  <img src={poster} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+                )}
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.90) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)" }} />
+                <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-1.5">
+                  <p className="text-white font-black text-sm leading-tight line-clamp-2">{item.name}</p>
+                  {item.price && <p className="text-white font-bold text-base leading-tight">R$ {item.price}</p>}
+                  {waHref && (
+                    <a
+                      href={waHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1dbd59] text-white font-bold text-[11px] rounded-full py-1.5 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MessageCircle className="h-3 w-3" />
+                      Pedir no WhatsApp
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -262,15 +368,20 @@ export default function Negocio() {
       <div className="pb-20 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
         {/* Hero Section */}
         <div className="relative h-[320px] bg-[#3a2512] overflow-hidden">
-          {business.photoUrl ? (
-            <img
-              src={business.photoUrl}
-              alt={business.name}
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#6F4E37] to-[#d97706] opacity-60" />
-          )}
+          {(() => {
+            // Capa do negócio: o lojista pode subir banner em "Fotos" (bannerUrl).
+            // Caímos para photoUrl como fallback (foto de capa antiga).
+            const heroImg = (business as any).bannerUrl || business.photoUrl;
+            return heroImg ? (
+              <img
+                src={heroImg}
+                alt={business.name}
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#6F4E37] to-[#d97706] opacity-60" />
+            );
+          })()}
           <div className="absolute inset-0 bg-gradient-to-t from-[#1a0f07] via-transparent to-transparent" />
 
           <div className="relative z-10 h-full max-w-7xl mx-auto px-4 md:px-8 flex flex-col justify-end pb-8">
@@ -434,75 +545,7 @@ export default function Negocio() {
                 )}
 
                 <TabsContent value="vitrine" className="focus-visible:outline-none">
-                  {(() => {
-                    const vitrineMap: Record<string, { name: string; price: string; photo: string; video: string }[]> = {
-                      restaurantes: [
-                        { name: "Prato do Dia", price: "R$ 32,00", photo: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4" },
-                        { name: "Frango na Brasa", price: "R$ 45,00", photo: "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=400&h=650&fit=crop", video: "/videos/vitrine-queijo.mp4" },
-                        { name: "Feijoada Completa", price: "R$ 55,00", photo: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=650&fit=crop", video: "/videos/vitrine-cerveja.mp4" },
-                        { name: "Sobremesa do Chef", price: "R$ 18,00", photo: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400&h=650&fit=crop", video: "/videos/vitrine-pao.mp4" },
-                      ],
-                      saloes: [
-                        { name: "Corte + Barba", price: "R$ 60,00", photo: "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=400&h=650&fit=crop", video: "/videos/vitrine-flores.mp4" },
-                        { name: "Escova Progressiva", price: "R$ 180,00", photo: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4" },
-                        { name: "Manicure + Pedicure", price: "R$ 75,00", photo: "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=650&fit=crop", video: "/videos/vitrine-queijo.mp4" },
-                        { name: "Coloração Completa", price: "R$ 220,00", photo: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=650&fit=crop", video: "/videos/vitrine-flores.mp4" },
-                      ],
-                      cafeterias: [
-                        { name: "Café + Pão na Chapa", price: "R$ 14,00", photo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4" },
-                        { name: "Cappuccino Especial", price: "R$ 12,00", photo: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4" },
-                        { name: "Bolo do Dia", price: "R$ 10,00", photo: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=650&fit=crop", video: "/videos/vitrine-pao.mp4" },
-                        { name: "Combo Brunch", price: "R$ 38,00", photo: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=400&h=650&fit=crop", video: "/videos/vitrine-queijo.mp4" },
-                      ],
-                      padarias: [
-                        { name: "Pão Artesanal", price: "R$ 18,00", photo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=650&fit=crop", video: "/videos/vitrine-pao.mp4" },
-                        { name: "Kit Café da Manhã", price: "R$ 35,00", photo: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4" },
-                        { name: "Bolo de Cenoura", price: "R$ 22,00", photo: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=650&fit=crop", video: "/videos/vitrine-queijo.mp4" },
-                        { name: "Croissant Recheado", price: "R$ 8,00", photo: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&h=650&fit=crop", video: "/videos/vitrine-pao.mp4" },
-                      ],
-                    };
-                    const defaultItems = [
-                      { name: "Serviço Básico", price: "R$ 50,00", photo: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=400&h=650&fit=crop", video: "/videos/vitrine-cafe.mp4" },
-                      { name: "Pacote Completo", price: "R$ 120,00", photo: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&h=650&fit=crop", video: "/videos/vitrine-pao.mp4" },
-                      { name: "Atendimento VIP", price: "R$ 200,00", photo: "https://images.unsplash.com/photo-1556155092-490a1ba16284?w=400&h=650&fit=crop", video: "/videos/vitrine-queijo.mp4" },
-                      { name: "Consulta Grátis", price: "Gratuito", photo: "https://images.unsplash.com/photo-1562564055-71e051d33c19?w=400&h=650&fit=crop", video: "/videos/vitrine-flores.mp4" },
-                    ];
-                    const items = vitrineMap[business.categorySlug] ?? defaultItems;
-                    const waBase = business.whatsapp ? `https://wa.me/55${business.whatsapp.replace(/\D/g, "")}` : "#";
-                    return (
-                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-5">
-                          <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Vitrine de Produtos</h2>
-                          <span className="text-xs text-gray-400 font-medium">Peça pelo WhatsApp</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {items.map((item, i) => (
-                            <div key={i} className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ height: "240px", boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}>
-                              <VitrineVideo src={item.video} poster={item.photo} />
-                              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.90) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.0) 100%)" }} />
-                              <div className="absolute top-2 right-2">
-                                <span className="text-[8px] font-bold text-white/50 uppercase tracking-wider">▶ ao vivo</span>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-1.5">
-                                <p className="text-white font-black text-sm leading-tight">{item.name}</p>
-                                <p className="text-white font-bold text-base leading-tight">{item.price}</p>
-                                <a
-                                  href={`${waBase}?text=${encodeURIComponent(`Olá! Vi o produto *${item.name}* no Hub Londrina e tenho interesse. Pode me passar mais informações?`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1dbd59] text-white font-bold text-[11px] rounded-full py-1.5 transition-colors"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MessageCircle className="h-3 w-3" />
-                                  Pedir no WhatsApp
-                                </a>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <BusinessVitrine businessId={business.id} businessName={business.name} whatsapp={business.whatsapp} />
                 </TabsContent>
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">
