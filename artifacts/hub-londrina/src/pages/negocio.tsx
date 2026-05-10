@@ -366,70 +366,115 @@ export default function Negocio() {
 
   return (
     <Layout>
-      <div className="pb-20 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
-        {/* Hero Section */}
-        <div className="relative h-[320px] bg-[#3a2512] overflow-hidden">
-          {(() => {
-            // Capa: lojista sobe banner em "Fotos" (bannerUrl). Fallback para photoUrl (capa antiga).
-            // Uploads vêm como path relativo `/storage/objects/...` — imgSrc resolve para URL completa.
-            const heroImg = imgSrc((business as any).bannerUrl || business.photoUrl);
-            return heroImg ? (
-              <img
-                src={heroImg}
-                alt={business.name}
-                className="absolute inset-0 w-full h-full object-cover opacity-60"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#6F4E37] to-[#d97706] opacity-60" />
-            );
-          })()}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1a0f07] via-transparent to-transparent" />
-
-          <div className="relative z-10 h-full max-w-7xl mx-auto px-4 md:px-8 flex flex-col justify-end pb-8">
+      <div className="pb-20 bg-[#FBF7F2] dark:bg-gray-900 min-h-screen transition-colors">
+        {/* Hero — padrão Hub Modern (header gradient marrom + banner + logo flutuante na divisa) */}
+        <div className="bg-white dark:bg-gray-800 shadow-sm">
+          {/* Header gradiente */}
+          <div className="bg-gradient-to-r from-[#6F4E37] to-[#3a2512] text-white px-4 md:px-8 py-3.5 flex items-center justify-between">
             <button
               onClick={() => navigate("/busca")}
-              className="absolute top-6 left-4 md:left-8 flex items-center gap-2 text-white/80 hover:text-white text-sm font-semibold transition-colors"
+              className="flex items-center gap-1.5 text-white/85 hover:text-white text-sm font-semibold transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </button>
+            <span className="font-['Playfair_Display'] font-bold text-base md:text-lg truncate max-w-[60%] text-center">
+              {business.name}
+            </span>
+            <button
+              onClick={() => setIsFavorite(!isFavorite)}
+              aria-label="Favoritar"
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                isFavorite ? "bg-rose-500/90 text-white" : "bg-white/15 text-white/90 hover:bg-white/25"
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? "fill-white" : ""}`} />
+            </button>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2 mb-3">
+          {/* Banner com badges flutuantes */}
+          <div className="relative max-w-7xl mx-auto">
+            {(() => {
+              // Capa: lojista sobe banner em "Fotos" (bannerUrl). Fallback para photoUrl (capa antiga).
+              const heroImg = imgSrc((business as any).bannerUrl || business.photoUrl);
+              return (
+                <div className="aspect-[16/10] md:aspect-[21/9] max-h-[420px] overflow-hidden">
+                  {heroImg ? (
+                    <img src={heroImg} alt={business.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Rating no canto superior direito do banner */}
+            <div className="absolute top-3 right-3 md:top-5 md:right-5 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] shadow-sm">
+              <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+              {business.rating}
+              <span className="font-medium opacity-60 text-[10px]">({business.reviewsCount})</span>
+            </div>
+
+            {/* Logo flutuante na borda inferior esquerda */}
+            <div className="absolute -bottom-12 left-5 md:left-8 z-10">
+              <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white shadow-md flex items-center justify-center border-[3px] border-white overflow-hidden">
+                {(business as any).logoUrl ? (
+                  <img
+                    src={imgSrc((business as any).logoUrl)}
+                    alt={`Logo ${business.name}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-gradient-to-br from-[#6F4E37] to-[#3a2512] flex items-center justify-center text-white">
+                    <span className="font-['Playfair_Display'] text-2xl font-bold">
+                      {business.name.split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Premium badge bottom-right */}
+            {business.planType === "premium" && (
+              <div className="absolute -bottom-3 right-5 md:right-8">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full ring-1 ring-amber-100 shadow-sm">
+                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Premium
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Identificação + descrição destacada */}
+          <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-6">
+            <div className="flex items-center gap-2 flex-wrap mb-3">
               {business.category && (
-                <span className="bg-[#4CAF50] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2.5 py-1 rounded-full uppercase tracking-wider">
                   {business.category.name}
                 </span>
               )}
-              <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white text-sm font-bold">
-                <Star className="h-3.5 w-3.5 fill-[#d97706] text-[#d97706]" />
-                {business.rating}
-                <span className="font-normal opacity-70 text-xs">({business.reviewsCount})</span>
-              </div>
+              <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 font-medium">
+                <MapPin className="w-3.5 h-3.5 text-[#FF9800]" />
+                {business.region}, Londrina - PR
+              </span>
               {business.verified && (
-                <span className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white text-sm font-bold">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#4CAF50]" />
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                   Verificado
                 </span>
               )}
             </div>
-            <div className="flex items-end gap-4">
-              {(business as any).logoUrl && (
-                <img
-                  src={imgSrc((business as any).logoUrl)}
-                  alt={`Logo ${business.name}`}
-                  className="hidden sm:block w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-4 border-white shadow-xl flex-shrink-0 bg-white"
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <h1 className="font-black text-3xl md:text-4xl text-white mb-1 leading-tight drop-shadow">
-                  {business.name}
-                </h1>
-                <p className="text-white/70 text-sm flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4 text-[#d97706]" />
-                  {business.region}, Londrina - PR
+
+            <h1 className="font-['Playfair_Display'] font-black text-2xl md:text-3xl text-[#3a2512] dark:text-gray-100 leading-tight">
+              {business.name}
+            </h1>
+
+            {business.description && (
+              <div className="mt-4 bg-gradient-to-br from-[#FFF8E7] to-[#FFE9C2] border border-[#FFD479] rounded-2xl p-4 md:p-5 max-w-3xl">
+                <p className="text-[14px] md:text-[15px] text-[#3a2512] leading-snug">
+                  {business.description}
                 </p>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
