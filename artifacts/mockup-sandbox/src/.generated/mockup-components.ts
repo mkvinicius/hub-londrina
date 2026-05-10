@@ -8,6 +8,7 @@ export const modules: ModuleMap = {
   "./components/mockups/hub-londrina/CompactRow.tsx": () => import("../components/mockups/hub-londrina/CompactRow.tsx"),
   "./components/mockups/hub-londrina/LandingPage.tsx": () => import("../components/mockups/hub-londrina/LandingPage.tsx"),
   "./components/mockups/hub-londrina/PaginaBusca.tsx": () => import("../components/mockups/hub-londrina/PaginaBusca.tsx"),
+  "./components/mockups/hub-londrina/PerfilHubFinal.tsx": () => import("../components/mockups/hub-londrina/PerfilHubFinal.tsx"),
   "./components/mockups/hub-londrina/PerfilHubModern.tsx": () => import("../components/mockups/hub-londrina/PerfilHubModern.tsx"),
   "./components/mockups/hub-londrina/PerfilNegocio.tsx": () => import("../components/mockups/hub-londrina/PerfilNegocio.tsx"),
   "./components/mockups/hub-londrina/PerfilTourClassic.tsx": () => import("../components/mockups/hub-londrina/PerfilTourClassic.tsx"),
