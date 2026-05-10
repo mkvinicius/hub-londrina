@@ -74,18 +74,11 @@ interface PublicProduct {
   instagramReelUrl: string | null;
 }
 
-// Renderiza embeds do Instagram via blockquote oEmbed (Premium-only).
-// Free/Base veem CTA para upgrade. O script embed.js é carregado uma vez
-// e processa todos os blockquotes presentes na página.
-function InstagramTab({
-  isPremium,
-  posts,
-  instagramHandle,
-}: {
-  isPremium: boolean;
-  posts: string[];
-  instagramHandle: string | null | undefined;
-}) {
+// Renderiza embeds do Instagram via blockquote oEmbed.
+// IMPORTANTE: este componente só é montado quando o negócio é Premium E tem
+// posts publicados (gating em negocio.tsx). Não há CTA de upgrade aqui — esse
+// aviso vive no painel do lojista (/lojista/instagram), nunca exposto ao público.
+function InstagramTab({ posts }: { posts: string[] }) {
   // Defesa em profundidade: filtra qualquer URL malformada antes de entregar ao
   // embed.js de terceiro. Backend já valida/canoniza, mas dados legados ou
   // resposta corrompida não devem virar input arbitrário do script.
@@ -101,7 +94,7 @@ function InstagramTab({
   });
 
   useEffect(() => {
-    if (!isPremium || safePosts.length === 0) return;
+    if (safePosts.length === 0) return;
     const SCRIPT_ID = "instagram-embed-script";
     const ig = (window as any).instgrm;
     if (ig?.Embeds?.process) {
@@ -114,46 +107,9 @@ function InstagramTab({
     s.async = true;
     s.src = "https://www.instagram.com/embed.js";
     document.body.appendChild(s);
-  }, [isPremium, safePosts]);
+  }, [safePosts]);
 
-  if (!isPremium) {
-    const handle = (instagramHandle || "").replace(/^@/, "");
-    const igUrl = handle ? `https://www.instagram.com/${handle}/` : null;
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#E1306C] via-[#F77737] to-[#FCAF45] flex items-center justify-center">
-          <Instagram className="w-8 h-8 text-white" />
-        </div>
-        <h3 className="font-black text-xl text-[#3a2512] dark:text-gray-100 mb-2">Feed do Instagram</h3>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-5 max-w-md mx-auto">
-          Este recurso é exclusivo do <strong className="text-[#d97706]">plano Premium</strong>.
-          Negócios Premium podem mostrar até 12 posts ou reels diretamente no perfil.
-        </p>
-        {igUrl && (
-          <a
-            href={igUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#E1306C] to-[#F77737] hover:opacity-90 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-opacity"
-          >
-            <Instagram className="w-4 h-4" />
-            Ver perfil @{handle}
-          </a>
-        )}
-      </div>
-    );
-  }
-
-  if (safePosts.length === 0) {
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-        <Instagram className="w-12 h-12 mx-auto mb-3 text-gray-200" />
-        <p className="text-sm text-gray-400">
-          Este negócio ainda não adicionou posts do Instagram ao perfil.
-        </p>
-      </div>
-    );
-  }
+  if (safePosts.length === 0) return null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -619,10 +575,10 @@ export default function Negocio() {
           </div>
         </div>
 
-        {/* Quick Actions Bar */}
+        {/* Quick Actions Bar — wrap natural em todas as larguras pra evitar overflow horizontal */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm sticky top-16 z-40 transition-colors">
-          <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex w-full sm:w-auto items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
+          <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-between gap-y-2 gap-x-3">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               {business.whatsapp && (
                 <a
                   href={`https://wa.me/55${business.whatsapp.replace(/\D/g, "")}`}
@@ -630,7 +586,7 @@ export default function Negocio() {
                   rel="noopener noreferrer"
                   className="flex-shrink-0"
                 >
-                  <Button className="group relative overflow-hidden bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white rounded-xl px-6 h-11 font-bold flex items-center gap-2 text-sm ring-1 ring-inset ring-white/25 shadow-[0_10px_24px_-6px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-8px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-110 active:translate-y-0">
+                  <Button className="group relative overflow-hidden bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white rounded-xl px-4 sm:px-5 h-10 font-bold flex items-center gap-2 text-sm ring-1 ring-inset ring-white/25 shadow-[0_10px_24px_-6px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-8px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-110 active:translate-y-0">
                     <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
                     <MessageCircle className="h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative" />
                     <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">WhatsApp</span>
@@ -656,9 +612,9 @@ export default function Negocio() {
                   rel="noopener noreferrer"
                   className="flex-shrink-0"
                 >
-                  <Button variant="outline" className="border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl px-4 h-10 font-semibold flex items-center gap-2 shadow-none text-sm">
+                  <Button variant="outline" className="border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl px-3 sm:px-4 h-10 font-semibold flex items-center gap-2 shadow-none text-sm">
                     <Instagram className="h-4 w-4" style={{ color: "#E1306C" }} />
-                    Ver no Instagram
+                    <span className="hidden sm:inline">Ver no </span>Instagram
                   </Button>
                 </a>
               )}
@@ -728,9 +684,15 @@ export default function Negocio() {
                   <TabsTrigger value="avaliacoes" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Avaliações ({reviews.length})
                   </TabsTrigger>
-                  <TabsTrigger value="instagram" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
-                    Instagram
-                  </TabsTrigger>
+                  {/* Aba Instagram só aparece publicamente se o negócio é Premium E tem
+                      posts publicados. O CTA de upgrade fica restrito ao painel do
+                      lojista (LojistaInstagram.tsx) — não expomos status de plano
+                      para visitantes. */}
+                  {business.planType === "premium" && ((business as any).instagramPosts ?? []).length > 0 && (
+                    <TabsTrigger value="instagram" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
+                      Instagram
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="sobre" className="focus-visible:outline-none">
@@ -764,13 +726,11 @@ export default function Negocio() {
                   <BusinessVitrine businessId={business.id} businessName={business.name} whatsapp={business.whatsapp} />
                 </TabsContent>
 
-                <TabsContent value="instagram" className="focus-visible:outline-none">
-                  <InstagramTab
-                    isPremium={business.planType === "premium"}
-                    posts={(business as any).instagramPosts ?? []}
-                    instagramHandle={business.instagram}
-                  />
-                </TabsContent>
+                {business.planType === "premium" && ((business as any).instagramPosts ?? []).length > 0 && (
+                  <TabsContent value="instagram" className="focus-visible:outline-none">
+                    <InstagramTab posts={(business as any).instagramPosts ?? []} />
+                  </TabsContent>
+                )}
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">
                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
