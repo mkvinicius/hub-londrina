@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getMetrics, lojistaFetch } from "@/lib/lojista-api";
 import { imgSrc } from "@/lib/utils";
-import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw, XCircle, Star } from "lucide-react";
 import { Link } from "wouter";
 
 type PaymentStatus = "idle" | "syncing" | "success" | "failed";
@@ -212,9 +212,9 @@ export default function LojistaDashboard() {
             <img src={imgSrc(profile.logoUrl)} alt="Logo" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
           )}
           <div>
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 flex-wrap">
               {profile?.name}
-              {profile?.verified && (
+              {profile?.verified ? (
                 <span
                   title="Negócio verificado pela equipe Hub Londrina"
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full ring-1 ring-emerald-200"
@@ -222,12 +222,30 @@ export default function LojistaDashboard() {
                   <CheckCircle2 className="w-3 h-3" />
                   Verificado
                 </span>
+              ) : (
+                <span
+                  title="Envie sua documentação para receber o selo Verificado"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full ring-1 ring-gray-200"
+                >
+                  Não verificado
+                </span>
               )}
             </h2>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className={`text-xs font-bold text-white px-3 py-1 rounded-full ${planColors[profile?.planType] || "bg-gray-400"}`}>
                 {planLabels[profile?.planType] || profile?.planType}
               </span>
+              <Link
+                to="/lojista/avaliacoes"
+                title="Ver avaliações"
+                className="inline-flex items-center gap-1 text-sm font-bold text-[#3a2512] bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full ring-1 ring-amber-200 transition-colors"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                {Number(profile?.rating ?? 0).toFixed(1)}
+                <span className="font-medium text-gray-500 text-xs">
+                  ({profile?.reviewsCount ?? 0} {(profile?.reviewsCount ?? 0) === 1 ? "avaliação" : "avaliações"})
+                </span>
+              </Link>
               <span className="text-sm text-gray-500">
                 {(() => {
                   const z = profile?.zone || profile?.region;
