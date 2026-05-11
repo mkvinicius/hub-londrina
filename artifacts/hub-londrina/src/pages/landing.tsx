@@ -11,6 +11,21 @@ import { useListCategories, useListBusinesses } from "@workspace/api-client-reac
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
 import { BusinessCard } from "@/components/BusinessCard";
 import { imgSrc } from "@/lib/utils";
+import { useSeo } from "@/lib/seo";
+
+const HOME_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Hub Londrina",
+  url: "https://www.hublondrina.com.br",
+  inLanguage: "pt-BR",
+  description: "Diretório de negócios locais de Londrina/PR. Restaurantes, salões, clínicas, oficinas, comércio e serviços.",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: "https://www.hublondrina.com.br/busca?q={search_term_string}",
+    "query-input": "required name=search_term_string",
+  },
+};
 
 interface VitrineCardData {
   productId: number;
@@ -133,6 +148,13 @@ const testimonials = [
 ];
 
 export default function Landing() {
+  useSeo({
+    title: "Hub Londrina — Diretório de negócios locais em Londrina/PR",
+    description: "Encontre restaurantes, salões, clínicas, oficinas, comércio e serviços em Londrina/PR. Feito por londrinense, para londrinense.",
+    canonicalPath: "/",
+    ogImage: "/opengraph.jpg",
+    jsonLd: HOME_JSON_LD,
+  });
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("");
   const [regionOpen, setRegionOpen] = useState(false);

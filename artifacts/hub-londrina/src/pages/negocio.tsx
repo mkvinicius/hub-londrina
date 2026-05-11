@@ -18,6 +18,7 @@ import {
   type Review, type Business
 } from "@workspace/api-client-react";
 import { BusinessCard } from "@/components/BusinessCard";
+import { useSeo } from "@/lib/seo";
 
 // B2 — vídeo da vitrine: só toca quando ≥50% visível na viewport.
 // Reduz CPU/battery em listas grandes e em tabs em background.
@@ -430,6 +431,45 @@ export default function Negocio() {
   const reviews: Review[] = (business?.reviews ?? []) as Review[];
   const ratingDist = getRatingDistribution(reviews);
   const similar: Business[] = (similarData?.data ?? []).filter((b: Business) => b.id !== id).slice(0, 4);
+
+  // SEO: meta tags + JSON-LD LocalBusiness para o Google entender que é um
+  // estabelecimento físico em Londrina/PR. Aumenta chances de aparecer no
+  // "Pacote Local" do Google (mapa + 3 negócios) e em rich results.
+  const b: any = business || null;
+  const seoTitle = b ? `${b.name} — ${b.categoryName || "Negócio Local"} em Londrina/PR | Hub Londrina` : "Hub Londrina";
+  const seoDesc = b
+    ? `${b.name}${b.region ? ` na ${b.region}` : ""} em Londrina/PR. ${b.description ? b.description.slice(0, 140) : "Veja telefone, WhatsApp, fotos, avaliações e localização."}`
+    : "";
+  const seoImage = imgSrc(b?.bannerUrl || b?.photoUrl) || "/opengraph.jpg";
+  const jsonLd = b ? {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `https://www.hublondrina.com.br/negocio/${b.id}`,
+    name: b.name,
+    description: b.description || undefined,
+    image: seoImage.startsWith("http") ? seoImage : `https://www.hublondrina.com.br${seoImage}`,
+    url: `https://www.hublondrina.com.br/negocio/${b.id}`,
+    telephone: b.phone || b.whatsapp || undefined,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: b.address || undefined,
+      addressLocality: "Londrina",
+      addressRegion: "PR",
+      addressCountry: "BR",
+    },
+    aggregateRating: b.reviewsCount && b.reviewsCount > 0 ? {
+      "@type": "AggregateRating",
+      ratingValue: b.rating,
+      reviewCount: b.reviewsCount,
+    } : undefined,
+  } : null;
+  useSeo({
+    title: seoTitle,
+    description: seoDesc,
+    canonicalPath: id ? `/negocio/${id}` : "/",
+    ogImage: seoImage,
+    jsonLd,
+  });
 
   // B2: vídeos da vitrine usam <VitrineVideo> com IntersectionObserver dedicado.
 
