@@ -4,7 +4,7 @@ import { sendEmail, emails } from "../services/email";
 import { csrfProtection } from "../middleware/csrf";
 import { validateId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable, businessUsersTable, productsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable, businessUsersTable, productsTable, zonesTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte, inArray } from "drizzle-orm";
 import {
   ListBusinessesQueryParams,
@@ -471,12 +471,18 @@ router.get("/stats", async (_req: Request, res: Response) => {
       .select({ count: sql<number>`count(*)::int` })
       .from(businessUsersTable);
 
+    const [zonesResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(zonesTable)
+      .where(eq(zonesTable.active, true));
+
     const total = businessCount?.count ?? 0;
     const totalLojistas = lojistasResult?.count ?? 0;
+    const totalZonesCount = zonesResult?.count ?? 5;
     res.json({
       totalBusinesses: total,
       totalCategories: categoryCount?.count ?? 0,
-      totalZones: 5,
+      totalZones: totalZonesCount,
       totalUsers: totalLojistas,
       businesses: total,
       categories: categoryCount?.count ?? 0,

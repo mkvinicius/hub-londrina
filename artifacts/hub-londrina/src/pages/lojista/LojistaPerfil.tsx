@@ -4,7 +4,13 @@ import { getProfile, updateProfile, lookupCep, updateLocation } from "@/lib/loji
 import { Save, Search, MapPin, Lock, Info } from "lucide-react";
 
 const PAYMENT_OPTIONS = ["Dinheiro", "PIX", "Cartão de crédito", "Cartão de débito", "Vale refeição"];
-const ZONE_OPTIONS = ["centro", "norte", "sul", "leste", "oeste"];
+const FALLBACK_ZONES = [
+  { slug: "centro", name: "Centro" },
+  { slug: "norte", name: "Zona Norte" },
+  { slug: "sul", name: "Zona Sul" },
+  { slug: "leste", name: "Zona Leste" },
+  { slug: "oeste", name: "Zona Oeste" },
+];
 
 export default function LojistaPerfil() {
   const [profile, setProfile] = useState<any>(null);
@@ -12,18 +18,25 @@ export default function LojistaPerfil() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
+  const [zones, setZones] = useState<{ slug: string; name: string }[]>(FALLBACK_ZONES);
   const [tagInput, setTagInput] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
   const [locSaving, setLocSaving] = useState(false);
   const [locMsg, setLocMsg] = useState("");
 
   useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || "";
     Promise.all([
       getProfile(),
-      fetch(`${import.meta.env.VITE_API_URL || ""}/api/categories`).then(r => r.json()),
-    ]).then(([p, cats]) => {
+      fetch(`${apiBase}/api/categories`).then(r => r.json()),
+      fetch(`${apiBase}/api/zones`).then(r => r.json()).catch(() => ({ data: [] })),
+    ]).then(([p, cats, zns]) => {
       setProfile(p);
       setCategories(cats.data || []);
+      const list = (zns.data || [])
+        .filter((z: any) => z.active !== false)
+        .map((z: any) => ({ slug: z.slug, name: z.name }));
+      if (list.length) setZones(list);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -238,7 +251,7 @@ export default function LojistaPerfil() {
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Zona</label>
               <select value={profile.zone || ""} onChange={e => update("zone", e.target.value)} className={inputCls}>
-                {ZONE_OPTIONS.map(z => <option key={z} value={z} className="capitalize">{z.charAt(0).toUpperCase() + z.slice(1)}</option>)}
+                {zones.map(z => <option key={z.slug} value={z.slug}>{z.name}</option>)}
               </select>
             </div>
           </div>
