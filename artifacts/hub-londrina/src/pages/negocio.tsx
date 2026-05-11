@@ -6,7 +6,7 @@ import { imgSrc } from "@/lib/utils";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
   MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send,
-  Instagram, ShoppingBag, ChevronRight
+  Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -158,56 +158,27 @@ function BusinessVitrine({
   const products = data?.data ?? [];
   const waBase = whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, "")}` : null;
 
-  // Enquanto carrega mostra skeletons; se não tiver produtos não renderiza
-  // nada — a seção some sozinha, sem espaço vazio na página.
-  if (isLoading) {
-    return (
-      <section className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-          <div className="h-8 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse w-56 mb-6" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-2xl animate-pulse" style={{ height: 240 }} />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (products.length === 0) return null;
-
   return (
-    <section className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        {/* Cabeçalho da seção de produtos — estilo e-commerce */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#d97706]/10 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5 text-[#d97706]" />
-            </div>
-            <div>
-              <h2 className="font-black text-xl md:text-2xl text-[#3a2512] dark:text-gray-100 leading-tight">
-                Produtos & Serviços
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                {products.length} {products.length === 1 ? "item" : "itens"} · Peça direto pelo WhatsApp
-              </p>
-            </div>
-          </div>
-          {whatsapp && (
-            <a
-              href={`https://wa.me/55${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá! Gostaria de saber mais sobre os produtos de ${businessName}.`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-[#25D366] bg-[#25D366]/10 hover:bg-[#25D366]/20 px-3 py-1.5 rounded-xl transition-colors"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Falar com loja
-            </a>
-          )}
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Vitrine de Produtos</h2>
+        {products.length > 0 && (
+          <span className="text-xs text-gray-400 font-medium">Peça pelo WhatsApp</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" style={{ height: 240 }} />
+          ))}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      ) : products.length === 0 ? (
+        <div className="text-center py-10 text-gray-400">
+          <p className="text-sm">Este negócio ainda não cadastrou produtos na vitrine.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {products.map((item) => {
             const showVideo = item.videoUrl && item.videoStatus === "approved";
             const poster = item.mediaUrl || "";
@@ -289,8 +260,8 @@ function BusinessVitrine({
             );
           })}
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }
 
