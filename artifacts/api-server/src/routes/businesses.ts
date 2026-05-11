@@ -302,6 +302,8 @@ router.get("/businesses/:id/products", validateId, async (req: Request, res: Res
       price: productsTable.price,
       mediaUrl: productsTable.mediaUrl,
       mediaType: productsTable.mediaType,
+      images: productsTable.images,
+      video360Url: productsTable.video360Url,
       whatsappLink: productsTable.whatsappLink,
       videoUrl: productsTable.videoUrl,
       videoStatus: productsTable.videoStatus,

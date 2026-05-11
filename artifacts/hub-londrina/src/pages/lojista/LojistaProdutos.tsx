@@ -1,9 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo } from "@/lib/lojista-api";
-import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle, ArrowLeft, ArrowRight, Star } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+
+// Limites de fotos por plano (espelha PRODUCT_IMAGE_LIMITS no backend).
+const IMAGE_LIMITS: Record<string, number> = { free: 0, destaque: 5, premium: 8 };
 
 interface Product {
   id: number;
@@ -12,6 +15,8 @@ interface Product {
   price: string | null;
   mediaUrl: string | null;
   mediaType: string | null;
+  images: string[] | null;
+  video360Url: string | null;
   whatsappLink: string | null;
   isActive: boolean;
   sortOrder: number;
@@ -28,7 +33,11 @@ export default function LojistaProdutos() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "", images: [] as string[], video360Url: "" });
+  const [video360Uploading, setVideo360Uploading] = useState(false);
+  const video360FileRef = useRef<HTMLInputElement>(null);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const galleryFileRef = useRef<HTMLInputElement>(null);
   const [vitrineUploading, setVitrineUploading] = useState(false);
   const vitrineFileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -60,7 +69,7 @@ export default function LojistaProdutos() {
   const isFree = profile?.planType === "free";
 
   function resetForm() {
-    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "" });
+    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "", images: [], video360Url: "" });
     setShowForm(false);
     setEditId(null);
     setMediaMode("url");
@@ -78,11 +87,117 @@ export default function LojistaProdutos() {
       videoUrl: p.videoUrl || "",
       instagramReelUrl: p.instagramReelUrl || "",
       quantity: p.quantity != null ? String(p.quantity) : "",
+      images: Array.isArray(p.images) ? p.images : [],
+      video360Url: p.video360Url || "",
     });
     setEditId(p.id);
     setShowForm(true);
     setMediaMode("url");
     setUploadPreview(p.mediaUrl || null);
+  }
+
+  // Upload de uma foto adicional para a galeria do produto.
+  // Reaproveita o endpoint /lojista/upload/product-media (somente imagens aqui).
+  async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const limit = IMAGE_LIMITS[profile?.planType] ?? 0;
+    const remaining = Math.max(0, limit - form.images.length);
+    if (remaining === 0) {
+      setMsg(`Erro: limite de ${limit} fotos atingido para o plano ${profile?.planType}.`);
+      return;
+    }
+    const toUpload = files.slice(0, remaining);
+    setGalleryUploading(true);
+    setMsg("");
+    try {
+      const token = getLojistaToken();
+      const uploaded: string[] = [];
+      for (const file of toUpload) {
+        if (!file.type.startsWith("image/")) {
+          setMsg("Erro: galeria aceita apenas imagens (JPG, PNG, WebP).");
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          setMsg(`Erro: ${file.name} acima de 10MB.`);
+          continue;
+        }
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(`${API_BASE}/api/lojista/upload/product-media`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok) { setMsg(`Erro: ${data.error || "Falha no upload"}`); continue; }
+        if (data.mediaType === "image" && data.mediaUrl) uploaded.push(data.mediaUrl);
+      }
+      if (uploaded.length > 0) {
+        setForm(f => ({ ...f, images: [...f.images, ...uploaded] }));
+      }
+    } finally {
+      setGalleryUploading(false);
+      if (galleryFileRef.current) galleryFileRef.current.value = "";
+    }
+  }
+
+  function removeImage(index: number) {
+    setForm(f => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
+  }
+
+  function moveImage(index: number, dir: -1 | 1) {
+    setForm(f => {
+      const arr = [...f.images];
+      const j = index + dir;
+      if (j < 0 || j >= arr.length) return f;
+      [arr[index], arr[j]] = [arr[j], arr[index]];
+      return { ...f, images: arr };
+    });
+  }
+
+  function makeCover(index: number) {
+    setForm(f => {
+      if (index <= 0 || index >= f.images.length) return f;
+      const arr = [...f.images];
+      const [picked] = arr.splice(index, 1);
+      arr.unshift(picked);
+      return { ...f, images: arr };
+    });
+  }
+
+  // Upload do vídeo 360° (somente Premium). Aceita MP4 até 50MB.
+  async function handleVideo360Upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/mp4") && !file.name.toLowerCase().endsWith(".mp4")) {
+      setMsg("Erro: vídeo 360° deve ser MP4.");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setMsg("Erro: vídeo 360° deve ter até 50 MB.");
+      return;
+    }
+    setVideo360Uploading(true);
+    setMsg("");
+    try {
+      const token = getLojistaToken();
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${API_BASE}/api/lojista/upload/product-media`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro no upload");
+      setForm(f => ({ ...f, video360Url: data.mediaUrl }));
+    } catch (err: any) {
+      setMsg(`Erro: ${err.message}`);
+    } finally {
+      setVideo360Uploading(false);
+      if (video360FileRef.current) video360FileRef.current.value = "";
+    }
   }
 
   async function handleVitrineVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -325,6 +440,127 @@ export default function LojistaProdutos() {
                 </div>
               )}
             </div>
+            <div className="md:col-span-2 border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-bold text-gray-700">
+                  Galeria de fotos
+                  {profile?.planType && profile.planType !== "free" && (
+                    <span className="ml-2 text-xs font-medium text-gray-500">
+                      ({form.images.length}/{IMAGE_LIMITS[profile.planType] ?? 0})
+                    </span>
+                  )}
+                </label>
+                {profile?.planType !== "free" && (
+                  <button
+                    type="button"
+                    onClick={() => galleryFileRef.current?.click()}
+                    disabled={galleryUploading || form.images.length >= (IMAGE_LIMITS[profile?.planType] ?? 0)}
+                    className="inline-flex items-center gap-1.5 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {galleryUploading ? (
+                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
+                    Adicionar foto(s)
+                  </button>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={galleryFileRef}
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={handleGalleryUpload}
+                className="hidden"
+              />
+              {profile?.planType === "free" ? (
+                <p className="text-xs text-gray-500">
+                  Disponível a partir do plano <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Destaque</a> (5 fotos) ou Premium (8 fotos).
+                </p>
+              ) : form.images.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  Adicione até {IMAGE_LIMITS[profile?.planType] ?? 0} fotos. A primeira é a capa exibida no card.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  {form.images.map((url, i) => (
+                    <div key={`${url}-${i}`} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                      <img src={url} alt={`Foto ${i + 1}`} className="w-full aspect-square object-cover" />
+                      {i === 0 && (
+                        <span className="absolute top-1 left-1 inline-flex items-center gap-0.5 bg-[#d97706] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          <Star className="w-2.5 h-2.5" /> Capa
+                        </span>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 py-1">
+                        <button type="button" title="Mover para esquerda" onClick={() => moveImage(i, -1)} disabled={i === 0} className="text-white disabled:opacity-30 hover:text-[#FF9800]"><ArrowLeft className="w-3.5 h-3.5" /></button>
+                        {i !== 0 && (
+                          <button type="button" title="Tornar capa" onClick={() => makeCover(i)} className="text-white hover:text-[#FF9800]"><Star className="w-3.5 h-3.5" /></button>
+                        )}
+                        <button type="button" title="Mover para direita" onClick={() => moveImage(i, 1)} disabled={i === form.images.length - 1} className="text-white disabled:opacity-30 hover:text-[#FF9800]"><ArrowRight className="w-3.5 h-3.5" /></button>
+                        <button type="button" title="Remover" onClick={() => removeImage(i)} className="text-white hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-2 border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Video className="w-4 h-4 text-[#FF9800]" />
+                <label className="text-sm font-bold text-gray-700">Vídeo 360° do produto</label>
+                <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Premium</span>
+              </div>
+              {profile?.planType !== "premium" ? (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-3 py-2">
+                  Exclusivo do plano Premium. <a href="/lojista/plano" className="font-bold underline">Ver planos</a>.
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 mb-3">
+                    MP4 mostrando o produto em 360° (até 50 MB). Aparece no perfil público com botão "Ver em 360°".
+                  </p>
+                  <input
+                    type="file"
+                    ref={video360FileRef}
+                    accept="video/mp4"
+                    onChange={handleVideo360Upload}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => video360FileRef.current?.click()}
+                      disabled={video360Uploading}
+                      className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#FF9800] text-gray-700 hover:text-[#FF9800] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+                    >
+                      {video360Uploading ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {video360Uploading ? "Enviando..." : (form.video360Url ? "Trocar vídeo 360°" : "Enviar vídeo 360° MP4")}
+                    </button>
+                    {form.video360Url && (
+                      <>
+                        <a href={form.video360Url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#FF9800] font-bold hover:underline">
+                          Ver vídeo 360°
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, video360Url: "" }))}
+                          className="text-xs text-red-500 font-bold hover:underline"
+                        >
+                          Remover
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-gray-700 mb-1">Link WhatsApp</label>
               <input value={form.whatsappLink} onChange={e => setForm(f => ({ ...f, whatsappLink: e.target.value }))} placeholder="https://wa.me/5543..." className={inputCls} />

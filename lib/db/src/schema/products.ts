@@ -35,6 +35,11 @@ export const productsTable = pgTable(
     price: numeric("price"),
     mediaUrl: text("media_url"),
     mediaType: text("media_type"),
+    // Galeria de fotos do produto (até 5 no plano Destaque, 8 no Premium).
+    // mediaUrl continua sendo a "capa"/thumb (auto-sincronizada com images[0]).
+    images: text("images").array().notNull().default([]),
+    // Vídeo 360° do produto (mp4). Disponível somente no plano Premium.
+    video360Url: text("video_360_url"),
     whatsappLink: text("whatsapp_link"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),

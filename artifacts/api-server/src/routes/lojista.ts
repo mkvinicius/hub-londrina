@@ -527,9 +527,35 @@ function sanitizeWhatsappLink(raw: unknown): string | null {
   }
 }
 
+// Limite de fotos por produto, por plano (Task #7).
+//   free      → 0 (não cadastra produtos novos)
+//   destaque  → 5 fotos
+//   premium   → 8 fotos
+const PRODUCT_IMAGE_LIMITS: Record<string, number> = { free: 0, destaque: 5, premium: 8 };
+
+// Sanitiza array de URLs de imagens. Aceita só strings http(s) ou paths
+// relativos (/storage/...). Aplica limite por plano.
+function sanitizeImageList(raw: unknown, plan: string): string[] | { error: string } {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) return { error: "Campo 'images' deve ser um array" };
+  const cleaned: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const t = item.trim();
+    if (!t) continue;
+    if (!/^(https?:\/\/|\/)/i.test(t)) continue;
+    cleaned.push(t);
+  }
+  const limit = PRODUCT_IMAGE_LIMITS[plan] ?? 0;
+  if (cleaned.length > limit) {
+    return { error: `Limite de ${limit} fotos por produto no plano ${plan}.` };
+  }
+  return cleaned;
+}
+
 router.post("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl, instagramReelUrl, quantity } = req.body;
+  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl, instagramReelUrl, quantity, images, video360Url } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "Nome do produto é obrigatório" });
@@ -580,6 +606,20 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
   const parsedQty = quantity === undefined || quantity === null || quantity === "" ? null : Number.parseInt(String(quantity), 10);
   const safeQty = parsedQty !== null && Number.isFinite(parsedQty) && parsedQty >= 0 ? parsedQty : null;
 
+  const imagesResult = sanitizeImageList(images, biz.planType);
+  if (!Array.isArray(imagesResult)) {
+    res.status(400).json({ error: imagesResult.error, code: "PRODUCT_IMAGE_LIMIT" });
+    return;
+  }
+  // Vídeo 360° é exclusivo Premium (gating aplicado também no PATCH).
+  if (video360Url && biz.planType !== "premium") {
+    res.status(403).json({ error: "Vídeo 360° é exclusivo do plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz.planType });
+    return;
+  }
+  // Sincroniza mediaUrl/Type com a primeira foto da galeria quando enviada.
+  const finalMediaUrl = imagesResult.length > 0 ? imagesResult[0] : (mediaUrl || null);
+  const finalMediaType = imagesResult.length > 0 ? "image" : (mediaType || null);
+
   const [product] = await db
     .insert(productsTable)
     .values({
@@ -587,8 +627,10 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
       name,
       description: description || null,
       price: price || null,
-      mediaUrl: mediaUrl || null,
-      mediaType: mediaType || null,
+      mediaUrl: finalMediaUrl,
+      mediaType: finalMediaType,
+      images: imagesResult,
+      video360Url: video360Url || null,
       whatsappLink: sanitizeWhatsappLink(whatsappLink),
       videoUrl: videoUrl || null,
       instagramReelUrl: canonicalReel,
@@ -629,10 +671,83 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
 
   // Lojista pode editar/deletar produtos existentes mesmo no plano Gratuito
   // (caso tenha produtos migrados do antigo upload de fotos).
-  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl", "instagramReelUrl", "quantity"];
+  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl", "instagramReelUrl", "quantity", "images", "video360Url"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  // Plan-aware validations para galeria e vídeo 360°.
+  if ("images" in updates || "video360Url" in updates) {
+    const [biz] = await db
+      .select({ planType: businessesTable.planType })
+      .from(businessesTable)
+      .where(eq(businessesTable.id, businessId));
+    if (!biz) {
+      res.status(404).json({ error: "Negócio não encontrado" });
+      return;
+    }
+    // Estado atual do produto para detectar "no-op" — preserva o caminho de
+    // edição em planos restritos (ex.: free editando nome/preço de produto
+    // migrado), em que o frontend reenvia o form inteiro mas a galeria/360
+    // não mudaram. Sem isso, free seria bloqueado pelo limite de 0 fotos.
+    const [existing] = await db
+      .select({ images: productsTable.images, video360Url: productsTable.video360Url })
+      .from(productsTable)
+      .where(and(eq(productsTable.id, id), eq(productsTable.businessId, businessId)));
+    if (!existing) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+
+    if ("images" in updates) {
+      const sanitized = sanitizeImageList(updates.images, "premium"); // só limpa formato
+      if (!Array.isArray(sanitized)) {
+        res.status(400).json({ error: sanitized.error, code: "PRODUCT_IMAGE_LIMIT" });
+        return;
+      }
+      const currentImages = existing.images ?? [];
+      const sameImages = sanitized.length === currentImages.length
+        && sanitized.every((u, i) => u === currentImages[i]);
+      if (!sameImages) {
+        // Mudança real → aplica gating do plano atual.
+        const limit = PRODUCT_IMAGE_LIMITS[biz.planType] ?? 0;
+        if (sanitized.length > limit) {
+          res.status(400).json({
+            error: `Limite de ${limit} fotos por produto no plano ${biz.planType}.`,
+            code: "PRODUCT_IMAGE_LIMIT",
+          });
+          return;
+        }
+        updates.images = sanitized;
+        // Cover sync determinístico: mediaUrl/Type SEMPRE refletem images[0]
+        // (ou null se array vazio), ignorando qualquer mediaUrl no mesmo
+        // payload — propaga reorder/troca de capa sem race de campos.
+        if (sanitized.length > 0) {
+          updates.mediaUrl = sanitized[0];
+          updates.mediaType = "image";
+        } else if (!("mediaUrl" in req.body)) {
+          updates.mediaUrl = null;
+          updates.mediaType = null;
+        }
+      } else {
+        // No-op: remove do update para não validar gates contra valor inalterado.
+        delete updates.images;
+      }
+    }
+    if ("video360Url" in updates) {
+      const incoming = (updates.video360Url as string | null | undefined) || null;
+      if (incoming === (existing.video360Url ?? null)) {
+        // No-op: preserva edição em outros planos sem reaplicar gating.
+        delete updates.video360Url;
+      } else {
+        if (incoming && biz.planType !== "premium") {
+          res.status(403).json({ error: "Vídeo 360° é exclusivo do plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz.planType });
+          return;
+        }
+        updates.video360Url = incoming;
+      }
+    }
   }
   if ("quantity" in updates) {
     const v = updates.quantity;

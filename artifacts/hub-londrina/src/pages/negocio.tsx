@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/csrf";
 import { imgSrc } from "@/lib/utils";
 import {
   MapPin, Star, Share2, Heart, CheckCircle2, Phone,
-  MessageCircle, Clock, Navigation, ArrowLeft, ExternalLink, Send,
+  MessageCircle, Clock, Navigation, ArrowLeft, ArrowRight, ExternalLink, Send,
   Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,8 @@ interface PublicProduct {
   price: string | null;
   mediaUrl: string | null;
   mediaType: string | null;
+  images: string[] | null;
+  video360Url: string | null;
   whatsappLink: string | null;
   videoUrl: string | null;
   videoStatus: string | null;
@@ -96,6 +98,15 @@ function BusinessProdutos({
 
   const products = data?.data ?? [];
   const [selected, setSelected] = useState<PublicProduct | null>(null);
+  const [photoIdx, setPhotoIdx] = useState(0);
+  // Reseta o índice do carrossel sempre que abre/troca de produto.
+  useEffect(() => { setPhotoIdx(0); }, [selected?.id]);
+  // Lista de fotos exibidas no modal: prioriza galeria; se vazia, usa mediaUrl.
+  const selectedPhotos: string[] = selected
+    ? (selected.images && selected.images.length > 0
+        ? selected.images
+        : (selected.mediaUrl ? [selected.mediaUrl] : []))
+    : [];
 
   const waBase = whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, "")}` : null;
   const waHrefFor = (item: PublicProduct) => {
@@ -170,13 +181,72 @@ function BusinessProdutos({
         <DialogContent className="max-w-lg p-0 overflow-hidden">
           {selected && (
             <>
-              <div className="aspect-square w-full bg-gray-100 dark:bg-gray-800">
-                {selected.mediaUrl ? (
-                  <img src={imgSrc(selected.mediaUrl)} alt={selected.name} className="w-full h-full object-cover" />
+              <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+                {selectedPhotos.length > 0 ? (
+                  <img
+                    src={imgSrc(selectedPhotos[Math.min(photoIdx, selectedPhotos.length - 1)])}
+                    alt={selected.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
                 )}
+                {selectedPhotos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Foto anterior"
+                      onClick={() => setPhotoIdx(i => (i - 1 + selectedPhotos.length) % selectedPhotos.length)}
+                      className="absolute top-1/2 -translate-y-1/2 left-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Próxima foto"
+                      onClick={() => setPhotoIdx(i => (i + 1) % selectedPhotos.length)}
+                      className="absolute top-1/2 -translate-y-1/2 right-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {selectedPhotos.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          aria-label={`Ir para foto ${i + 1}`}
+                          onClick={() => setPhotoIdx(i)}
+                          className={`w-2 h-2 rounded-full transition-all ${i === photoIdx ? "bg-white w-4" : "bg-white/50"}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+                {selected.video360Url && (
+                  <a
+                    href={imgSrc(selected.video360Url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-2 right-2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-black/65 text-white text-xs font-bold hover:bg-black/85"
+                  >
+                    360°
+                  </a>
+                )}
               </div>
+              {selectedPhotos.length > 1 && (
+                <div className="px-3 pt-3 flex gap-2 overflow-x-auto">
+                  {selectedPhotos.map((u, i) => (
+                    <button
+                      key={`${u}-${i}`}
+                      type="button"
+                      onClick={() => setPhotoIdx(i)}
+                      className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 ${i === photoIdx ? "border-[#d97706]" : "border-transparent opacity-70 hover:opacity-100"}`}
+                    >
+                      <img src={imgSrc(u)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="p-6">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{selected.name}</DialogTitle>
