@@ -247,6 +247,18 @@ export async function createCategoryBoostCheckout(position: number): Promise<{ u
   });
 }
 
+// Boost Home + Busca por POSIÇÃO numerada (#1 R$249, #2 R$179, #3 R$129) — Premium-only.
+export async function getHomeSearchBoostPositions() {
+  return lojistaFetch("/lojista/boosts/home-search-positions");
+}
+
+export async function createHomeSearchBoostCheckout(position: number): Promise<{ url: string }> {
+  return lojistaFetch("/lojista/boosts/home-search-checkout", {
+    method: "POST",
+    body: JSON.stringify({ position }),
+  });
+}
+
 // B3 — Histórico de faturas Stripe
 export interface StripeInvoice {
   id: string;

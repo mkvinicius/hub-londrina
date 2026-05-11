@@ -511,7 +511,13 @@ router.get("/autocomplete", async (req: Request, res: Response) => {
       .where(and(activeVisible, or(ilike(businessesTable.name, pattern), ilike(businessesTable.categorySlug, pattern))!))
       .orderBy(desc(businessesTable.rating))
       .limit(12),
-    db.select({ businessId: searchBoostsTable.businessId })
+    // Boost home_search ordenado por posição numerada (#1 → #2 → #3 → legacy NULL).
+    // Modelo novo: 3 vagas numeradas com preços decrescentes. Modelo legacy
+    // (position=NULL) ainda aparece, mas DEPOIS dos numerados.
+    db.select({
+      businessId: searchBoostsTable.businessId,
+      position: searchBoostsTable.position,
+    })
       .from(searchBoostsTable)
       .where(
         and(
@@ -519,11 +525,18 @@ router.get("/autocomplete", async (req: Request, res: Response) => {
           eq(searchBoostsTable.status, "active"),
           or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > NOW()`)
         )
-      ),
+      )
+      .orderBy(sql`${searchBoostsTable.position} ASC NULLS LAST`),
   ]);
 
-  const sponsoredIds = new Set(sponsoredBoosts.map(b => b.businessId));
-  const sponsored = allMatches.filter(b => sponsoredIds.has(b.id)).slice(0, 3);
+  // Preserva a ordem por posição: monta a lista de sponsored seguindo a ordem dos boosts
+  const matchById = new Map(allMatches.map(b => [b.id, b]));
+  const sponsored: typeof allMatches = [];
+  for (const b of sponsoredBoosts) {
+    const m = matchById.get(b.businessId);
+    if (m && !sponsored.find(s => s.id === m.id)) sponsored.push(m);
+    if (sponsored.length >= 3) break;
+  }
   const sponsoredSet = new Set(sponsored.map(b => b.id));
   const suggestions = allMatches.filter(b => !sponsoredSet.has(b.id)).slice(0, 6);
 
@@ -542,6 +555,7 @@ router.get("/home-featured", async (_req: Request, res: Response) => {
         or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > NOW()`)
       )
     )
+    .orderBy(sql`${searchBoostsTable.position} ASC NULLS LAST`)
     .limit(6);
 
   if (!boosts.length) return res.json({ data: [] });

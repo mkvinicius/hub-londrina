@@ -6,7 +6,7 @@ import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable, vitrineBoostsTable, productsTable } from "@workspace/db/schema";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
-import { categoryLockKey, zoneLockKey, homeSearchLockKey, vitrineSlotLockKey } from "../lib/boost-locks";
+import { categoryLockKey, zoneLockKey, homeSearchLockKey, homeSearchPositionLockKey, vitrineSlotLockKey } from "../lib/boost-locks";
 
 const router: IRouter = Router();
 
@@ -305,7 +305,62 @@ router.post("/lojista/boosts/sync", async (req: Request, res: Response) => {
       });
     }
 
-    // Caso C: boost zona ou home+busca (avulso, 6 vagas)
+    // Caso C1: boost Home + Busca POR POSIÇÃO (3 vagas numeradas, modelo novo)
+    if (boostContext === "home_search" && meta.position) {
+      const pos = parseInt(meta.position, 10);
+      if (![1, 2, 3].includes(pos)) {
+        return res.status(400).json({ error: "Posição inválida no metadata (home_search)" });
+      }
+      const HS_PRICES: Record<number, number> = { 1: 249, 2: 179, 3: 129 };
+      const lockKey = homeSearchPositionLockKey(pos);
+
+      const result = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+
+        const existingMine = await tx.select().from(searchBoostsTable).where(and(
+          eq(searchBoostsTable.businessId, lojista.businessId),
+          eq(searchBoostsTable.boostContext, "home_search"),
+          or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+        ));
+        if (existingMine.length > 0) return { skipped: true as const };
+
+        const occ = await tx.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
+          eq(searchBoostsTable.boostContext, "home_search"),
+          eq(searchBoostsTable.position, pos),
+          eq(searchBoostsTable.status, "active"),
+          or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+        ));
+
+        const status: "active" | "waitlist" = occ.length === 0 ? "active" : "waitlist";
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+        await tx.insert(searchBoostsTable).values({
+          businessId: lojista.businessId,
+          boostType: "monthly",
+          boostContext: "home_search",
+          position: pos,
+          monthlyBid: String(HS_PRICES[pos]),
+          status,
+          durationDays: 30,
+          startsAt: status === "active" ? new Date() : null,
+          expiresAt: status === "active" ? expiresAt : null,
+          price: String(HS_PRICES[pos]),
+        });
+
+        return { skipped: false as const, status, expiresAt };
+      });
+
+      logger.info(`[Boost Sync] home_search pos ${pos} ${result.skipped ? "duplicate" : result.status} — biz ${lojista.businessId}`);
+      return res.json({
+        ok: true,
+        type: "home_search",
+        position: pos,
+        status: result.skipped ? "duplicate" : result.status,
+      });
+    }
+
+    // Caso C2: boost zona (avulso, 6 vagas) — modelo legacy de home_search também cai aqui
+    // mas em prática novos pagamentos home_search sempre vêm com position (modelo novo).
     if (boostContext === "zone" || boostContext === "home_search") {
       const zone = meta.zone || "";
       const lockKey = boostContext === "zone" ? zoneLockKey(zone) : homeSearchLockKey();
@@ -1116,6 +1171,60 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             logger.info(`[Stripe Webhook] Boost categoria já existe para biz ${bizIdCat}, ignorando`);
           } else {
             logger.info(`[Stripe Webhook] Boost categoria pos ${pos} ${result.status} criado para biz ${bizIdCat}`);
+          }
+          break;
+        }
+
+        // Branch: BOOST HOME + BUSCA POR POSIÇÃO (3 vagas numeradas, modelo novo)
+        if (boostContext === "home_search" && position) {
+          const bizIdHS = parseInt(businessId, 10);
+          const pos = parseInt(position, 10);
+          if (!Number.isFinite(bizIdHS) || bizIdHS <= 0) break;
+          if (![1, 2, 3].includes(pos)) break;
+
+          const HS_PRICES: Record<number, number> = { 1: 249, 2: 179, 3: 129 };
+          const lockKeyHS = homeSearchPositionLockKey(pos);
+
+          const result = await db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKeyHS})`);
+
+            const existingMine = await tx.select().from(searchBoostsTable).where(and(
+              eq(searchBoostsTable.businessId, bizIdHS),
+              eq(searchBoostsTable.boostContext, "home_search"),
+              or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+            ));
+            if (existingMine.length > 0) return { skipped: true as const };
+
+            const occ = await tx.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
+              eq(searchBoostsTable.boostContext, "home_search"),
+              eq(searchBoostsTable.position, pos),
+              eq(searchBoostsTable.status, "active"),
+              or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+            ));
+
+            const status: "active" | "waitlist" = occ.length === 0 ? "active" : "waitlist";
+            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+            await tx.insert(searchBoostsTable).values({
+              businessId: bizIdHS,
+              boostType: "monthly",
+              boostContext: "home_search",
+              position: pos,
+              monthlyBid: String(HS_PRICES[pos]),
+              status,
+              durationDays: 30,
+              startsAt: status === "active" ? new Date() : null,
+              expiresAt: status === "active" ? expiresAt : null,
+              price: String(HS_PRICES[pos]),
+            });
+
+            return { skipped: false as const, status, expiresAt, position: pos };
+          });
+
+          if (result.skipped) {
+            logger.info(`[Stripe Webhook] Boost home_search já existe para biz ${bizIdHS}, ignorando`);
+          } else {
+            logger.info(`[Stripe Webhook] Boost home_search pos ${pos} ${result.status} criado para biz ${bizIdHS}`);
           }
           break;
         }

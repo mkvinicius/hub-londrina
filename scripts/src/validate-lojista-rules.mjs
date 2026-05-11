@@ -79,12 +79,21 @@ async function call(method, path, { token, body } = {}) {
     fail("R1 boosts/checkout zone bloqueia free", `status=${zone.status} body=${JSON.stringify(zone.json)}`);
   }
 
-  // 4. R1 — POST /lojista/boosts/checkout {home_search} deve retornar 403
+  // 4. (legacy) — POST /lojista/boosts/checkout {home_search} agora retorna 410.
+  // Modelo novo: 3 vagas numeradas via /lojista/boosts/home-search-checkout.
   const home = await call("POST", "/api/lojista/boosts/checkout", { token, body: { boostContext: "home_search" } });
-  if (home.status === 403 && home.json?.code === "PLAN_REQUIRED") {
-    pass("R1 boosts/checkout home_search bloqueia free (403 PLAN_REQUIRED)");
+  if (home.status === 410 && home.json?.code === "ENDPOINT_DEPRECATED") {
+    pass("legacy boosts/checkout home_search retorna 410 ENDPOINT_DEPRECATED");
   } else {
-    fail("R1 boosts/checkout home_search bloqueia free", `status=${home.status} body=${JSON.stringify(home.json)}`);
+    fail("legacy boosts/checkout home_search retorna 410", `status=${home.status} body=${JSON.stringify(home.json)}`);
+  }
+
+  // 4b. R1 — novo endpoint /home-search-checkout bloqueia free (403 PLAN_REQUIRED)
+  const homeNew = await call("POST", "/api/lojista/boosts/home-search-checkout", { token, body: { position: 1 } });
+  if (homeNew.status === 403 && homeNew.json?.code === "PLAN_REQUIRED") {
+    pass("R1 boosts/home-search-checkout bloqueia free (403 PLAN_REQUIRED)");
+  } else {
+    fail("R1 boosts/home-search-checkout bloqueia free", `status=${homeNew.status} body=${JSON.stringify(homeNew.json)}`);
   }
 
   // 5. R1 — POST /lojista/boosts/category-checkout deve retornar 403

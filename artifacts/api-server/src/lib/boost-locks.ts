@@ -34,6 +34,12 @@ export function homeSearchLockKey(): number {
   return pack(3, 0);
 }
 
+// Boost Home + Busca por POSIÇÃO numerada (3 vagas: #1 R$249, #2 R$179, #3 R$129).
+// Namespace 5 para não colidir com o namespace 3 (legacy single-slot home_search).
+export function homeSearchPositionLockKey(position: number): number {
+  return pack(5, position);
+}
+
 // R11 — Vitrine de Produtos: 4 slots fixos globais (não por zona/categoria).
 // Slot 0 reservado para alocação de slots; slot 1..N pode ser usado para
 // outros locks no mesmo namespace se necessário no futuro.

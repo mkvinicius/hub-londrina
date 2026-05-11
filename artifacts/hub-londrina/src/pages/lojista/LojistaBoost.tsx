@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { lojistaFetch, getCategoryBoostPositions, createCategoryBoostCheckout } from "@/lib/lojista-api";
+import {
+  lojistaFetch,
+  getCategoryBoostPositions,
+  createCategoryBoostCheckout,
+  getHomeSearchBoostPositions,
+  createHomeSearchBoostCheckout,
+} from "@/lib/lojista-api";
 import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon } from "lucide-react";
 import { Link } from "wouter";
 
@@ -18,6 +24,9 @@ interface CategoryPositionsResponse {
   positions: CategoryPosition[];
   currentBoost: { position: number; expiresAt: string | null } | null;
 }
+
+// Mesmo shape do CategoryPositionsResponse, mas pra Home + Busca (3 posições).
+type HomeSearchPositionsResponse = CategoryPositionsResponse;
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 const WHATSAPP_NUMBER = "5543999999999";
@@ -73,15 +82,18 @@ export default function LojistaBoost() {
   const [bannerCheckoutLoading, setBannerCheckoutLoading] = useState(false);
   const [catPositions, setCatPositions] = useState<CategoryPositionsResponse | null>(null);
   const [catCheckoutLoading, setCatCheckoutLoading] = useState<number | null>(null);
+  const [hsPositions, setHsPositions] = useState<HomeSearchPositionsResponse | null>(null);
+  const [hsCheckoutLoading, setHsCheckoutLoading] = useState<number | null>(null);
 
   async function loadAll() {
     try {
-      const [profile, posData, avail, hb, cats] = await Promise.all([
+      const [profile, posData, avail, hb, cats, hs] = await Promise.all([
         lojistaFetch("/lojista/profile"),
         lojistaFetch("/lojista/boost-positions"),
         lojistaFetch("/lojista/boosts/availability"),
         lojistaFetch("/lojista/home-banner/status").catch(() => ({ banner: null })),
         getCategoryBoostPositions().catch(() => null),
+        getHomeSearchBoostPositions().catch(() => null),
       ]);
       setBoost(profile._boost || null);
       setPositions(posData.positions || []);
@@ -89,6 +101,7 @@ export default function LojistaBoost() {
       setAvailability(avail);
       setHomeBanner(hb?.banner || null);
       setCatPositions(cats);
+      setHsPositions(hs);
     } catch (e) {
       // ignore
     } finally {
@@ -101,8 +114,9 @@ export default function LojistaBoost() {
     const sessionId = params.get("session_id");
     const isBoostSuccess = params.get("boost_success") === "1";
     const isCatSuccess = params.get("cat_success") === "1";
+    const isHsSuccess = params.get("hs_success") === "1";
     const isBannerSuccess = params.get("banner") === "success";
-    const anySuccess = isBoostSuccess || isCatSuccess || isBannerSuccess;
+    const anySuccess = isBoostSuccess || isCatSuccess || isHsSuccess || isBannerSuccess;
 
     // Limpa a URL antes de qualquer trabalho async (capturamos os flags acima)
     if (params.toString()) {
@@ -122,7 +136,13 @@ export default function LojistaBoost() {
             if (r.type === "home_banner") {
               setBanner({ type: "success", msg: "Pagamento confirmado! Sua solicitação de banner Home está em análise pelo admin. Você será notificado quando for aprovada." });
             } else if (r.status === "active") {
-              const ctxLabel = r.type === "category" ? `categoria (posição ${r.position}º)` : r.type === "zone" ? "zona" : "Home + Busca";
+              const ctxLabel = r.type === "category"
+                ? `categoria (posição ${r.position}º)`
+                : r.type === "zone"
+                  ? "zona"
+                  : r.type === "home_search"
+                    ? `Home + Busca (posição ${r.position}º)`
+                    : "Home + Busca";
               setBanner({ type: "success", msg: `Pagamento confirmado! Seu boost de ${ctxLabel} está ATIVO. Verifique seu email.` });
             } else if (r.status === "waitlist") {
               setBanner({ type: "info", msg: "Pagamento confirmado! Você foi colocado na fila de espera (todas as vagas estão ocupadas). Avisaremos quando uma vaga abrir." });
@@ -146,6 +166,8 @@ export default function LojistaBoost() {
         setBanner({ type: "info", msg: "Pagamento cancelado. Você pode tentar novamente quando quiser." });
       } else if (params.get("cat_cancelled") === "1") {
         setBanner({ type: "info", msg: "Pagamento de boost de categoria cancelado." });
+      } else if (params.get("hs_cancelled") === "1") {
+        setBanner({ type: "info", msg: "Pagamento de boost Home + Busca cancelado." });
       } else if (params.get("banner") === "cancelled") {
         setBanner({ type: "info", msg: "Pagamento do banner cancelado." });
       }
@@ -183,6 +205,23 @@ export default function LojistaBoost() {
       setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
     } finally {
       setCatCheckoutLoading(null);
+    }
+  }
+
+  async function handleBuyHomeSearchBoost(position: number) {
+    setHsCheckoutLoading(position);
+    setBanner(null);
+    try {
+      const res = await createHomeSearchBoostCheckout(position);
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      setBanner({ type: "error", msg: "Erro ao iniciar o checkout" });
+    } catch (e: any) {
+      setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
+    } finally {
+      setHsCheckoutLoading(null);
     }
   }
 
@@ -335,10 +374,9 @@ export default function LojistaBoost() {
             );
           })()}
 
-          {/* CARD 2 — DESTAQUE HOME + BUSCA */}
-          {availability && (() => {
-            const h = availability.homeSearchAvailability;
-            const cur = h.currentBoost;
+          {/* CARD 2 — DESTAQUE HOME + BUSCA (3 posições numeradas) */}
+          {hsPositions && (() => {
+            const cur = hsPositions.currentBoost;
             return (
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 flex flex-col">
                 <div className="flex items-start gap-3 mb-3">
@@ -348,72 +386,86 @@ export default function LojistaBoost() {
                   <div className="flex-1">
                     <h3 className="text-base font-bold text-gray-800">Destaque Home + Busca</h3>
                     <p className="text-sm text-gray-600 mt-0.5">
-                      Apareça na home principal e em todas as buscas por 30 dias
+                      3 posições numeradas. <strong>1ª lugar garantido</strong> no autocomplete da home, da busca e em "Destaques para você".
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 mb-4 px-3 py-2 bg-white/60 rounded-lg text-sm flex items-center justify-between">
-                  <span className="text-gray-600">Vagas disponíveis</span>
-                  <span className="font-bold text-gray-800">
-                    {h.available} de {h.total}
-                  </span>
+                {!hsPositions.eligible && (
+                  <div className="mb-3 px-3 py-2 bg-amber-100/60 border border-amber-200 rounded-lg text-xs text-amber-800">
+                    Exclusivo para o plano <strong>Premium</strong>.{" "}
+                    <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+                  </div>
+                )}
+
+                {cur && (
+                  <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Você ocupa a <strong>{cur.position ? `${cur.position}ª posição` : "vaga"}</strong>
+                    {cur.expiresAt ? <> até {new Date(cur.expiresAt).toLocaleDateString("pt-BR")}</> : null}
+                  </div>
+                )}
+
+                <div className="bg-white/70 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-amber-200/60">
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-amber-900 uppercase">Posição</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-amber-900 uppercase">Preço/mês</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-amber-900 uppercase">Status</th>
+                        <th className="px-3 py-2 text-right text-[10px] font-bold text-amber-900 uppercase">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hsPositions.positions.map(p => {
+                        const canBuy = hsPositions.eligible && !p.occupied && !cur;
+                        return (
+                          <tr key={p.position} className="border-b border-amber-100/60 last:border-0">
+                            <td className="px-3 py-2 font-bold text-gray-800">{p.position}º</td>
+                            <td className="px-3 py-2 font-bold text-[#d97706]">R${p.price}</td>
+                            <td className="px-3 py-2">
+                              {p.mine ? (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Sua</span>
+                              ) : p.occupied ? (
+                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Ocupada</span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Livre</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {canBuy ? (
+                                <button
+                                  onClick={() => handleBuyHomeSearchBoost(p.position)}
+                                  disabled={hsCheckoutLoading === p.position}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-lg disabled:opacity-60"
+                                >
+                                  {hsCheckoutLoading === p.position
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : <>Comprar</>}
+                                </button>
+                              ) : !hsPositions.eligible && !p.occupied ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="Exclusivo para o plano Premium"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 bg-gray-200 rounded-lg cursor-not-allowed opacity-70"
+                                >
+                                  Comprar
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-300">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div className="text-3xl font-black text-gray-800 mb-1">
-                  R${h.price}
-                  <span className="text-sm font-normal text-gray-500">/30 dias</span>
-                </div>
-
-                <div className="mt-auto pt-4">
-                  {cur && cur.status === "active" ? (
-                    <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded-xl text-sm font-bold text-green-700">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Ativo até {cur.expiresAt ? new Date(cur.expiresAt).toLocaleDateString("pt-BR") : "—"}
-                    </div>
-                  ) : cur && cur.status === "waitlist" ? (
-                    <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-100 border border-amber-300 rounded-xl text-sm font-bold text-amber-800">
-                      <Clock className="w-4 h-4" />
-                      Na fila de espera
-                    </div>
-                  ) : !h.eligible ? (
-                    <div>
-                      <button
-                        type="button"
-                        disabled
-                        title="Exclusivo para o plano Premium"
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed opacity-70"
-                      >
-                        Comprar destaque — R${h.price}
-                      </button>
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
-                        Exclusivo para o plano <strong>Premium</strong>.{" "}
-                        <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
-                      </p>
-                    </div>
-                  ) : h.available > 0 ? (
-                    <button
-                      onClick={() => handleBuyBoost("home_search")}
-                      disabled={checkoutLoading === "home_search"}
-                      className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl disabled:opacity-60 ${BTN_ELEVATION}`}
-                    >
-                      {checkoutLoading === "home_search" ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Comprar destaque — R${h.price}</>}
-                    </button>
-                  ) : (
-                    <div>
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-                        Todas as vagas estao ocupadas. Ao comprar, voce entra na fila e sera ativado automaticamente quando uma vaga abrir.
-                      </p>
-                      <button
-                        onClick={() => handleBuyBoost("home_search")}
-                        disabled={checkoutLoading === "home_search"}
-                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl disabled:opacity-60 ${BTN_ELEVATION}`}
-                      >
-                        {checkoutLoading === "home_search" ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Clock className="w-4 h-4" />Entrar na fila de espera</>}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <p className="text-[10px] text-amber-900/70 mt-2 leading-tight">
+                  Cobrança mensal recorrente. A 1ª posição aparece sempre no topo dos resultados patrocinados.
+                </p>
               </div>
             );
           })()}

@@ -5,9 +5,13 @@ import { z } from "zod";
 import { db } from "@workspace/db";
 import { businessesTable, searchBoostsTable, subscriptionsTable } from "@workspace/db/schema";
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { homeSearchPositionLockKey } from "../lib/boost-locks";
 
+// Modelo antigo de "6 vagas iguais R$149" para home_search foi substituído por
+// 3 posições numeradas (ver endpoints /home-search-positions e /home-search-checkout).
+// O endpoint genérico /boosts/checkout agora aceita apenas "zone".
 const BoostCheckoutSchema = z.object({
-  boostContext: z.enum(["zone", "home_search"]),
+  boostContext: z.enum(["zone"]),
 });
 
 const router: IRouter = Router();
@@ -24,7 +28,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL
   || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
 
 const ZONE_PRICE_ID = process.env.STRIPE_ZONE_BOOST_PRICE_ID;
-const HOME_PRICE_ID = process.env.STRIPE_HOME_SEARCH_BOOST_PRICE_ID;
 
 const CATEGORY_PRICE_IDS: Record<number, string | undefined> = {
   1: process.env.STRIPE_BOOST_CAT_1_PRICE_ID,
@@ -42,9 +45,22 @@ const CATEGORY_PRICES_BRL: Record<number, number> = {
   5: 59,
 };
 
+// 3 posições numeradas para boost Home + Busca (mesmo modelo de categoria).
+// #1 é o mais caro e único garantidor de "1º lugar" no autocomplete e em /home-featured.
+const HOME_SEARCH_POSITION_PRICE_IDS: Record<number, string | undefined> = {
+  1: process.env.STRIPE_HOME_SEARCH_POS_1_PRICE_ID,
+  2: process.env.STRIPE_HOME_SEARCH_POS_2_PRICE_ID,
+  3: process.env.STRIPE_HOME_SEARCH_POS_3_PRICE_ID,
+};
+
+const HOME_SEARCH_POSITION_PRICES_BRL: Record<number, number> = {
+  1: 249,
+  2: 179,
+  3: 129,
+};
+
 const SLOTS_PER_CONTEXT = 6;
 const ZONE_PRICE_BRL = 79;
-const HOME_PRICE_BRL = 149;
 
 interface LojistaPayload { businessId: number; email: string; role: string }
 
@@ -144,12 +160,20 @@ router.get("/lojista/boosts/availability", lojistaAuth, async (req: Request, res
 
 router.post("/lojista/boosts/checkout", lojistaAuth, async (req: Request, res: Response) => {
   const lojista = (req as any).lojista as LojistaPayload;
-  const _parsed = BoostCheckoutSchema.safeParse(req.body);
-  if (!_parsed.success) {
-    res.status(400).json({ error: "boostContext inválido. Use 'zone' ou 'home_search'.", code: "INVALID_BODY" });
+  // Compat: se chamarem com home_search, devolve 410 apontando para o novo endpoint
+  if ((req.body as any)?.boostContext === "home_search") {
+    res.status(410).json({
+      error: "Boost Home + Busca agora usa posições numeradas. Use /lojista/boosts/home-search-checkout com { position }.",
+      code: "ENDPOINT_DEPRECATED",
+    });
     return;
   }
-  const { boostContext } = _parsed.data;
+  const _parsed = BoostCheckoutSchema.safeParse(req.body);
+  if (!_parsed.success) {
+    res.status(400).json({ error: "boostContext inválido. Use 'zone'.", code: "INVALID_BODY" });
+    return;
+  }
+  const boostContext = "zone" as const;
 
   const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
   if (!biz) {
@@ -159,16 +183,12 @@ router.post("/lojista/boosts/checkout", lojistaAuth, async (req: Request, res: R
 
   const planType = biz.planType || "free";
 
-  if (boostContext === "zone" && planType !== "destaque" && planType !== "premium") {
+  if (planType !== "destaque" && planType !== "premium") {
     res.status(403).json({ error: "Disponível a partir do plano Destaque", code: "PLAN_REQUIRED", requiredPlan: "destaque" });
     return;
   }
-  if (boostContext === "home_search" && planType !== "premium") {
-    res.status(403).json({ error: "Exclusivo para o plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium" });
-    return;
-  }
 
-  if (boostContext === "zone" && !biz.zone) {
+  if (!biz.zone) {
     res.status(400).json({ error: "Negócio sem zona definida" });
     return;
   }
@@ -187,7 +207,7 @@ router.post("/lojista/boosts/checkout", lojistaAuth, async (req: Request, res: R
     return;
   }
 
-  const priceId = boostContext === "zone" ? ZONE_PRICE_ID : HOME_PRICE_ID;
+  const priceId = ZONE_PRICE_ID;
   if (!priceId) {
     res.status(500).json({ error: "Price ID não configurado para este boost" });
     return;
@@ -361,6 +381,157 @@ router.post("/lojista/boosts/category-checkout", lojistaAuth, async (req: Reques
       metadata: {
         businessId: String(lojista.businessId),
         boostContext: "category",
+        position: String(position),
+      },
+    },
+    locale: "pt-BR",
+  });
+
+  res.json({ url: session.url });
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// BOOST HOME + BUSCA — 3 posições numeradas (auto-serviço, Premium-only)
+// Mesmo modelo do boost de categoria. #1 R$249, #2 R$179, #3 R$129.
+// Posição #1 garante 1º lugar nos sponsored do autocomplete e em /home-featured.
+// ──────────────────────────────────────────────────────────────────────
+
+router.get("/lojista/boosts/home-search-positions", lojistaAuth, async (req: Request, res: Response) => {
+  const lojista = (req as any).lojista as LojistaPayload;
+
+  const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const planType = biz.planType || "free";
+  const eligible = planType === "premium";
+
+  // Busca apenas boosts com `position` definida (modelo novo). Boosts legacy
+  // (position=NULL) ainda existem e aparecem no autocomplete via NULLS LAST,
+  // mas não ocupam vagas numeradas — eles expiram naturalmente.
+  const occupied = await db.select({
+    position: searchBoostsTable.position,
+    businessId: searchBoostsTable.businessId,
+    expiresAt: searchBoostsTable.expiresAt,
+  })
+    .from(searchBoostsTable)
+    .where(and(
+      eq(searchBoostsTable.boostContext, "home_search"),
+      eq(searchBoostsTable.status, "active"),
+      or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+    ));
+
+  const positions = [1, 2, 3].map(pos => {
+    const occ = occupied.find(o => o.position === pos);
+    return {
+      position: pos,
+      price: HOME_SEARCH_POSITION_PRICES_BRL[pos],
+      occupied: !!occ,
+      mine: occ?.businessId === lojista.businessId,
+      expiresAt: occ?.expiresAt || null,
+    };
+  });
+
+  // currentBoost considera tanto vaga numerada (position 1..3) quanto legacy (sem position).
+  const myCurrent = occupied.find(o => o.businessId === lojista.businessId);
+
+  res.json({
+    plan: planType,
+    eligible,
+    requiredPlan: "premium",
+    positions,
+    currentBoost: myCurrent ? {
+      position: myCurrent.position,
+      expiresAt: myCurrent.expiresAt,
+    } : null,
+  });
+});
+
+router.post("/lojista/boosts/home-search-checkout", lojistaAuth, async (req: Request, res: Response) => {
+  const lojista = (req as any).lojista as LojistaPayload;
+  const { position } = req.body as { position?: number };
+
+  if (!position || ![1, 2, 3].includes(position)) {
+    res.status(400).json({ error: "Posição inválida (1 a 3)" });
+    return;
+  }
+
+  const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const planType = biz.planType || "free";
+  if (planType !== "premium") {
+    res.status(403).json({
+      error: "Boost Home + Busca é exclusivo para o plano Premium",
+      code: "PLAN_REQUIRED",
+      requiredPlan: "premium",
+    });
+    return;
+  }
+
+  // Bloqueia comprar se já tem QUALQUER boost home_search ativo (numerado ou legacy)
+  const existing = await db.select().from(searchBoostsTable).where(and(
+    eq(searchBoostsTable.businessId, lojista.businessId),
+    eq(searchBoostsTable.boostContext, "home_search"),
+    or(eq(searchBoostsTable.status, "active"), eq(searchBoostsTable.status, "waitlist")),
+  ));
+  if (existing.length > 0) {
+    res.status(400).json({ error: "Você já tem um boost Home + Busca ativo", code: "BOOST_EXISTS" });
+    return;
+  }
+
+  // Posição já ocupada por outro lojista?
+  const occupied = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(
+    eq(searchBoostsTable.boostContext, "home_search"),
+    eq(searchBoostsTable.position, position),
+    eq(searchBoostsTable.status, "active"),
+    or(isNull(searchBoostsTable.expiresAt), gt(searchBoostsTable.expiresAt, new Date())),
+  ));
+  if (occupied.length > 0) {
+    res.status(409).json({ error: `Posição ${position}º já está ocupada`, code: "POSITION_TAKEN" });
+    return;
+  }
+
+  const priceId = HOME_SEARCH_POSITION_PRICE_IDS[position];
+  if (!priceId) {
+    res.status(500).json({
+      error: `Price ID não configurado para posição ${position}. Defina STRIPE_HOME_SEARCH_POS_${position}_PRICE_ID.`,
+    });
+    return;
+  }
+
+  const [existingSub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, lojista.businessId));
+  let customerId = existingSub?.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: lojista.email,
+      name: biz.name,
+      metadata: { businessId: String(lojista.businessId) },
+    });
+    customerId = customer.id;
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${FRONTEND_URL}/lojista/boost?hs_success=1&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${FRONTEND_URL}/lojista/boost?hs_cancelled=1`,
+    metadata: {
+      businessId: String(lojista.businessId),
+      boostContext: "home_search",
+      position: String(position),
+    },
+    payment_intent_data: {
+      metadata: {
+        businessId: String(lojista.businessId),
+        boostContext: "home_search",
         position: String(position),
       },
     },
