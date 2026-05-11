@@ -135,11 +135,19 @@ export default function Busca() {
   const { data: categoriesData } = useListCategories();
   const categories = categoriesData?.data ?? [];
 
-  const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
+  const [dynamicRegions, setDynamicRegions] = useState<string[]>([
+    "Centro", "Zona Norte", "Zona Sul", "Zona Leste", "Zona Oeste",
+  ]);
   useEffect(() => {
-    fetch(`${API_BASE}/api/regions`)
+    fetch(`${API_BASE}/api/zones`)
       .then(r => r.json())
-      .then(d => setDynamicRegions(d.data || []))
+      .then(d => {
+        const names = (d.data || [])
+          .filter((z: any) => z.active !== false)
+          .map((z: any) => z.name)
+          .filter(Boolean);
+        if (names.length) setDynamicRegions(names);
+      })
       .catch(() => {});
   }, []);
 
