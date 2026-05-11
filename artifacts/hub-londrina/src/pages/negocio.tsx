@@ -507,8 +507,9 @@ export default function Negocio() {
         {/* Hero — banner full-bleed com Voltar/Favoritar flutuando sobre a foto.
             Removido strip marrom redundante (nome do negócio já aparece logo abaixo). */}
         <div className="bg-white dark:bg-gray-800 shadow-sm">
-          {/* Banner com badges flutuantes */}
-          <div className="relative max-w-7xl mx-auto">
+          {/* Banner com badges flutuantes — FULL-BLEED (sem max-w-7xl) pra
+              cobrir a tela inteira. Badges/logo ancoram nas bordas da foto. */}
+          <div className="relative w-full">
             {/* Voltar — botão flutuante com fundo escuro e backdrop-blur pra contraste em qualquer foto */}
             <button
               onClick={() => navigate("/busca")}
@@ -537,7 +538,7 @@ export default function Negocio() {
               // Capa: lojista sobe banner em "Fotos" (bannerUrl). Fallback para photoUrl (capa antiga).
               const heroImg = imgSrc((business as any).bannerUrl || business.photoUrl);
               return (
-                <div className="aspect-[16/10] md:aspect-[21/9] max-h-[420px] overflow-hidden">
+                <div className="w-full h-[220px] sm:h-[300px] md:h-[380px] lg:h-[420px] overflow-hidden">
                   {heroImg ? (
                     <img src={heroImg} alt={business.name} className="w-full h-full object-cover" />
                   ) : (
@@ -554,8 +555,9 @@ export default function Negocio() {
               <span className="font-medium opacity-60 text-[10px]">({business.reviewsCount})</span>
             </div>
 
-            {/* Logo flutuante na borda inferior esquerda */}
-            <div className="absolute -bottom-12 left-5 md:left-8 z-10">
+            {/* Logo flutuante na borda inferior esquerda — alinhado com o
+                container max-w-7xl do conteúdo abaixo via inner wrapper. */}
+            <div className="absolute -bottom-12 left-4 md:left-8 lg:left-[max(2rem,calc((100vw-80rem)/2+2rem))] z-10">
               <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white shadow-md flex items-center justify-center border-[3px] border-white overflow-hidden">
                 {(business as any).logoUrl ? (
                   <img
@@ -573,10 +575,11 @@ export default function Negocio() {
               </div>
             </div>
 
-            {/* Premium badge — flutua sobre a divisa banner/conteúdo (deslocado pra esquerda
-                pra não brigar com o rating no canto inferior direito). */}
+            {/* Premium badge — sobre a divisa banner/conteúdo, ancorado à
+                direita do banner (full-bleed) com offset pra não colidir com
+                o rating no canto inferior. */}
             {business.planType === "premium" && (
-              <div className="absolute -bottom-3 right-24 md:right-32">
+              <div className="absolute -bottom-3 right-4 md:right-8 lg:right-[max(2rem,calc((100vw-80rem)/2+2rem))]">
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full ring-1 ring-amber-100 shadow-sm">
                   <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Premium
                 </span>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { CheckCircle2, XCircle, Clock, Loader2, FileText, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Loader2, FileText, AlertTriangle, ChevronDown, Eye } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -163,6 +163,7 @@ export default function AdminDocumentacao() {
                 <div key={item.businessId} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                   <button
                     onClick={() => setOpenId(isOpen ? null : item.businessId)}
+                    aria-expanded={isOpen}
                     className="w-full p-4 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors text-left"
                   >
                     <div className="min-w-0 flex-1">
@@ -184,7 +185,7 @@ export default function AdminDocumentacao() {
                         {item.ownerName} · {item.ownerEmail} · CNPJ {item.cnpj || "—"}
                       </p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="flex items-center gap-3 flex-shrink-0">
                       {item.documentationStatus !== "approved" && (
                         <span
                           className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
@@ -201,6 +202,19 @@ export default function AdminDocumentacao() {
                           {daysLeft <= 0 ? "expirado" : `${daysLeft}d restantes`}
                         </span>
                       )}
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+                          isOpen
+                            ? "bg-[#d97706] text-white border-[#d97706]"
+                            : "bg-white text-[#d97706] border-[#d97706]/30 hover:bg-[#d97706]/5"
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        {item.documents.length > 0
+                          ? `Ver ${item.documents.length} ${item.documents.length === 1 ? "documento" : "documentos"}`
+                          : "Sem documentos"}
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                      </span>
                     </div>
                   </button>
 
