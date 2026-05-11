@@ -1,12 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, User, Image, ShoppingBag, BarChart3, Lock, CreditCard, Star, Zap, LogOut, Menu, X, FileText, AlertTriangle, HelpCircle, Instagram } from "lucide-react";
+import { LayoutDashboard, User, ShoppingBag, BarChart3, Lock, CreditCard, Star, Zap, LogOut, Menu, X, FileText, AlertTriangle, HelpCircle, Instagram } from "lucide-react";
 import { clearToken, lojistaFetch } from "@/lib/lojista-api";
 import { useEffect, useState } from "react";
 
 const links = [
   { href: "/lojista", label: "Dashboard", icon: LayoutDashboard },
   { href: "/lojista/perfil", label: "Perfil", icon: User },
-  { href: "/lojista/fotos", label: "Fotos", icon: Image },
   { href: "/lojista/documentacao", label: "Documentação", icon: FileText },
   { href: "/lojista/produtos", label: "Produtos", icon: ShoppingBag },
   { href: "/lojista/instagram", label: "Instagram", icon: Instagram },

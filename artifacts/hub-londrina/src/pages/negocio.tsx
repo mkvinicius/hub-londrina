@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Layout } from "@/components/Layout";
@@ -74,6 +75,149 @@ interface PublicProduct {
   videoUrl: string | null;
   videoStatus: string | null;
   instagramReelUrl: string | null;
+  quantity: number | null;
+}
+
+function BusinessProdutos({
+  businessId,
+  businessName,
+  whatsapp,
+}: {
+  businessId: number;
+  businessName: string;
+  whatsapp: string | null | undefined;
+}) {
+  const BASE = (import.meta as any).env?.VITE_API_URL || "";
+  const { data, isLoading } = useQuery<{ data: PublicProduct[] }>({
+    queryKey: ["/api/businesses", businessId, "products"],
+    queryFn: () => fetch(`${BASE}/api/businesses/${businessId}/products`).then(r => r.json()),
+    enabled: Number.isFinite(businessId),
+  });
+
+  const products = data?.data ?? [];
+  const [selected, setSelected] = useState<PublicProduct | null>(null);
+
+  const waBase = whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, "")}` : null;
+  const waHrefFor = (item: PublicProduct) => {
+    // Prioriza link sanitizado do produto; senão monta a partir do whatsapp do negócio.
+    const safeLink = (() => {
+      if (!item.whatsappLink) return null;
+      try {
+        const u = new URL(item.whatsappLink);
+        if (u.protocol !== "https:") return null;
+        const h = u.hostname.toLowerCase();
+        return (h === "wa.me" || h === "api.whatsapp.com" || h === "whatsapp.com") ? u.toString() : null;
+      } catch { return null; }
+    })();
+    if (safeLink) return safeLink;
+    if (!waBase) return null;
+    const qtyTxt = item.quantity != null ? ` (quantidade: ${item.quantity})` : "";
+    return `${waBase}?text=${encodeURIComponent(`Olá! Tenho interesse em *${item.name}*${qtyTxt} que vi no Hub Londrina (${businessName}).`)}`;
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Produtos</h2>
+        {products.length > 0 && (
+          <span className="text-xs text-gray-400 font-medium">Toque para ver detalhes</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" style={{ height: 200 }} />
+          ))}
+        </div>
+      ) : products.length === 0 ? (
+        <div className="text-center py-10 text-gray-400">
+          <p className="text-sm">Este negócio ainda não cadastrou produtos.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {products.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelected(p)}
+              className="text-left rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+            >
+              <div className="aspect-square w-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                {p.mediaUrl ? (
+                  <img
+                    src={imgSrc(p.mediaUrl)}
+                    alt={p.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+                )}
+              </div>
+              <div className="p-3">
+                <p className="font-bold text-sm text-[#3a2512] dark:text-gray-100 line-clamp-2 leading-tight">{p.name}</p>
+                {p.price && (
+                  <p className="text-[#d97706] font-black text-sm mt-1">R$ {p.price}</p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          {selected && (
+            <>
+              <div className="aspect-square w-full bg-gray-100 dark:bg-gray-800">
+                {selected.mediaUrl ? (
+                  <img src={imgSrc(selected.mediaUrl)} alt={selected.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+                )}
+              </div>
+              <div className="p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{selected.name}</DialogTitle>
+                  <DialogDescription className="sr-only">Detalhes do produto {selected.name}</DialogDescription>
+                </DialogHeader>
+                {selected.price && (
+                  <p className="text-[#d97706] font-black text-2xl mt-2">R$ {selected.price}</p>
+                )}
+                <p className="text-gray-600 dark:text-gray-300 text-sm mt-3 leading-relaxed whitespace-pre-line">
+                  {selected.description?.trim() || "Sem descrição"}
+                </p>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mt-4">
+                  Quantidade disponível:{" "}
+                  <span className="font-black text-[#3a2512] dark:text-white">
+                    {selected.quantity != null ? selected.quantity : "Sob consulta"}
+                  </span>
+                </p>
+                {(() => {
+                  const href = waHrefFor(selected);
+                  if (!href) return (
+                    <p className="mt-5 text-sm text-gray-400 italic">WhatsApp não disponível para este produto.</p>
+                  );
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-5 w-full flex items-center justify-center gap-2 bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white font-black px-4 py-3 rounded-xl shadow-[0_6px_16px_-4px_rgba(34,197,94,0.55)] hover:brightness-110 transition-all"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      Comprar pelo WhatsApp
+                    </a>
+                  );
+                })()}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
 
 // Renderiza embeds do Instagram via blockquote oEmbed.
@@ -411,7 +555,7 @@ export default function Negocio() {
   useEffect(() => {
     if (!id || !Number.isFinite(id)) navigate("/");
   }, []);
-  const [activeTab, setActiveTab] = useState("fotos");
+  const [activeTab, setActiveTab] = useState("produtos");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -762,23 +906,12 @@ export default function Negocio() {
             {/* Left — Tabs */}
             <div className="lg:col-span-2 space-y-6">
               {(() => {
-                // Galeria pode vir tanto do array `photos` (uploads novos via LojistaFotos)
-                // quanto do `photoUrl` legado (seed antigo / capa única).
-                const galleryPhotos = [
-                  ...((business as any).photos ?? []).filter((p: any) => typeof p === "string" && p),
-                  ...(business.photoUrl && !((business as any).photos ?? []).includes(business.photoUrl) ? [business.photoUrl] : []),
-                ];
-                const hasFotos = galleryPhotos.length > 0;
-                // Se não tem fotos, cai para "sobre" como aba default
-                const effectiveTab = activeTab === "fotos" && !hasFotos ? "sobre" : activeTab;
                 return (
-              <Tabs value={effectiveTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
-                  {hasFotos && (
-                    <TabsTrigger value="fotos" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
-                      Fotos
-                    </TabsTrigger>
-                  )}
+                  <TabsTrigger value="produtos" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
+                    Produtos
+                  </TabsTrigger>
                   <TabsTrigger value="vitrine" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Vitrine
                   </TabsTrigger>
@@ -806,25 +939,9 @@ export default function Negocio() {
                   </div>
                 </TabsContent>
 
-                {hasFotos && (
-                  <TabsContent value="fotos" className="focus-visible:outline-none">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                      <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-4">Galeria de Fotos</h2>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {galleryPhotos.map((url: string, i: number) => (
-                          <div key={i} className="aspect-square rounded-xl overflow-hidden">
-                            <img
-                              src={imgSrc(url)}
-                              alt={`${business.name} — foto ${i + 1}`}
-                              loading="lazy"
-                              className="w-full h-full object-cover hover:scale-105 transition-transform"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </TabsContent>
-                )}
+                <TabsContent value="produtos" className="focus-visible:outline-none">
+                  <BusinessProdutos businessId={business.id} businessName={business.name} whatsapp={business.whatsapp} />
+                </TabsContent>
 
                 <TabsContent value="vitrine" className="focus-visible:outline-none">
                   <BusinessVitrine businessId={business.id} businessName={business.name} whatsapp={business.whatsapp} />

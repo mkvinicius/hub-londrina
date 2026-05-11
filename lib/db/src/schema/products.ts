@@ -38,6 +38,7 @@ export const productsTable = pgTable(
     whatsappLink: text("whatsapp_link"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    quantity: integer("quantity"),
     // R11 — Vitrine de Produtos
     videoUrl: text("video_url"),
     instagramReelUrl: text("instagram_reel_url"),

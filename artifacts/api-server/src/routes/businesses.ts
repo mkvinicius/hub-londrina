@@ -307,6 +307,7 @@ router.get("/businesses/:id/products", validateId, async (req: Request, res: Res
       videoStatus: productsTable.videoStatus,
       instagramReelUrl: productsTable.instagramReelUrl,
       sortOrder: productsTable.sortOrder,
+      quantity: productsTable.quantity,
     })
     .from(productsTable)
     .where(and(eq(productsTable.businessId, id), eq(productsTable.isActive, true)))

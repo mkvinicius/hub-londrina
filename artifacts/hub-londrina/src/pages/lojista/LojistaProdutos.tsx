@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo } from "@/lib/lojista-api";
 import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle } from "lucide-react";
-import { LockedFeature } from "@/components/LockedFeature";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -20,6 +19,7 @@ interface Product {
   videoStatus: "none" | "pending" | "approved" | "rejected" | null;
   videoRejectionReason: string | null;
   instagramReelUrl: string | null;
+  quantity: number | null;
 }
 
 export default function LojistaProdutos() {
@@ -28,7 +28,7 @@ export default function LojistaProdutos() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "" });
   const [vitrineUploading, setVitrineUploading] = useState(false);
   const vitrineFileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -51,23 +51,16 @@ export default function LojistaProdutos() {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
   }
 
-  if (profile?.planType === "free") {
-    return (
-      <LojistaLayout>
-        <h1 className="text-2xl font-black text-gray-800 mb-6">Produtos</h1>
-        <LockedFeature planRequired="destaque" currentPlan={profile?.planType || "free"} message="Vitrine de Produtos disponível nos planos Destaque e Premium">
-          <div />
-        </LockedFeature>
-      </LojistaLayout>
-    );
-  }
-
-  const PRODUCT_LIMITS: Record<string, number> = { destaque: 10, premium: 999 };
+  // Limites de produtos por plano: Gratuito=0, Base/Destaque=6, Premium=10.
+  // Plano Gratuito não pode criar novos produtos, mas pode editar/excluir
+  // os que foram migrados do antigo upload de fotos.
+  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
   const productLimit = PRODUCT_LIMITS[profile?.planType] ?? 0;
   const reachedLimit = products.length >= productLimit;
+  const isFree = profile?.planType === "free";
 
   function resetForm() {
-    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "" });
+    setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "" });
     setShowForm(false);
     setEditId(null);
     setMediaMode("url");
@@ -84,6 +77,7 @@ export default function LojistaProdutos() {
       whatsappLink: p.whatsappLink || "",
       videoUrl: p.videoUrl || "",
       instagramReelUrl: p.instagramReelUrl || "",
+      quantity: p.quantity != null ? String(p.quantity) : "",
     });
     setEditId(p.id);
     setShowForm(true);
@@ -213,7 +207,10 @@ export default function LojistaProdutos() {
         )}
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        {products.length}/{productLimit === 999 ? "ilimitado" : productLimit} produtos cadastrados
+        {products.length}/{productLimit} produtos cadastrados
+        {isFree && (
+          <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Faça upgrade</a> para cadastrar produtos (Base: 6 · Premium: 10)</>
+        )}
         {profile?.planType === "destaque" && (
           <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Upgrade para Premium</a> para cadastrar mais</>
         )}
@@ -240,9 +237,21 @@ export default function LojistaProdutos() {
               <label className="block text-sm font-bold text-gray-700 mb-1">Preço (R$)</label>
               <input value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="49.90" className={inputCls} />
             </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Quantidade disponível</label>
+              <input
+                type="number"
+                min="0"
+                value={form.quantity}
+                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                placeholder="Ex: 10 (deixe em branco se ilimitado)"
+                className={inputCls}
+              />
+              <p className="text-xs text-gray-500 mt-1">Aparece para o cliente no perfil público.</p>
+            </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
-              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className={inputCls} />
+              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Sem descrição" className={inputCls} />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-gray-700 mb-2">Mídia do Produto</label>

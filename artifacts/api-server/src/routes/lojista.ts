@@ -529,7 +529,7 @@ function sanitizeWhatsappLink(raw: unknown): string | null {
 
 router.post("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
-  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl, instagramReelUrl } = req.body;
+  const { name, description, price, mediaUrl, mediaType, whatsappLink, videoUrl, instagramReelUrl, quantity } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "Nome do produto é obrigatório" });
@@ -551,13 +551,18 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
   }
 
   const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType === "free") {
-    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType || "free" });
+  if (!biz) {
+    res.status(404).json({ error: "Negócio não encontrado" });
     return;
   }
 
-  const PRODUCT_LIMITS: Record<string, number> = { destaque: 10, premium: 999 };
+  // Limites de produtos/vitrine por plano: Gratuito=0, Base/Destaque=6, Premium=10.
+  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
   const limit = PRODUCT_LIMITS[biz.planType] ?? 0;
+  if (limit === 0) {
+    res.status(403).json({ error: "Cadastro de produtos disponível nos planos Base e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz.planType });
+    return;
+  }
   const [{ count: existing }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(productsTable)
@@ -571,6 +576,9 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
     });
     return;
   }
+
+  const parsedQty = quantity === undefined || quantity === null || quantity === "" ? null : Number.parseInt(String(quantity), 10);
+  const safeQty = parsedQty !== null && Number.isFinite(parsedQty) && parsedQty >= 0 ? parsedQty : null;
 
   const [product] = await db
     .insert(productsTable)
@@ -586,6 +594,7 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
       instagramReelUrl: canonicalReel,
       // R11 — vídeo entra como pending; admin precisa aprovar antes de aparecer na vitrine
       videoStatus: videoUrl ? "pending" : "none",
+      quantity: safeQty,
     })
     .returning();
 
@@ -601,12 +610,7 @@ router.patch("/lojista/products/reorder", async (req: Request, res: Response) =>
     return;
   }
 
-  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType === "free") {
-    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType });
-    return;
-  }
-
+  // Reorder permitido em qualquer plano (incluindo Gratuito) para gerenciar produtos migrados.
   await Promise.all(
     items.map((item) =>
       db
@@ -623,16 +627,21 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
   const { businessId } = (req as any).lojista;
   const id = parseInt(req.params.id, 10);
 
-  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType === "free") {
-    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType });
-    return;
-  }
-
-  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl", "instagramReelUrl"];
+  // Lojista pode editar/deletar produtos existentes mesmo no plano Gratuito
+  // (caso tenha produtos migrados do antigo upload de fotos).
+  const allowed = ["name", "description", "price", "mediaUrl", "mediaType", "whatsappLink", "isActive", "sortOrder", "videoUrl", "instagramReelUrl", "quantity"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  if ("quantity" in updates) {
+    const v = updates.quantity;
+    if (v === null || v === "") {
+      updates.quantity = null;
+    } else {
+      const n = Number.parseInt(String(v), 10);
+      updates.quantity = Number.isFinite(n) && n >= 0 ? n : null;
+    }
   }
   if ("whatsappLink" in updates) {
     const sanitized = sanitizeWhatsappLink(updates.whatsappLink);
@@ -683,12 +692,7 @@ router.delete("/lojista/products/:id", validateId, async (req: Request, res: Res
   const { businessId } = (req as any).lojista;
   const id = parseInt(req.params.id, 10);
 
-  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz || biz.planType === "free") {
-    res.status(403).json({ error: "Vitrine de produtos disponível nos planos Destaque e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz?.planType });
-    return;
-  }
-
+  // Lojista pode sempre deletar seus próprios produtos (incluindo plano Gratuito).
   const result = await db
     .delete(productsTable)
     .where(and(eq(productsTable.id, id), eq(productsTable.businessId, businessId)))
