@@ -589,8 +589,10 @@ export default function Negocio() {
           </div>
 
           {/* Identificação + descrição destacada */}
-          <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-6">
-            <div className="flex items-center gap-2 flex-wrap mb-3">
+          <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-8">
+
+            {/* Linha de meta-tags: categoria · localização · selos */}
+            <div className="flex items-center gap-2 flex-wrap mb-4">
               {business.category && (
                 <span className="text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2.5 py-1 rounded-full uppercase tracking-wider">
                   {business.category.name}
@@ -633,15 +635,45 @@ export default function Negocio() {
               })}
             </div>
 
-            <h1 className="font-['Playfair_Display'] font-black text-2xl md:text-3xl text-[#3a2512] dark:text-gray-100 leading-tight">
-              {business.name}
-            </h1>
+            {/* Nome + mini stats de reputação em linha */}
+            <div className="flex flex-wrap items-end gap-4 mb-6">
+              <h1 className="font-['Playfair_Display'] font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100 leading-tight">
+                {business.name}
+              </h1>
+              {business.reviewsCount > 0 && (
+                <div className="flex items-center gap-3 mb-1 pb-0.5">
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-4 h-4 ${s <= Math.round(Number(business.rating)) ? "fill-amber-400 text-amber-400" : "fill-gray-200 text-gray-200"}`}
+                      />
+                    ))}
+                    <span className="ml-1 text-sm font-black text-[#3a2512] dark:text-gray-200">{business.rating}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">·</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                    {business.reviewsCount} {business.reviewsCount === 1 ? "avaliação" : "avaliações"}
+                  </span>
+                </div>
+              )}
+            </div>
 
+            {/* Descrição redesenhada — borda esquerda com acento + aspas decorativas */}
             {business.description && (
-              <div className="mt-4 bg-gradient-to-br from-[#FFF8E7] to-[#FFE9C2] border border-[#FFD479] rounded-2xl p-4 md:p-5 max-w-3xl">
-                <p className="text-[14px] md:text-[15px] text-[#3a2512] leading-snug">
-                  {business.description}
-                </p>
+              <div className="relative max-w-2xl">
+                {/* Aspas decorativas */}
+                <span
+                  aria-hidden
+                  className="absolute -top-3 -left-1 font-['Playfair_Display'] text-6xl leading-none text-[#d97706]/20 dark:text-[#d97706]/15 select-none pointer-events-none"
+                >
+                  "
+                </span>
+                <div className="pl-5 border-l-4 border-[#d97706]/40 dark:border-[#d97706]/30">
+                  <p className="text-[15px] md:text-[16px] text-[#4a3020] dark:text-gray-300 leading-relaxed font-medium italic">
+                    {business.description}
+                  </p>
+                </div>
               </div>
             )}
           </div>
