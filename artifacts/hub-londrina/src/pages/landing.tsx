@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, ArrowRight, Quote,
-  CheckCircle2, ChevronDown
+  CheckCircle2, ChevronDown, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
@@ -213,6 +213,47 @@ export default function Landing() {
     navigate(`/busca?${params.toString()}`);
   }
 
+  // ─── Autocomplete (mesmo /api/autocomplete da página /busca: Patrocinados primeiro) ───
+  interface AcItem { id: number; name: string; categorySlug: string }
+  const [acSponsored, setAcSponsored] = useState<AcItem[]>([]);
+  const [acSuggestions, setAcSuggestions] = useState<AcItem[]>([]);
+  const [acOpen, setAcOpen] = useState(false);
+  const acRef = useRef<HTMLDivElement>(null);
+  const acTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
+
+  const fetchAutocomplete = useCallback((q: string) => {
+    if (q.length < 2) { setAcSponsored([]); setAcSuggestions([]); setAcOpen(false); return; }
+    if (acTimer.current) clearTimeout(acTimer.current);
+    acTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setAcSponsored(data.sponsored || []);
+        setAcSuggestions(data.suggestions || []);
+        setAcOpen((data.sponsored?.length || data.suggestions?.length) > 0);
+      } catch {
+        setAcOpen(false);
+      }
+    }, 250);
+  }, [API_BASE]);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (acRef.current && !acRef.current.contains(e.target as Node)) setAcOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function selectAcItem(name: string) {
+    setQuery(name);
+    setAcOpen(false);
+    const params = new URLSearchParams({ q: name });
+    if (region && region !== "Todas as regiões" && !ZONE_REDIRECT[region]) params.set("regiao", region);
+    navigate(`/busca?${params.toString()}`);
+  }
+
   return (
     <Layout>
       {/* ===== HERO SECTION ===== */}
@@ -253,7 +294,7 @@ export default function Landing() {
           </p>
 
           {/* Search bar */}
-          <div className="w-full max-w-3xl">
+          <div className="w-full max-w-3xl" ref={acRef}>
             <div
               className="flex flex-col sm:flex-row overflow-visible relative z-40 rounded-2xl p-1.5 gap-1.5"
               style={{
@@ -262,17 +303,70 @@ export default function Landing() {
               }}
             >
               {/* Text input */}
-              <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
+              <div className="relative flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
                 <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
                 <input
                   type="text"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => { setQuery(e.target.value); fetchAutocomplete(e.target.value); }}
+                  onFocus={() => { if (query.length >= 2 && (acSponsored.length || acSuggestions.length)) setAcOpen(true); }}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   placeholder="Restaurante, salão, mecânica..."
                   className="flex-1 text-base text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
                 />
               </div>
+
+              {/* Autocomplete dropdown — Patrocinados primeiro, depois sugestões */}
+              {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
+                <div
+                  className="absolute left-1.5 right-1.5 top-full mt-2 bg-white rounded-2xl border border-gray-100 overflow-hidden text-left"
+                  style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08)", zIndex: 50 }}
+                >
+                  {acSponsored.length > 0 && (
+                    <>
+                      <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
+                        <Zap className="h-3 w-3 text-amber-500" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Patrocinados</span>
+                      </div>
+                      {acSponsored.map(item => {
+                        const Icon = getCategoryIcon(item.categorySlug);
+                        return (
+                          <button key={`sp-${item.id}`} type="button" onMouseDown={() => selectAcItem(item.name)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
+                            <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                  {acSponsored.length > 0 && acSuggestions.length > 0 && (
+                    <div className="mx-4 border-t border-gray-100" />
+                  )}
+                  {acSuggestions.length > 0 && (
+                    <>
+                      {acSponsored.length > 0 && (
+                        <div className="px-4 pt-2 pb-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Sugestões</span>
+                        </div>
+                      )}
+                      {acSuggestions.map(item => {
+                        const Icon = getCategoryIcon(item.categorySlug);
+                        return (
+                          <button key={`sg-${item.id}`} type="button" onMouseDown={() => selectAcItem(item.name)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                            <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
+                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                  <div className="h-2" />
+                </div>
+              )}
 
               {/* Region dropdown */}
               <div className="relative flex-shrink-0">
