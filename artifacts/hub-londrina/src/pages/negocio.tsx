@@ -112,7 +112,7 @@ function BusinessProdutos({
     if (safeLink) return safeLink;
     if (!waBase) return null;
     const qtyTxt = item.quantity != null ? ` (quantidade: ${item.quantity})` : "";
-    return `${waBase}?text=${encodeURIComponent(`Olá! Tenho interesse em *${item.name}*${qtyTxt} que vi no Hub Londrina (${businessName}).`)}`;
+    return `${waBase}?text=${encodeURIComponent(`Olá! Tenho interesse em ${item.name}${qtyTxt} que vi no Hub Londrina.`)}`;
   };
 
   return (
@@ -207,7 +207,7 @@ function BusinessProdutos({
                       className="mt-5 w-full flex items-center justify-center gap-2 bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white font-black px-4 py-3 rounded-xl shadow-[0_6px_16px_-4px_rgba(34,197,94,0.55)] hover:brightness-110 transition-all"
                     >
                       <MessageCircle className="h-5 w-5" />
-                      Comprar pelo WhatsApp
+                      Comprar via WhatsApp
                     </a>
                   );
                 })()}
