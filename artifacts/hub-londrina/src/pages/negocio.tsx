@@ -19,6 +19,7 @@ import {
 } from "@workspace/api-client-react";
 import { BusinessCard } from "@/components/BusinessCard";
 import { useSeo } from "@/lib/seo";
+import { getAutoBadges } from "@/lib/badges";
 
 // B2 — vídeo da vitrine: só toca quando ≥50% visível na viewport.
 // Reduz CPU/battery em listas grandes e em tabs em background.
@@ -600,11 +601,36 @@ export default function Negocio() {
                 {business.region}, Londrina - PR
               </span>
               {business.verified && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                <span
+                  title="Selo manual: documentação aprovada pela equipe Hub Londrina."
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 cursor-help"
+                >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Verificado
                 </span>
               )}
+              {getAutoBadges({
+                rating: business.rating,
+                reviewsCount: business.reviewsCount,
+                createdAt: (business as any).createdAt,
+              }).map((b) => {
+                const Icon = b.icon;
+                const tone =
+                  b.tone === "blue" ? "text-blue-700 bg-blue-50 ring-blue-100" :
+                  b.tone === "purple" ? "text-violet-700 bg-violet-50 ring-violet-100" :
+                  b.tone === "green" ? "text-emerald-700 bg-emerald-50 ring-emerald-100" :
+                  "text-teal-700 bg-teal-50 ring-teal-100";
+                return (
+                  <span
+                    key={b.key}
+                    title={b.tooltip}
+                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ring-1 cursor-help ${tone}`}
+                  >
+                    <Icon className="w-3 h-3" />
+                    {b.label}
+                  </span>
+                );
+              })}
             </div>
 
             <h1 className="font-['Playfair_Display'] font-black text-2xl md:text-3xl text-[#3a2512] dark:text-gray-100 leading-tight">

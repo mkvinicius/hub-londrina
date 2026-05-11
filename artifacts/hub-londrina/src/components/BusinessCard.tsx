@@ -6,15 +6,14 @@ import {
   Crown,
   MessageCircle,
   ArrowRight,
-  ThumbsUp,
   CheckCircle2,
-  Trophy,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { imgSrc } from "@/lib/utils";
 import type { Business } from "@workspace/api-client-react";
 import type { LucideIcon } from "lucide-react";
+import { getAutoBadges } from "@/lib/badges";
 
 interface BusinessCardProps {
   business: Business;
@@ -22,20 +21,8 @@ interface BusinessCardProps {
   showDistance?: boolean;
 }
 
-function getBemAvaliado(business: Business): boolean {
-  return business.rating >= 4.7 && business.reviewsCount >= 10;
-}
-
-function getMaisAvaliado(business: Business): boolean {
-  return business.reviewsCount >= 20;
-}
-
-function getVerificado(business: Business): boolean {
-  return business.rating >= 4.5 && business.reviewsCount >= 5;
-}
-
 // Família visual unificada das pílulas (fundo claro + texto/ícone do tom).
-type PillTone = "orange" | "gold" | "green" | "blue" | "purple";
+type PillTone = "orange" | "gold" | "green" | "blue" | "purple" | "teal";
 
 const PILL_TONE: Record<PillTone, string> = {
   orange: "text-orange-700 bg-orange-50 ring-1 ring-orange-100",
@@ -43,22 +30,26 @@ const PILL_TONE: Record<PillTone, string> = {
   green: "text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100",
   blue: "text-blue-700 bg-blue-50 ring-1 ring-blue-100",
   purple: "text-violet-700 bg-violet-50 ring-1 ring-violet-100",
+  teal: "text-teal-700 bg-teal-50 ring-1 ring-teal-100",
 };
 
 function Pill({
   icon: Icon,
   label,
   tone,
+  tooltip,
   className = "",
 }: {
   icon: LucideIcon;
   label: string;
   tone: PillTone;
+  tooltip?: string;
   className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${PILL_TONE[tone]} ${className}`}
+      title={tooltip}
+      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${PILL_TONE[tone]} ${tooltip ? "cursor-help" : ""} ${className}`}
     >
       <Icon className="h-2.5 w-2.5" />
       {label}
@@ -76,10 +67,15 @@ function getInitials(name: string): string {
 
 export function BusinessCard({ business: biz, size = "md", showDistance = false }: BusinessCardProps) {
   const [, navigate] = useLocation();
-  const bemAvaliado = getBemAvaliado(biz);
-  const maisAvaliado = getMaisAvaliado(biz);
-  const verificado = getVerificado(biz) && !bemAvaliado && !maisAvaliado;
+  const autoBadges = getAutoBadges({
+    rating: biz.rating,
+    reviewsCount: biz.reviewsCount,
+    createdAt: (biz as any).createdAt,
+  });
   const isPremium = biz.planType === "premium";
+  // Selo "Verificado" manual concedido pela equipe — separado dos selos
+  // automáticos calculados por reputação (Confiável/Bem Avaliado/etc).
+  const verificadoManual = biz.verified === true;
   const isPatrocinado = (biz as any).boostInfo?.isActive === true;
   const isImpulsionado = !isPatrocinado && (biz as any)._boostBadge === "Impulsionado";
 
@@ -153,10 +149,31 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
           <span className="inline-block text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
             {biz.categorySlug}
           </span>
-          {isPremium && <Pill icon={Crown} label="Premium" tone="gold" />}
-          {verificado && <Pill icon={CheckCircle2} label="Verificado" tone="green" />}
-          {bemAvaliado && <Pill icon={ThumbsUp} label="Bem Avaliado" tone="blue" />}
-          {maisAvaliado && <Pill icon={Trophy} label="Mais Avaliado" tone="purple" />}
+          {isPremium && (
+            <Pill
+              icon={Crown}
+              label="Premium"
+              tone="gold"
+              tooltip="Negócio assinante do plano Premium do Hub Londrina."
+            />
+          )}
+          {verificadoManual && (
+            <Pill
+              icon={CheckCircle2}
+              label="Verificado"
+              tone="green"
+              tooltip="Selo manual: documentação aprovada pela equipe Hub Londrina."
+            />
+          )}
+          {autoBadges.map((b) => (
+            <Pill
+              key={b.key}
+              icon={b.icon}
+              label={b.label}
+              tone={b.tone}
+              tooltip={b.tooltip}
+            />
+          ))}
         </div>
 
         <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight tracking-tight">

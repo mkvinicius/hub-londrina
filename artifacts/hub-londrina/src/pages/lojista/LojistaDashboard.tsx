@@ -4,6 +4,7 @@ import { getProfile, getMetrics, lojistaFetch } from "@/lib/lojista-api";
 import { imgSrc } from "@/lib/utils";
 import { Eye, MessageCircle, Phone, AlertTriangle, Zap, ArrowRight, Clock, CheckCircle2, RefreshCw, XCircle, Star } from "lucide-react";
 import { Link } from "wouter";
+import { getAutoBadges } from "@/lib/badges";
 
 type PaymentStatus = "idle" | "syncing" | "success" | "failed";
 
@@ -253,6 +254,45 @@ export default function LojistaDashboard() {
                 })()}
               </span>
             </div>
+            {/* Selos automáticos conquistados — calculados pelos mesmos
+                limiares que aparecem nos cards públicos. Se vazio, mostra
+                hint do que falta pra conquistar o primeiro. */}
+            {(() => {
+              const badges = getAutoBadges({
+                rating: profile?.rating,
+                reviewsCount: profile?.reviewsCount,
+                createdAt: profile?.createdAt,
+              });
+              if (badges.length === 0) {
+                return (
+                  <p className="text-xs text-gray-400 mt-2">
+                    💡 Conquiste o selo <strong>Confiável</strong> com nota ≥ 4.5 e pelo menos 5 avaliações.
+                  </p>
+                );
+              }
+              return (
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {badges.map((b) => {
+                    const Icon = b.icon;
+                    const tone =
+                      b.tone === "blue" ? "text-blue-700 bg-blue-50 ring-blue-100" :
+                      b.tone === "purple" ? "text-violet-700 bg-violet-50 ring-violet-100" :
+                      b.tone === "green" ? "text-emerald-700 bg-emerald-50 ring-emerald-100" :
+                      "text-teal-700 bg-teal-50 ring-teal-100";
+                    return (
+                      <span
+                        key={b.key}
+                        title={b.tooltip}
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ring-1 cursor-help ${tone}`}
+                      >
+                        <Icon className="w-3 h-3" />
+                        {b.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
