@@ -1,0 +1,63 @@
+Leia o context.md e RULES.md. Implemente textos explicativos e bloqueios visuais no painel do lojista e no painel admin. Não altere nenhuma regra de negócio, só adicione textos e melhorias visuais.
+
+PARTE 1 — Painel do Lojista: LojistaBoost.tsx
+
+Para cada produto de impulsionamento, adicionar texto explicativo ANTES do botão de compra explicando o que o produto faz e onde aparece no site:
+
+Vitrine de Produtos: "Seu vídeo aparece no carrossel da página inicial do Hub Londrina, visto por todos os visitantes. Ótimo para negócios com produtos visuais como restaurantes, lojas e estúdios."
+
+Vagas Mensais (autocomplete): "Quando alguém digita no campo de busca, seu negócio aparece como sugestão antes dos concorrentes. Quanto mais alta a posição, mais visível você fica. Ideal para quem quer capturar clientes no momento em que estão procurando."
+
+Destaque Home + Busca: "Seu negócio aparece numa seção especial de destaque tanto na página inicial quanto nos resultados de busca. Alta visibilidade para quem ainda não sabe o que está procurando."
+
+Destaque de Zona: "Seu negócio aparece em destaque na página da sua região (ex: Zona Sul). Perfeito para negócios locais que atendem um bairro específico."
+
+Banner Home: "Uma imagem do seu negócio ocupa o topo da página inicial do Hub Londrina. O maior destaque disponível na plataforma. Sujeito a aprovação."
+
+Para produtos bloqueados (só Premium):
+- Mostrar o card normalmente com o texto explicativo
+- Sobrepor badge "Exclusivo Premium" em laranja
+- Botão desabilitado cinza com texto "Disponível no plano Premium"
+- Abaixo do botão: link discreto "Fazer upgrade para Premium →" que leva para /lojista/plano
+
+Para produtos disponíveis para Destaque:
+- Mostrar normalmente sem bloqueio
+
+Para lojista Gratuito:
+- Mostrar todos os produtos bloqueados
+- Badge "Disponível no plano Base" ou "Disponível no plano Premium" conforme o caso
+- Texto motivacional: "Faça upgrade e comece a aparecer para mais clientes"
+
+PARTE 2 — Painel Admin: AdminImpulsionamento.tsx
+
+Adicionar um painel de ajuda colapsável no topo da página com título "Como funcionam os impulsionamentos?" contendo:
+
+Vitrine de Produtos: "Carrossel de vídeos na home. 4 slots fixos pagos (R$49/mês, só Premium) + rotação aleatória entre Premium com vídeo aprovado. Requer aprovação do admin."
+
+Vagas Mensais 1º ao 5º: "Posições no autocomplete de busca. Quem está em 1º aparece primeiro quando alguém digita. Preços de R$149 (1º) a R$59 (5º). Só Premium pode comprar. Randômico se não houver concorrência."
+
+Boost Avulso: "Destaque temporário na busca geral por 7, 15 ou 30 dias. Aparece abaixo das vagas mensais. Qualquer plano pode comprar."
+
+Destaque Home + Busca: "Seção especial na home e na busca. 6 vagas simultâneas. R$149/mês. Só Premium. Fila de espera automática quando cheio."
+
+Boost Direto Manual: "Ativado pelo admin manualmente sem pagamento. Use para bonificações, parcerias ou testes. Não cobra o cliente."
+
+Destaque de Zona: "Aparece em destaque na página da zona do negócio (/sul, /norte etc). 6 vagas por zona. R$79/mês. Só empresas da zona podem comprar."
+
+Banner Home: "Imagem full-width no topo da home. 2 vagas. R$299/mês. Requer aprovação do admin antes de ir ao ar."
+
+Painel deve ser colapsável — começa fechado, botão "Ver explicações" abre, botão "Fechar" fecha. CSS simples sem biblioteca.
+
+PARTE 3 — Painel Admin: todas as seções de impulsionamento
+
+Em cada seção do AdminImpulsionamento.tsx, adicionar uma linha de texto muted pequena (12px, cor secundária) logo abaixo do título da seção, resumindo em 1 linha o que aquela seção faz. Exemplo:
+
+Vitrine de Produtos → "4 slots fixos pagos na home + rotação Premium"
+Vagas Mensais → "Posições no autocomplete de busca — 1º ao 5º lugar"
+Boost Avulso → "Destaque temporário por dias — qualquer plano"
+Destaque Home+Busca → "Seção especial na home e busca — 6 vagas Premium"
+Boost Direto → "Ativação manual pelo admin — sem cobrança"
+Destaque de Zona → "Destaque na página da zona — 6 vagas por zona"
+Banner Home → "Imagem full-width na home — 2 vagas com aprovação"
+
+Após tudo: cd ~/workspace/artifacts/api-server && pnpm build. Retornar relatório do que foi alterado.

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch, getAdminVitrinePending, getAdminVitrineBoosts, approveVitrineVideo, rejectVitrineVideo, type AdminVitrinePending, type AdminVitrineBoost } from "@/lib/admin-api";
-import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket, Home, Video, Check, AlertTriangle } from "lucide-react";
+import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket, Home, Video, Check, AlertTriangle, ChevronDown, Info, MapPin, Image as ImageIcon } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -260,6 +260,7 @@ export default function AdminImpulsionamento() {
   const [directBizSearch, setDirectBizSearch] = useState("");
   const [bizSearch, setBizSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -443,6 +444,70 @@ export default function AdminImpulsionamento() {
 
   return (
     <AdminLayout>
+      {/* ── PAINEL DE AJUDA: Como funcionam os impulsionamentos? ─────── */}
+      <section className="mb-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setHelpOpen(v => !v)}
+          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+          aria-expanded={helpOpen}
+        >
+          <span className="flex items-center gap-2.5 text-sm font-bold text-gray-800">
+            <Info className="w-4 h-4 text-[#d97706]" />
+            Como funcionam os impulsionamentos?
+          </span>
+          <ChevronDown
+            className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${helpOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+        {helpOpen && (
+          <div className="px-5 pb-5 pt-1 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-700 leading-relaxed">
+            <div className="bg-amber-50/40 border border-amber-100 rounded-xl p-3">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <Video className="w-3.5 h-3.5 text-[#FF9800]" /> Vitrine de Produtos
+              </p>
+              <p>4 slots fixos pagos no carrossel da home. Lojistas enviam vídeos curtos do produto e o admin aprova/rejeita antes de publicar. Excedentes vão para waitlist.</p>
+            </div>
+            <div className="bg-amber-50/40 border border-amber-100 rounded-xl p-3">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <Crown className="w-3.5 h-3.5 text-amber-500" /> Vagas Mensais (1ª a 5ª)
+              </p>
+              <p>5 posições mensais por categoria que aparecem no autocomplete de busca. Preço fixo por posição (1ª = R$149, decrescendo até R$59). Exclusivo Premium. Sobras viram waitlist.</p>
+            </div>
+            <div className="bg-orange-50/40 border border-orange-100 rounded-xl p-3">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <Flame className="w-3.5 h-3.5 text-orange-500" /> Boost Avulso
+              </p>
+              <p>Compra esporádica por 7/15/30 dias (R$29/R$49/R$79). Adicionado manualmente pelo admin (lojista solicita por WhatsApp). Aparece junto às Vagas Mensais.</p>
+            </div>
+            <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-3">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <Home className="w-3.5 h-3.5 text-indigo-500" /> Destaque Home + Busca
+              </p>
+              <p>6 slots globais com 3 posições numeradas. Aparecem no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente.</p>
+            </div>
+            <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-3">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <Rocket className="w-3.5 h-3.5 text-purple-500" /> Boost Direto (Manual)
+              </p>
+              <p>Ferramenta exclusiva do admin para destacar um negócio sem cobrança (ex: cortesia, promoção interna, premiação). Sobrescreve <code>boostedUntil</code> direto no <code>businesses</code>.</p>
+            </div>
+            <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-3">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" /> Destaque de Zona
+              </p>
+              <p>6 vagas por zona (Centro/Norte/Sul/Leste/Oeste) que destacam o negócio na página da região por 30 dias (R$79). Disponível para planos Destaque e Premium. Gerenciado em "Zonas".</p>
+            </div>
+            <div className="bg-rose-50/40 border border-rose-100 rounded-xl p-3 md:col-span-2">
+              <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
+                <ImageIcon className="w-3.5 h-3.5 text-rose-500" /> Banner na Home
+              </p>
+              <p>O maior destaque da plataforma: imagem ocupa o topo da home (máx. 2 simultâneos, R$299/mês). Exclusivo Premium e sujeito a aprovação do admin antes de publicar. Gerenciado em "Banners da Home".</p>
+            </div>
+          </div>
+        )}
+      </section>
+
       <AdminVitrineSection />
 
       <div className="flex items-center justify-between mb-6">
@@ -463,10 +528,13 @@ export default function AdminImpulsionamento() {
 
       {/* ── VAGAS MENSAIS ─────────────────────── */}
       <div className="mb-8">
-        <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           <Crown className="w-5 h-5 text-amber-500" />
           Vagas Mensais — {5 - availablePositions.length}/5 ocupadas
         </h2>
+        <p className="text-xs text-gray-500 mt-0.5 ml-7 mb-3">
+          5 posições no autocomplete de busca. Preço fixo por posição. Exclusivo Premium.
+        </p>
 
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
@@ -522,7 +590,7 @@ export default function AdminImpulsionamento() {
 
       {/* ── BOOSTS AVULSOS ─────────────────────── */}
       <div className="mb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-1 gap-2">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Flame className="w-5 h-5 text-orange-500" />
             Boosts Avulsos Ativos
@@ -534,6 +602,9 @@ export default function AdminImpulsionamento() {
             <Plus className="w-4 h-4 inline mr-1" />Adicionar Avulso
           </button>
         </div>
+        <p className="text-xs text-gray-500 mt-0.5 ml-7 mb-3">
+          Compra esporádica por 7/15/30 dias. Lojista solicita via WhatsApp e admin adiciona aqui.
+        </p>
 
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
@@ -726,7 +797,7 @@ export default function AdminImpulsionamento() {
 
       {/* ── DESTAQUE HOME + BUSCA ─────────────────────── */}
       <div className="mb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-1 gap-2">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Home className="w-5 h-5 text-indigo-500" />
             Destaque Home + Busca — {homeSearch.length}/{HS_MAX} ocupados
@@ -740,6 +811,9 @@ export default function AdminImpulsionamento() {
             </button>
           )}
         </div>
+        <p className="text-xs text-gray-500 mt-0.5 ml-7 mb-3">
+          6 slots globais que aparecem na home e em todas as buscas. Exclusivo Premium.
+        </p>
 
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
@@ -844,7 +918,7 @@ export default function AdminImpulsionamento() {
 
       {/* ── BOOST DIRETO ─────────────────────── */}
       <div className="mt-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-1 gap-2">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Rocket className="w-5 h-5 text-purple-500" />
             Boost Direto — Manual
@@ -857,6 +931,9 @@ export default function AdminImpulsionamento() {
             {showAddDirect ? "Fechar" : "Adicionar Direto"}
           </button>
         </div>
+        <p className="text-xs text-gray-500 mt-0.5 ml-7 mb-3">
+          Cortesia/promoção interna sem cobrança. Sobrescreve <code>boostedUntil</code> direto no negócio.
+        </p>
 
         {showAddDirect && (
           <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 sm:p-6 mb-4">

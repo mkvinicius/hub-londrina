@@ -302,12 +302,23 @@ export default function LojistaBoost() {
                     <MapPin className="w-6 h-6" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base font-bold text-gray-800">Destaque de Zona</h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-base font-bold text-gray-800">Destaque de Zona</h3>
+                      {!availability.zoneAvailability.eligible && (
+                        <span className="text-[10px] font-black text-white bg-[#d97706] px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                          Exclusivo Destaque+
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600 mt-0.5">
                       Apareça em destaque na <strong style={{ color: zoneColor }}>Zona {zoneLabel}</strong> por 30 dias
                     </p>
                   </div>
                 </div>
+
+                <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">
+                  Seu negócio aparece em destaque na página da sua região (ex: Zona Sul). Perfeito para negócios locais que atendem um bairro específico.
+                </p>
 
                 <div className="mt-2 mb-4 px-3 py-2 bg-gray-50 rounded-lg text-sm flex items-center justify-between">
                   <span className="text-gray-600">Vagas disponíveis</span>
@@ -384,12 +395,23 @@ export default function LojistaBoost() {
                     <Star className="w-6 h-6 fill-amber-500 text-amber-500" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base font-bold text-gray-800">Destaque Home + Busca</h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-base font-bold text-gray-800">Destaque Home + Busca</h3>
+                      {!hsPositions.eligible && (
+                        <span className="text-[10px] font-black text-white bg-[#d97706] px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                          Exclusivo Premium
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600 mt-0.5">
                       3 posições numeradas. <strong>1ª lugar garantido</strong> no autocomplete da home, da busca e em "Destaques para você".
                     </p>
                   </div>
                 </div>
+
+                <p className="text-xs text-gray-700 leading-relaxed bg-white/70 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+                  Seu negócio aparece numa seção especial de destaque tanto na página inicial quanto nos resultados de busca. Alta visibilidade para quem ainda não sabe o que está procurando.
+                </p>
 
                 {!hsPositions.eligible && (
                   <div className="mb-3 px-3 py-2 bg-amber-100/60 border border-amber-200 rounded-lg text-xs text-amber-800">
@@ -478,11 +500,27 @@ export default function LojistaBoost() {
               <ImageIcon className="w-6 h-6 text-[#d97706]" />
             </div>
             <div className="flex-1">
-              <h3 className="font-bold text-gray-800 text-base">Banner na Home</h3>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-bold text-gray-800 text-base">Banner na Home</h3>
+                {planType !== "premium" && (
+                  <span className="text-[10px] font-black text-white bg-[#d97706] px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap md:hidden">
+                    Exclusivo Premium
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 mt-0.5">Apareça em destaque na página inicial • máx. 2 lojistas simultâneos</p>
             </div>
+            {planType !== "premium" && (
+              <span className="text-[10px] font-black text-white bg-[#d97706] px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap hidden md:inline-block">
+                Exclusivo Premium
+              </span>
+            )}
             <span className="text-lg font-black text-[#d97706] whitespace-nowrap">R$299/mês</span>
           </div>
+
+          <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">
+            Uma imagem do seu negócio ocupa o topo da página inicial do Hub Londrina. O maior destaque disponível na plataforma. Sujeito a aprovação.
+          </p>
 
           {homeBanner && homeBanner.status === "pending_review" && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-center gap-2 text-sm text-amber-800">
@@ -598,13 +636,24 @@ export default function LojistaBoost() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
           <div className="flex items-start gap-2 mb-4">
             <Crown className="w-5 h-5 text-amber-500 mt-0.5" />
-            <div>
-              <h3 className="text-base font-bold text-gray-800">Boost de Categoria</h3>
+            <div className="flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-base font-bold text-gray-800">Vagas Mensais (Boost de Categoria)</h3>
+                {planType !== "premium" && (
+                  <span className="text-[10px] font-black text-white bg-[#d97706] px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                    Exclusivo Premium
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500 mt-0.5">
                 5 posições mensais por categoria. Compra direta no cartão (Premium).
               </p>
             </div>
           </div>
+
+          <p className="text-xs text-gray-700 leading-relaxed bg-amber-50/60 border border-amber-100 rounded-lg px-3 py-2 mb-4">
+            Quando alguém digita no campo de busca, seu negócio aparece como sugestão antes dos concorrentes. Quanto mais alta a posição, mais visível você fica. Ideal para quem quer capturar clientes no momento em que estão procurando.
+          </p>
 
           {catPositions && !catPositions.eligible && (
             <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
