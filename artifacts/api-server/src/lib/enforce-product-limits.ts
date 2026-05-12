@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { businessesTable, productsTable } from "@workspace/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
 
@@ -73,15 +73,19 @@ export async function enforceProductLimitForBusiness(
   const excess = activeProducts.length - limit;
   const idsToDeactivate = activeProducts.slice(0, excess).map((p) => p.id);
 
+  // Drizzle serializa array de 1 elemento como literal escalar (ex: `51`)
+  // em vez de array Postgres (`{51}`), o que faz `= ANY(...)` quebrar com
+  // "malformed array literal". Para n=1, usar `eq` direto. Para n>1, `inArray`
+  // monta `IN ($1, $2, ...)` corretamente.
+  const idCondition =
+    idsToDeactivate.length === 1
+      ? eq(productsTable.id, idsToDeactivate[0])
+      : inArray(productsTable.id, idsToDeactivate);
+
   await db
     .update(productsTable)
     .set({ isActive: false })
-    .where(
-      and(
-        eq(productsTable.businessId, businessId),
-        sql`${productsTable.id} = ANY(${idsToDeactivate})`,
-      ),
-    );
+    .where(and(eq(productsTable.businessId, businessId), idCondition));
 
   await db
     .update(businessesTable)
