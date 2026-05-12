@@ -7,7 +7,7 @@ import { startDocumentationJob } from "./lib/documentation-job";
 import { startSubscriptionJob } from "./lib/subscription-job";
 import { startSubscriptionReminderJob } from "./lib/subscription-reminder-job";
 import { ensureViews } from "./lib/startup-views";
-import { healPaidInvisibleBusinesses } from "./lib/startup-heal";
+import { healPaidInvisibleBusinesses, healOverflowingProductLimits } from "./lib/startup-heal";
 import fs from "fs";
 import path from "path";
 
@@ -54,6 +54,7 @@ initSentry()
   .then(() => runStartupSeed())
   .then(() => ensureViews())
   .then(() => healPaidInvisibleBusinesses())
+  .then(() => healOverflowingProductLimits())
   .then(() => {
     app.listen(port, (err) => {
       if (err) {
