@@ -86,13 +86,22 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
   // sem add-on cobrado por enquanto). Cai pra foto se não houver vídeo.
   const videoSrc = isPremium ? imgSrc((biz as any).videoUrl) : null;
 
-  const bannerH = size === "sm" ? "h-48" : "h-56";
-  const logoSize = size === "sm" ? "w-20 h-20" : "w-[88px] h-[88px]";
-  const logoOffset = size === "sm" ? "-top-10" : "-top-11";
+  // Card com tamanho FIXO. Sem isso, cards num grid ficam desalinhados
+  // quando o conteúdo varia (1 vs 5 badges, descrição curta vs longa).
+  const bannerH = size === "sm" ? "h-56" : "h-64";
+  const logoSize = size === "sm" ? "w-24 h-24" : "w-[104px] h-[104px]";
+  // Offset menor = logo mais "descida" pra dentro da área branca.
+  const logoOffset = size === "sm" ? "-top-8" : "-top-9";
+  const cardMinH = size === "sm" ? "min-h-[480px]" : "min-h-[540px]";
+
+  // Apenas as 3 badges mais relevantes pro usuário decidir rápido:
+  // Premium (status pago), Verificado (selo manual), e a melhor automática
+  // (Mais Avaliado / Bem Avaliado / Confiável — prioridade vem do helper).
+  const visibleAutoBadge = autoBadges[0];
 
   return (
     <div
-      className="group bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg dark:hover:shadow-gray-900/50 transition-all duration-300 cursor-pointer flex flex-col"
+      className={`group bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg dark:hover:shadow-gray-900/50 transition-all duration-300 cursor-pointer flex flex-col ${cardMinH}`}
       onClick={() => navigate(`/negocio/${biz.id}`)}
     >
       {/* Banner com rating + favorito */}
@@ -157,13 +166,16 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
         </div>
       </div>
 
-      {/* Conteúdo centralizado — ordem: nome → badges → descrição */}
-      <div className={`pt-12 px-5 pb-5 flex flex-col flex-grow text-center ${size === "sm" ? "pt-10" : ""}`}>
-        <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight tracking-tight">
+      {/* Conteúdo centralizado — ordem: nome → badges (máx 3) → descrição → região → botão.
+          pt grande pra dar espaço pra logo (104px) descida -top-9 = ~68px invadindo a área branca. */}
+      <div className={`px-5 pb-5 flex flex-col flex-grow text-center ${size === "sm" ? "pt-16" : "pt-20"}`}>
+        <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight tracking-tight line-clamp-1">
           {biz.name}
         </h3>
 
-        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-2">
+        {/* Linha única de badges: categoria + até 3 selos prioritários
+            (Premium → Verificado → 1 selo automático). Mantém altura fixa. */}
+        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-2 min-h-[22px]">
           <span className="inline-block text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
             {biz.categorySlug}
           </span>
@@ -183,24 +195,24 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
               tooltip="Selo manual: documentação aprovada pela equipe Hub Londrina."
             />
           )}
-          {autoBadges.map((b) => (
+          {visibleAutoBadge && (
             <Pill
-              key={b.key}
-              icon={b.icon}
-              label={b.label}
-              tone={b.tone}
-              tooltip={b.tooltip}
+              icon={visibleAutoBadge.icon}
+              label={visibleAutoBadge.label}
+              tone={visibleAutoBadge.tone}
+              tooltip={visibleAutoBadge.tooltip}
             />
-          ))}
+          )}
         </div>
 
-        {biz.description && (
-          <p className="text-gray-500 dark:text-gray-400 text-xs mt-2 line-clamp-2 leading-snug">
-            {biz.description}
-          </p>
-        )}
+        {/* Descrição com altura reservada (2 linhas) — padroniza altura
+            entre cards mesmo quando o lojista não escreveu nada. */}
+        <p className="text-gray-500 dark:text-gray-400 text-xs mt-3 line-clamp-2 leading-snug min-h-[2.25rem]">
+          {biz.description ?? ""}
+        </p>
 
-        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-medium mt-3 mb-4">
+        {/* Região fixada perto do botão via mt-auto + pequeno espaço (mb-2) */}
+        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-medium mt-auto mb-2">
           <MapPin className="h-3.5 w-3.5 text-[#d97706] flex-shrink-0" />
           {biz.region}
           {showDistance && (biz as any).distanceKm !== undefined && (
