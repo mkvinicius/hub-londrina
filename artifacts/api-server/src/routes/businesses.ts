@@ -164,7 +164,7 @@ router.get("/businesses", async (req: Request, res: Response) => {
       } else {
         avulsoBoosted.push(enriched);
       }
-    } else if (biz.boostedUntil && new Date(biz.boostedUntil).getTime() > now) {
+    } else if (rawBiz.boostedUntil && new Date(rawBiz.boostedUntil).getTime() > now) {
       directBoosted.push({ ...biz, boostPosition: null, boostInfo: null, _boostBadge: "Impulsionado" });
     } else if (biz.planType === "premium") {
       premium.push({ ...biz, boostPosition: null, boostInfo: null });
@@ -578,7 +578,11 @@ router.get("/home-featured", async (_req: Request, res: Response) => {
       eq(businessesTable.isVisible, true),
     ));
 
-  const ordered = ids.map(id => businesses.find(b => b.id === id)).filter(Boolean);
+  // Pentest fix — sanitizar PII/internos antes de devolver publicamente.
+  const ordered = ids
+    .map(id => businesses.find(b => b.id === id))
+    .filter((b): b is NonNullable<typeof b> => Boolean(b))
+    .map(b => stripPrivateBusinessFields(b));
   res.json({ data: ordered });
 });
 

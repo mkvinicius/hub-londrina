@@ -1,0 +1,52 @@
+Leia o context.md e RULES.md. Corrija as vulnerabilidades de segurança identificadas no pentest. Execute em ordem de prioridade. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build.
+
+CRÍTICO 1 — /api/businesses expondo dados internos sensíveis
+Em artifacts/api-server/src/routes/businesses.ts, no endpoint GET /api/businesses e GET /api/businesses/:id (público), remover dos campos retornados:
+- ownerEmail, ownerName, ownerPhone (dados pessoais do dono)
+- cnpj, razaoSocial (dados fiscais)
+- planFrozen, rejectionReason (dados internos)
+- boostedUntil, homeFeatured, zoneFeatured (dados internos de boost)
+- createdAt (data interna)
+
+Manter públicos apenas: id, name, description, address, phone, whatsapp, categorySlug, zone, region, isVisible, planType, logoUrl, bannerUrl, photos, tags, rating, reviewsCount, lat, lng, instagram, website, openingHours, videoUrl
+
+Dados internos (email dono, CNPJ, etc) só devem ser retornados em rotas autenticadas: GET /api/lojista/profile e GET /api/admin/businesses/:id.
+
+CRÍTICO 2 — Rate limiting no /api/admin/login
+Em artifacts/api-server/src/routes/admin.ts, adicionar rate limiter específico para POST /api/admin/login:
+- Máximo 10 tentativas por IP em 15 minutos
+- Após limite: retornar 429 com mensagem "Muitas tentativas. Tente novamente em 15 minutos."
+- Usar express-rate-limit (já instalado no projeto)
+
+ALTO 1 — Security headers faltando
+Em artifacts/api-server/src/app.ts, adicionar middleware de security headers logo após os imports, antes de qualquer rota:
+
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://maps.googleapis.com; frame-src https://js.stripe.com; object-src 'none'");
+  res.removeHeader('X-Powered-By');
+  next();
+});
+
+ALTO 2 — Rate limiting nos endpoints sensíveis
+Em artifacts/api-server/src/routes/lojista.ts verificar se POST /api/lojista/login já tem rate limiter. Se não tiver, adicionar: máximo 10 tentativas por IP em 15 minutos.
+
+Em artifacts/api-server/src/routes/auth.ts verificar se GET /api/auth/csrf-token tem rate limiter. Se não tiver, adicionar: máximo 60 requests por IP por minuto (é chamado frequentemente mas não deve ser abusado).
+
+MÉDIO 1 — Remover stack fingerprinting
+Em artifacts/api-server/src/app.ts adicionar após os headers:
+app.disable('x-powered-by');
+
+Em server.mjs remover ou ofuscar qualquer header que identifique a stack.
+
+MÉDIO 2 — CSRF token sem rate limit
+Já coberto no ALTO 2 acima.
+
+APÓS TUDO:
+cd ~/workspace/artifacts/api-server && pnpm build
+
+Retornar relatório detalhado de cada correção com smoke test. Para o CRÍTICO 1, mostrar exemplo do JSON retornado antes e depois para confirmar que dados sensíveis foram removidos.

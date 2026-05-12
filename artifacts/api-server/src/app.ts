@@ -10,6 +10,33 @@ import { captureException } from "./lib/sentry";
 const app: Express = express();
 
 app.set("trust proxy", 1);
+// Pentest fix — não expor "X-Powered-By: Express" (stack fingerprinting).
+app.disable("x-powered-by");
+
+// Pentest fix — security headers em todas as respostas.
+// CSP libera Stripe (js + frames + api) e Google Maps (api), inline scripts
+// para os <script> de SSR/JSON-LD/hydration injetados pelo server.mjs.
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://api.stripe.com https://maps.googleapis.com https://viacep.com.br https://brasilapi.com.br",
+      "frame-src https://js.stripe.com",
+      "object-src 'none'",
+    ].join("; "),
+  );
+  next();
+});
 
 app.use(
   pinoHttp({

@@ -2,9 +2,23 @@ import rateLimit from "express-rate-limit";
 
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   message: {
-    error: "Muitas tentativas de login. Tente novamente em 15 minutos.",
+    error: "Muitas tentativas. Tente novamente em 15 minutos.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Pentest fix — proteção contra abuso do endpoint de CSRF token.
+// É chamado em cada navegação SPA antes de POSTs com cookie, então
+// 60/min/IP cobre uso legítimo com folga.
+export const csrfTokenLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: {
+    error: "Muitas requisições. Tente novamente em breve.",
     code: "TOO_MANY_REQUESTS",
   },
   standardHeaders: true,

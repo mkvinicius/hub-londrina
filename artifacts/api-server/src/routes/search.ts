@@ -197,7 +197,7 @@ router.get("/search", async (req, res) => {
       } else {
         avulsoBoosted.push(enriched);
       }
-    } else if (biz.boostedUntil && new Date(biz.boostedUntil).getTime() > now) {
+    } else if (rawBiz.boostedUntil && new Date(rawBiz.boostedUntil).getTime() > now) {
       directBoosted.push({ ...biz, boostInfo: null, _boostBadge: "Impulsionado" });
     } else if (biz.planType === "premium") {
       premium.push({ ...biz, boostInfo: null });

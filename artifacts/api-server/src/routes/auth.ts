@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomBytes } from "crypto";
-import { registerLimiter, cnpjLimiter } from "../middleware/rateLimiter";
+import { registerLimiter, cnpjLimiter, csrfTokenLimiter } from "../middleware/rateLimiter";
 import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
@@ -15,7 +15,7 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for auth routes
 
 const router: IRouter = Router();
 
-router.get("/auth/csrf-token", (req: Request, res: Response) => {
+router.get("/auth/csrf-token", csrfTokenLimiter, (req: Request, res: Response) => {
   const token = generateCsrfToken();
   res.cookie("csrf-token", token, {
     httpOnly: false,
