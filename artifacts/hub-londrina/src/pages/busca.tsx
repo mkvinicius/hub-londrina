@@ -20,7 +20,9 @@ interface AcItem { id: number; name: string; categorySlug: string }
 
 export default function Busca() {
   const [, navigate] = useLocation();
-  const searchParams = new URLSearchParams(window.location.search);
+  const searchParams = new URLSearchParams(
+    typeof window !== "undefined" ? window.location.search : "",
+  );
 
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [region, setRegion] = useState(searchParams.get("regiao") ?? "");
