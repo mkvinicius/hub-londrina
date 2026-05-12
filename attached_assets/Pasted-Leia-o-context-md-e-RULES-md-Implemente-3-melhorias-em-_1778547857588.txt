@@ -1,0 +1,53 @@
+Leia o context.md e RULES.md. Implemente 3 melhorias em paralelo. Após alterações de backend rode cd ~/workspace/artifacts/api-server && pnpm build.
+
+MELHORIA 1 — Destaque de Categoria (novo produto)
+
+Backend em artifacts/api-server/src/routes/businesses.ts ou novo arquivo:
+GET /api/categories/:slug/featured — retorna até 3 negócios com boost ativo nessa categoria (boostContext='category', status='active'). Usado pela página de busca quando categoria está selecionada.
+
+Backend em artifacts/api-server/src/routes/boosts.ts:
+POST /api/lojista/boosts/category-featured-checkout — cria Stripe Checkout mode:payment para destaque de categoria. Body: { categorySlug }. Só Destaque e Premium podem comprar. Verifica se já tem boost ativo na categoria. Máximo 3 vagas por categoria. Se cheio, entra em waitlist. Price ID: usar STRIPE_BOOST_CAT_1_PRICE_ID por enquanto (R$99). success_url: /lojista/boost?cat_featured_success=1&session_id={CHECKOUT_SESSION_ID}
+
+GET /api/lojista/boosts/category-featured-availability?slug= — retorna vagas disponíveis na categoria do lojista e se já tem boost ativo.
+
+Webhook payment_intent.succeeded: adicionar case para type='category_featured' inserindo em search_boosts com boostContext='category', zone=categorySlug, status=active ou waitlist.
+
+Frontend em artifacts/hub-londrina/src/pages/busca.tsx:
+Quando uma categoria está selecionada, fazer fetch de /api/categories/:slug/featured. Se retornar resultados, exibir seção "Destaques em [Categoria]" no topo com badge "Patrocinado" antes dos resultados orgânicos. Mesmo visual dos destaques existentes.
+
+Frontend em artifacts/hub-londrina/src/pages/lojista/LojistaBoost.tsx:
+Adicionar nova seção "Destaque de Categoria" com: nome da categoria do negócio, vagas disponíveis (X/3), preço R$99/mês, botão "Comprar destaque" ou "Entrar na fila" ou "Ativo até [data]" conforme estado.
+
+Admin em artifacts/hub-londrina/src/pages/admin/AdminImpulsionamento.tsx:
+Adicionar seção "Destaque de Categoria" mostrando quais categorias têm slots ocupados e quais negócios estão em cada slot.
+
+MELHORIA 2 — Tooltips e especificações de mídia
+
+Em artifacts/hub-londrina/src/pages/lojista/LojistaFotos.tsx, adicionar tooltips informativos em cada campo de upload com as especificações exatas:
+
+Logo: "Tamanho recomendado: 400x400px. Formato quadrado. JPG, PNG ou WebP. Máx 15MB. Aparece no card do seu negócio e no perfil."
+
+Banner: "Tamanho recomendado: 1200x400px. Formato horizontal (3:1). JPG, PNG ou WebP. Máx 15MB. Aparece no topo da página do seu negócio."
+
+Fotos da galeria: "Tamanho recomendado: 800x600px. JPG, PNG ou WebP. Máx 15MB por foto. Aparecem na galeria do seu perfil."
+
+Em artifacts/hub-londrina/src/pages/lojista/LojistaPerfil.tsx, no campo de vídeo, adicionar tooltip: "Cole o link do YouTube ou Vimeo. O vídeo aparece na vitrine da home (Premium). Duração recomendada: até 60 segundos."
+
+Usar componente de tooltip simples com ícone de interrogação ao lado do label de cada campo. Ao passar o mouse ou tocar no mobile, exibe a dica em um balão.
+
+MELHORIA 3 — Crop de imagem antes do upload
+
+Instalar react-image-crop: cd ~/workspace/artifacts/hub-londrina && pnpm add react-image-crop
+
+Em LojistaFotos.tsx, implementar fluxo de crop:
+1. Usuário seleciona arquivo → abre modal de crop
+2. Modal mostra a imagem com ferramenta de recorte
+3. Para logo: crop fixo 1:1 (quadrado)
+4. Para banner: crop fixo 3:1 (horizontal)
+5. Para fotos da galeria: crop livre ou 4:3
+6. Botões "Recortar e enviar" e "Cancelar"
+7. Ao confirmar: converte o crop para blob e faz o upload normalmente
+
+Usar react-image-crop com ReactCrop component. Importar o CSS: import 'react-image-crop/dist/ReactCrop.css'
+
+Após tudo: cd ~/workspace/artifacts/api-server && pnpm build. Atualizar context.md. Retornar relatório completo com smoke test de cada melhoria.
