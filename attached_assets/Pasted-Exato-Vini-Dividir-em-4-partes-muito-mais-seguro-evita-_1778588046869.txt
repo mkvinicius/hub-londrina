@@ -1,0 +1,82 @@
+Exato, Vini. Dividir em 4 partes é muito mais seguro — evita alucinação e mantém o agente focado. Cada parte é autocontida e valida antes de passar pra próxima.
+
+---
+
+PARTE 1 — Vazamento de Dados da API (CRÍTICA)
+
+# CORREÇÃO PARTE 1 — Vazamento de Dados da API
+
+## ANTES DE COMEÇAR
+Leia os seguintes arquivos na ordem e entenda a estrutura do projeto:
+1. context.md
+2. replit.md
+3. rules.md
+
+Só depois de ler os 3 arquivos você pode começar as correções.
+
+---
+
+## OBJETIVO
+Corrigir as 3 vulnerabilidades CRÍTICAS de exposição de dados na API. Só mexa nos arquivos que você encontrou nos docs acima. Não invente caminhos de arquivo.
+
+---
+
+## PROBLEMA 1 — `/api/businesses` retorna tudo sem autenticação
+
+O endpoint `GET /api/businesses` está retornando 24 negócios completos com dados pessoais sensíveis (ownerName, ownerEmail, ownerPhone, cnpj, razaoSocial, lat/lng, clicks, planFrozen, etc.) SEM precisar de token.
+
+### O que fazer:
+
+PASSO 1: Encontre onde está definido o endpoint `/api/businesses` no backend. Provavelmente em `routes/api.ts` ou `routes/business.ts`.
+
+PASSO 2: Encontre o middleware de autenticação JWT existente. Provavelmente em `middleware/auth.ts`. Se não existir, crie.
+
+PASSO 3: Aplique o middleware de autenticação no endpoint `/api/businesses`. Exemplo:
+javascript
+router.get('/businesses', authenticateJWT, businessController.list);
+
+PASSO 4: Crie um endpoint PÚBLICO separado para dados do site:
+javascript
+// Este endpoint é PÚBLICO — sem auth
+router.get('/public/businesses', businessController.listPublic);
+
+PASSO 5: Na função `listPublic`, crie uma função `sanitizeBusiness` que remove campos sensíveis:
+javascript
+function sanitizeBusiness(business) {
+  const { 
+    ownerName, ownerEmail, ownerPhone, cnpj, razaoSocial, nomeFantasia,
+    clicks, whatsappClicks, planFrozen, planType, rejectionReason,
+    boostedUntil, homeFeatured, zoneFeatured, zoneFeaturedExpiresAt,
+    _boostType, _boostBadge, _boostPosition, boostInfo,
+    createdAt, updatedAt, videos, instagramPosts,
+    ...publicData 
+  } = business;
+  return {
+    ...publicData,
+    dataPublicacao: business.createdAt,
+    // campos públicos apenas
+    name: business.name,
+    description: business.description,
+    address: business.address,
+    phone: business.phone,
+    whatsapp: business.whatsapp,
+    rating: business.rating,
+    reviewsCount: business.reviewsCount,
+    verified: business.verified,
+    photoUrl: business.photoUrl,
+    hours: business.hours,
+    region: business.region,
+    categorySlug: business.categorySlug,
+    zone: business.zone,
+    cep: business.cep,
+    street: business.street,
+    neighborhood: business.neighborhood,
+    city: business.city,
+    state: business.state,
+    instagram: business.instagram,
+    website: business.website,
+    paymentMethods: business.paymentMethods,
+    tags: business.tags,
+    status: business.status,
+  };
+} (1/7)
