@@ -26,6 +26,7 @@ type Card = {
   price: string | null;
   videoUrl: string;
   photoUrl: string | null;
+  images: string[];
   whatsapp: string | null;
   businessName: string;
   fixed: boolean;
@@ -48,6 +49,7 @@ router.get("/vitrine", async (_req: Request, res: Response) => {
       price: productsTable.price,
       videoUrl: productsTable.videoUrl,
       photoUrl: productsTable.mediaUrl,
+      images: productsTable.images,
       whatsapp: businessesTable.whatsapp,
       businessName: businessesTable.name,
     })
@@ -76,6 +78,7 @@ router.get("/vitrine", async (_req: Request, res: Response) => {
       price: r.price ?? null,
       videoUrl: r.videoUrl!,
       photoUrl: r.photoUrl ?? null,
+      images: Array.isArray(r.images) ? r.images.filter((u): u is string => typeof u === "string" && u.length > 0) : [],
       whatsapp: r.whatsapp ?? null,
       businessName: r.businessName,
       fixed: true,
@@ -106,6 +109,7 @@ router.get("/vitrine", async (_req: Request, res: Response) => {
           price: productsTable.price,
           videoUrl: productsTable.videoUrl,
           photoUrl: productsTable.mediaUrl,
+          images: productsTable.images,
           whatsapp: businessesTable.whatsapp,
           businessName: businessesTable.name,
         })
@@ -125,6 +129,7 @@ router.get("/vitrine", async (_req: Request, res: Response) => {
       price: r.price ?? null,
       videoUrl: r.videoUrl!,
       photoUrl: r.photoUrl ?? null,
+      images: Array.isArray(r.images) ? r.images.filter((u): u is string => typeof u === "string" && u.length > 0) : [],
       whatsapp: r.whatsapp ?? null,
       businessName: r.businessName,
       fixed: false,

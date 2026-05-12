@@ -2,10 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Search, ArrowRight, Quote,
-  CheckCircle2, ChevronDown, Zap
+  Search, ArrowRight, ArrowLeft, Quote,
+  CheckCircle2, ChevronDown, Zap, MessageCircle, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Layout } from "@/components/Layout";
 import { useListCategories, useListBusinesses } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
@@ -34,9 +35,136 @@ interface VitrineCardData {
   price: string | null;
   videoUrl: string;
   photoUrl: string | null;
+  images: string[];
   whatsapp: string | null;
   businessName: string;
   fixed: boolean;
+}
+
+function buildVitrineWaUrl(p: VitrineCardData): string | null {
+  const waNumber = (p.whatsapp || "").replace(/\D/g, "");
+  if (!waNumber) return null;
+  const normalized = waNumber.startsWith("55") ? waNumber : `55${waNumber}`;
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(`Olá! Vi o *${p.name}* da *${p.businessName}* no Hub Londrina e tenho interesse!`)}`;
+}
+
+// R11/T9 — Modal aberto quando o produto da Vitrine tem múltiplas fotos.
+// Mostra carrossel + WhatsApp + link para o perfil do negócio. Quando o produto
+// tem só 1 foto, o card mantém o comportamento antigo (navegar para o perfil).
+function VitrineDetailModal({
+  card,
+  onClose,
+  onOpenBusiness,
+}: {
+  card: VitrineCardData | null;
+  onClose: () => void;
+  onOpenBusiness: (businessId: number) => void;
+}) {
+  const [photoIdx, setPhotoIdx] = useState(0);
+  useEffect(() => { setPhotoIdx(0); }, [card?.productId]);
+
+  const photos = card?.images ?? [];
+  const waUrl = card ? buildVitrineWaUrl(card) : null;
+
+  return (
+    <Dialog open={!!card} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden">
+        {card && (
+          <>
+            <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+              {photos.length > 0 ? (
+                <img
+                  src={imgSrc(photos[Math.min(photoIdx, photos.length - 1)])}
+                  alt={card.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : card.photoUrl ? (
+                <img src={imgSrc(card.photoUrl)} alt={card.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+              )}
+              {photos.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Foto anterior"
+                    onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)}
+                    className="absolute top-1/2 -translate-y-1/2 left-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Próxima foto"
+                    onClick={() => setPhotoIdx(i => (i + 1) % photos.length)}
+                    className="absolute top-1/2 -translate-y-1/2 right-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {photos.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        aria-label={`Ir para foto ${i + 1}`}
+                        onClick={() => setPhotoIdx(i)}
+                        className={`w-2 h-2 rounded-full transition-all ${i === photoIdx ? "bg-white w-4" : "bg-white/50"}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {photos.length > 1 && (
+              <div className="px-3 pt-3 flex gap-2 overflow-x-auto">
+                {photos.map((u, i) => (
+                  <button
+                    key={`${u}-${i}`}
+                    type="button"
+                    onClick={() => setPhotoIdx(i)}
+                    className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 ${i === photoIdx ? "border-[#d97706]" : "border-transparent opacity-70 hover:opacity-100"}`}
+                  >
+                    <img src={imgSrc(u)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="p-6">
+              <DialogHeader>
+                <span className="text-[10px] font-bold text-[#d97706] uppercase tracking-wider mb-1 block">{card.businessName}</span>
+                <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{card.name}</DialogTitle>
+                <DialogDescription className="sr-only">Detalhes do produto {card.name}</DialogDescription>
+              </DialogHeader>
+              {card.price && (
+                <p className="text-[#d97706] font-black text-2xl mt-2">R$ {card.price}</p>
+              )}
+              <div className="mt-5 flex flex-col gap-2">
+                {waUrl && (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white font-black px-4 py-3 rounded-xl shadow-[0_6px_16px_-4px_rgba(34,197,94,0.55)] hover:brightness-110 transition-all"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    Pedir no WhatsApp
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onOpenBusiness(card.businessId); }}
+                  className="w-full flex items-center justify-center gap-2 border border-[#d97706] text-[#d97706] hover:bg-[#fff5ea] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Ver perfil do negócio
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }) {
@@ -162,6 +290,8 @@ export default function Landing() {
 
   const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; imageUrl: string; linkUrl: string | null; businessId: number | null }[]>([]);
   const [bannerIdx, setBannerIdx] = useState(0);
+  // T9 — produto da Vitrine selecionado para o modal/carrossel (>1 foto).
+  const [vitrineModal, setVitrineModal] = useState<VitrineCardData | null>(null);
 
   const { data: categoriesData } = useListCategories();
   const { data: featuredData } = useListBusinesses({ sort: "rating" });
@@ -668,10 +798,27 @@ export default function Landing() {
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
               {vitrineCards.slice(0, 12).map((p) => (
-                <VitrineCard key={p.productId} p={p} onClick={() => navigate(`/negocio/${p.businessId}`)} />
+                <VitrineCard
+                  key={p.productId}
+                  p={p}
+                  onClick={() => {
+                    // T9 — múltiplas fotos → abre modal/carrossel; senão mantém
+                    // o comportamento antigo de abrir o perfil do negócio.
+                    if ((p.images?.length ?? 0) > 1) {
+                      setVitrineModal(p);
+                    } else {
+                      navigate(`/negocio/${p.businessId}`);
+                    }
+                  }}
+                />
               ))}
             </div>
           </div>
+          <VitrineDetailModal
+            card={vitrineModal}
+            onClose={() => setVitrineModal(null)}
+            onOpenBusiness={(id) => navigate(`/negocio/${id}`)}
+          />
         </section>
       )}
 

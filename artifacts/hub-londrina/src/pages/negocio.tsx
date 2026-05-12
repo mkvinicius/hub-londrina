@@ -372,6 +372,31 @@ function BusinessVitrine({
   const products = data?.data ?? [];
   const waBase = whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, "")}` : null;
 
+  // T9 — Modal/carrossel da galeria de fotos quando o produto tem >1 imagem.
+  const [selected, setSelected] = useState<PublicProduct | null>(null);
+  const [photoIdx, setPhotoIdx] = useState(0);
+  useEffect(() => { setPhotoIdx(0); }, [selected?.id]);
+  const selectedPhotos: string[] = selected
+    ? (selected.images && selected.images.length > 0
+        ? selected.images
+        : (selected.mediaUrl ? [selected.mediaUrl] : []))
+    : [];
+  const selectedWaHref = (() => {
+    if (!selected) return null;
+    const safeLink = (() => {
+      if (!selected.whatsappLink) return null;
+      try {
+        const u = new URL(selected.whatsappLink);
+        if (u.protocol !== "https:") return null;
+        const h = u.hostname.toLowerCase();
+        return (h === "wa.me" || h === "api.whatsapp.com" || h === "whatsapp.com") ? u.toString() : null;
+      } catch { return null; }
+    })();
+    if (safeLink) return safeLink;
+    if (!waBase) return null;
+    return `${waBase}?text=${encodeURIComponent(`Olá! Vi o produto *${selected.name}* da *${businessName}* no Hub Londrina e tenho interesse.`)}`;
+  })();
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-5">
@@ -420,8 +445,28 @@ function BusinessVitrine({
               || (waBase
                 ? `${waBase}?text=${encodeURIComponent(`Olá! Vi o produto *${item.name}* da *${businessName}* no Hub Londrina e tenho interesse.`)}`
                 : null);
+            // T9 — múltiplas fotos abrem modal/carrossel; com 1 só foto o card
+            // permanece visual (mantém o comportamento anterior).
+            const galleryCount = item.images?.length ?? 0;
+            const openModal = galleryCount > 1
+              ? () => setSelected(item)
+              : undefined;
             return (
-              <div key={item.id} className="relative rounded-xl overflow-hidden group cursor-pointer bg-gray-200 dark:bg-gray-700" style={{ height: 240, boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}>
+              <div
+                key={item.id}
+                className={`relative rounded-xl overflow-hidden group bg-gray-200 dark:bg-gray-700 ${openModal ? "cursor-pointer" : ""}`}
+                style={{ height: 240, boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}
+                onClick={openModal}
+                onKeyDown={openModal ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(); } } : undefined}
+                role={openModal ? "button" : undefined}
+                tabIndex={openModal ? 0 : undefined}
+                aria-label={openModal ? `Ver fotos de ${item.name}` : undefined}
+              >
+                {openModal && (
+                  <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">
+                    +{galleryCount} fotos
+                  </span>
+                )}
                 {showVideo ? (
                   <VitrineVideo src={item.videoUrl!} poster={poster} />
                 ) : poster ? (
@@ -475,6 +520,99 @@ function BusinessVitrine({
           })}
         </div>
       )}
+
+      {/* T9 — Modal/carrossel da galeria de fotos do produto da Vitrine. */}
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          {selected && (
+            <>
+              <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+                {selectedPhotos.length > 0 ? (
+                  <img
+                    src={imgSrc(selectedPhotos[Math.min(photoIdx, selectedPhotos.length - 1)])}
+                    alt={selected.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+                )}
+                {selectedPhotos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Foto anterior"
+                      onClick={() => setPhotoIdx(i => (i - 1 + selectedPhotos.length) % selectedPhotos.length)}
+                      className="absolute top-1/2 -translate-y-1/2 left-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Próxima foto"
+                      onClick={() => setPhotoIdx(i => (i + 1) % selectedPhotos.length)}
+                      className="absolute top-1/2 -translate-y-1/2 right-2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {selectedPhotos.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          aria-label={`Ir para foto ${i + 1}`}
+                          onClick={() => setPhotoIdx(i)}
+                          className={`w-2 h-2 rounded-full transition-all ${i === photoIdx ? "bg-white w-4" : "bg-white/50"}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              {selectedPhotos.length > 1 && (
+                <div className="px-3 pt-3 flex gap-2 overflow-x-auto">
+                  {selectedPhotos.map((u, i) => (
+                    <button
+                      key={`${u}-${i}`}
+                      type="button"
+                      onClick={() => setPhotoIdx(i)}
+                      className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 ${i === photoIdx ? "border-[#d97706]" : "border-transparent opacity-70 hover:opacity-100"}`}
+                    >
+                      <img src={imgSrc(u)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{selected.name}</DialogTitle>
+                  <DialogDescription className="sr-only">Detalhes do produto {selected.name}</DialogDescription>
+                </DialogHeader>
+                {selected.price && (
+                  <p className="text-[#d97706] font-black text-2xl mt-2">R$ {selected.price}</p>
+                )}
+                {selected.description?.trim() && (
+                  <p className="text-gray-600 dark:text-gray-300 text-sm mt-3 leading-relaxed whitespace-pre-line">
+                    {selected.description}
+                  </p>
+                )}
+                {selectedWaHref ? (
+                  <a
+                    href={selectedWaHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 w-full flex items-center justify-center gap-2 bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white font-black px-4 py-3 rounded-xl shadow-[0_6px_16px_-4px_rgba(34,197,94,0.55)] hover:brightness-110 transition-all"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    Pedir no WhatsApp
+                  </a>
+                ) : (
+                  <p className="mt-5 text-sm text-gray-400 italic">WhatsApp não disponível para este produto.</p>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
