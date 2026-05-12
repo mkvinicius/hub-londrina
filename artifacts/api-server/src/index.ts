@@ -64,6 +64,11 @@ initSentry()
       }
 
       logger.info({ port }, "Server listening");
+      // Pentest fix — confirma no startup que os limiters estão registrados
+      // (express-rate-limit é em memória; o log facilita auditar reset após deploy).
+      logger.info(
+        "Rate limiters ativos: admin/login, lojista/login, register, review, csrf-token, business-view, cnpj, reset-senha",
+      );
       startBoostExpirationJob();
       startDocumentationJob();
       startSubscriptionJob();

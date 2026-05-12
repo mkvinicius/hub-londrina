@@ -1002,6 +1002,17 @@ Após pagar plano na Stripe, lojista voltava ao painel mas o banner "Confirmando
 
 ---
 
+## 15.x PENTEST — FALSOS POSITIVOS DOCUMENTADOS
+
+### `X-Powered-By: Google Frontend` em produção
+Em `https://www.hublondrina.com.br/*` o response inclui `x-powered-by: Google Frontend`. **Não é o nosso Express** — `app.disable("x-powered-by")` em `artifacts/api-server/src/app.ts:14` já remove o header da aplicação, e o Express nunca emite "Google Frontend".
+
+Esse header vem do **proxy de borda do Replit/Google Cloud** (Google Frontend = GFE) que termina TLS e roteia o tráfego para o container. É infraestrutura compartilhada de hospedagem, não revela nada sobre o stack do Hub Londrina (Node/Express/Postgres) e não pode ser removido por código do app — só desligando o GFE inteiro, o que não é uma opção em PaaS.
+
+**Decisão:** marcar como falso positivo nos relatórios de pentest. A mitigação correta para "stack fingerprinting" é o que já fazemos no Express (`disable("x-powered-by")` + ausência de `Server: Express/...`).
+
+---
+
 ## 16. INSTRUÇÃO PARA O PRÓXIMO ASSISTENTE
 
 ```

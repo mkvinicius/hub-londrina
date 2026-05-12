@@ -1,0 +1,33 @@
+Leia o context.md. Corrija os 4 itens restantes do pentest. Após alterações rode cd ~/workspace/artifacts/api-server && pnpm build.
+
+CORREÇÃO 1 — Remover lat/lng, clicks e planType da API pública
+
+Em artifacts/api-server/src/lib/strip-private-business-fields.ts, adicione à lista de campos removidos:
+- lat, lng (coordenadas GPS)
+- clicks, whatsappClicks (métricas internas)
+- planType (estratégia de monetização)
+
+ATENÇÃO: verificar se o frontend usa algum desses campos para funcionalidade essencial:
+- lat/lng: usado para "perto de mim" na busca — se remover da API pública, a busca por proximidade quebra. Nesse caso, manter lat/lng mas só retornar quando o usuário solicitar busca por proximidade (?nearby=true), não em listagens gerais.
+- planType: usado nos cards para mostrar badge Premium/Destaque — se remover, os badges somem. Solução: manter planType mas renomear para tier ou badge, retornando apenas 'free', 'destaque', 'premium' sem expor detalhes internos.
+- clicks: não é usado no frontend público — pode remover sem impacto.
+
+Faça a análise e aplique a solução mais adequada para cada campo.
+
+CORREÇÃO 2 — CSP global (não só em endpoints autenticados)
+
+O CSP já existe no middleware do api-server mas o Hermes identificou que não está chegando nos endpoints públicos. Verifique em artifacts/api-server/src/app.ts se o middleware de security headers está antes de todas as rotas. Se não estiver, mova para antes de qualquer router.use().
+
+CORREÇÃO 3 — Rate limiting nos logins
+
+Confirme que os rate limiters estão funcionando em produção. Execute:
+for i in {1..12}; do curl -s -o /dev/null -w "%{http_code}\n" -X POST https://www.hublondrina.com.br/api/admin/login -H "Content-Type: application/json" -d '{"password":"errada"}'; done
+
+Se não retornar 429 após 10 tentativas, o rate limiter está resetando entre deploys (memória). Adicionar mensagem de log para confirmar que está ativo no startup:
+logger.info('Rate limiters ativos: admin/login, lojista/login, reset-senha');
+
+CORREÇÃO 4 — X-Powered-By do proxy Google Frontend
+
+Esse header vem do proxy do Replit/Google, não do código. Não é possível remover via código. Documentar no context.md como falso positivo — é o proxy da infraestrutura, não expõe stack do aplicativo.
+
+Após tudo: cd ~/workspace/artifacts/api-server && pnpm build. Retorne relatório com smoke test de cada correção.
