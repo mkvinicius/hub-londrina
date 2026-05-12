@@ -162,6 +162,11 @@ router.get("/lojista/profile", async (req: Request, res: Response) => {
     // ainda não dispensado pelo lojista. Frontend mostra banner em
     // LojistaProdutos com link para reativar.
     _productsAutoDeactivated: business.lastDowngradeDeactivatedCount ?? 0,
+    // Task #12 — quantas fotos da galeria foram ocultadas em downgrades
+    // recentes, ainda não dispensadas pelo lojista. Frontend mostra banner
+    // em LojistaProdutos com link para a página /lojista/fotos (que hoje
+    // redireciona para /lojista/produtos).
+    _photosAutoHidden: business.lastDowngradeHiddenPhotosCount ?? 0,
     _boost: boost ? {
       boostType: boost.boostType,
       position: boost.position,
@@ -508,6 +513,19 @@ router.post("/lojista/products/dismiss-deactivation-notice", async (req: Request
   await db
     .update(businessesTable)
     .set({ lastDowngradeDeactivatedCount: 0 })
+    .where(eq(businessesTable.id, businessId));
+  res.json({ ok: true });
+});
+
+// Task #12 — Dispensa o aviso "X fotos ocultadas após mudança de plano".
+// Limpa o contador acumulado em businesses.lastDowngradeHiddenPhotosCount.
+// As fotos em si continuam guardadas em businesses.hiddenPhotos para
+// possível restauração manual em upgrade futuro.
+router.post("/lojista/photos/dismiss-hidden-notice", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  await db
+    .update(businessesTable)
+    .set({ lastDowngradeHiddenPhotosCount: 0 })
     .where(eq(businessesTable.id, businessId));
   res.json({ ok: true });
 });
@@ -1360,6 +1378,10 @@ router.delete("/lojista/account", async (req: Request, res: Response) => {
       logoUrl: null,
       bannerUrl: null,
       photos: [],
+      // Task #12 — limpa também as fotos ocultadas em downgrade (LGPD).
+      hiddenPhotos: [],
+      lastDowngradeHiddenPhotosCount: 0,
+      lastDowngradeDeactivatedCount: 0,
       instagram: null,
       website: null,
       videoUrl: null,

@@ -244,6 +244,25 @@ export const emails = {
     };
   },
 
+  fotosOcultadasPorDowngrade: (nome: string, quantidade: number, plano: string, limite: number) => {
+    const planoLabel = plano === "premium" ? "Premium" : plano === "destaque" ? "Base" : "Gratuito";
+    return {
+      subject: `${quantidade} foto${quantidade === 1 ? "" : "s"} ocultada${quantidade === 1 ? "" : "s"} após mudança de plano`,
+      html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#d97706">Algumas fotos foram ocultadas</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Seu plano agora é <strong>${planoLabel}</strong>, que permite até <strong>${limite} foto${limite === 1 ? "" : "s"}</strong> na galeria do seu negócio.</p>
+        <p>Para respeitar esse limite, ocultamos automaticamente as <strong>${quantidade} foto${quantidade === 1 ? "" : "s"} mais recente${quantidade === 1 ? "" : "s"}</strong>. Os arquivos continuam guardados — apenas não aparecem mais no perfil público.</p>
+        <p>Se voltar para o plano Premium, basta restaurar as que quiser exibir no painel.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/produtos" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Gerenciar fotos</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+      `,
+    };
+  },
+
   downgradeAssinatura: (nome: string) => ({
     subject: `Sua assinatura foi cancelada — Hub Londrina`,
     html: `

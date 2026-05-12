@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
@@ -76,6 +77,15 @@ export const businessesTable = pgTable(
     // do lojista mostra um aviso e permite reativar manualmente até o limite
     // do plano atual. Limpado via POST /api/lojista/products/dismiss-deactivation-notice.
     lastDowngradeDeactivatedCount: integer("last_downgrade_deactivated_count").notNull().default(0),
+    // Task #12 — Mesma classe do contador acima, mas para fotos da galeria do
+    // negócio. Quando o plano cai (ex: premium→destaque), as fotos excedentes
+    // são MOVIDAS de `photos` para `hiddenPhotos` (não excluídas) para
+    // preservar os arquivos. Se o lojista voltar a Premium, pode reativar
+    // manualmente. `lastDowngradeHiddenPhotosCount` acumula quantas foram
+    // ocultadas desde a última visualização e zera via
+    // POST /api/lojista/photos/dismiss-hidden-notice.
+    hiddenPhotos: text("hidden_photos").array().notNull().default(sql`ARRAY[]::text[]`),
+    lastDowngradeHiddenPhotosCount: integer("last_downgrade_hidden_photos_count").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

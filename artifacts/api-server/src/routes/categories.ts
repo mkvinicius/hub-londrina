@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { categoriesTable, businessesTable, searchBoostsTable } from "@workspace/db/schema";
 import { eq, and, sql, gt, isNull, or, asc } from "drizzle-orm";
+import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 
 const router: IRouter = Router();
 
@@ -59,7 +60,8 @@ router.get("/categories/:slug/featured", async (req, res) => {
     .orderBy(asc(searchBoostsTable.position))
     .limit(3);
 
-  const data = rows.map((r) => ({ ...r.business, _boostPosition: r.position }));
+  // Task #12 — strip campos internos antes de devolver publicamente.
+  const data = rows.map((r) => ({ ...stripPrivateBusinessFields(r.business), _boostPosition: r.position }));
   res.json({ data });
 });
 

@@ -162,6 +162,11 @@ export async function dismissDeactivationNotice() {
   return lojistaFetch("/lojista/products/dismiss-deactivation-notice", { method: "POST" });
 }
 
+// Task #12 — dispensar aviso de fotos ocultadas em downgrade.
+export async function dismissHiddenPhotosNotice() {
+  return lojistaFetch("/lojista/photos/dismiss-hidden-notice", { method: "POST" });
+}
+
 export async function reorderProducts(items: Array<{ id: number; sortOrder: number }>) {
   return lojistaFetch("/lojista/products/reorder", { method: "PATCH", body: JSON.stringify(items) });
 }

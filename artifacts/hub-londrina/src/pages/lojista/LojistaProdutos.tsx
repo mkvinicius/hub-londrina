@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice } from "@/lib/lojista-api";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice, dismissHiddenPhotosNotice } from "@/lib/lojista-api";
 import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle, ArrowLeft, ArrowRight, Star } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -79,6 +79,11 @@ export default function LojistaProdutos() {
   const reachedLimit = activeCount >= productLimit;
   const isFree = profile?.planType === "free";
   const autoDeactivated = profile?._productsAutoDeactivated ?? 0;
+  // Task #12 — fotos da galeria do negócio que foram ocultadas em downgrade.
+  // Limites: free=1, destaque=10, premium=999.
+  const photosAutoHidden = profile?._photosAutoHidden ?? 0;
+  const PHOTO_LIMITS_BY_PLAN: Record<string, number> = { free: 1, destaque: 10, premium: 999 };
+  const photoLimit = PHOTO_LIMITS_BY_PLAN[profile?.planType] ?? 1;
 
   async function handleDismissNotice() {
     try {
@@ -86,6 +91,15 @@ export default function LojistaProdutos() {
       setProfile((prev: any) => prev ? { ...prev, _productsAutoDeactivated: 0 } : prev);
     } catch {
       // best-effort: o aviso reaparece no próximo refresh do profile
+    }
+  }
+
+  async function handleDismissPhotosNotice() {
+    try {
+      await dismissHiddenPhotosNotice();
+      setProfile((prev: any) => prev ? { ...prev, _photosAutoHidden: 0 } : prev);
+    } catch {
+      // best-effort
     }
   }
 
@@ -408,6 +422,27 @@ export default function LojistaProdutos() {
           </div>
           <button
             onClick={handleDismissNotice}
+            className="text-amber-700 hover:text-amber-900 font-bold text-xs px-2 py-1 rounded-md hover:bg-amber-100"
+          >
+            Dispensar
+          </button>
+        </div>
+      )}
+      {photosAutoHidden > 0 && (
+        <div className="mb-4 p-4 rounded-xl border border-amber-300 bg-amber-50 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm text-amber-900">
+            <p className="font-bold mb-1">
+              {photosAutoHidden} foto{photosAutoHidden === 1 ? "" : "s"} da galeria do negócio foi{photosAutoHidden === 1 ? "" : "ram"} ocultada{photosAutoHidden === 1 ? "" : "s"} após mudança de plano
+            </p>
+            <p>
+              Seu plano atual permite até <strong>{photoLimit === 999 ? "ilimitadas" : photoLimit}</strong> foto{photoLimit === 1 ? "" : "s"} na galeria.
+              As mais recentes foram ocultadas do perfil público, mas os arquivos continuam guardados.
+              {photoLimit < 999 && " Faça upgrade para Premium se quiser exibir todas novamente."}
+            </p>
+          </div>
+          <button
+            onClick={handleDismissPhotosNotice}
             className="text-amber-700 hover:text-amber-900 font-bold text-xs px-2 py-1 rounded-md hover:bg-amber-100"
           >
             Dispensar

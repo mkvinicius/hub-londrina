@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { businessesTable, searchBoostsTable } from "@workspace/db/schema";
 import { or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
 import { SearchQueryParams } from "@workspace/api-zod";
+import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 
 const router: IRouter = Router();
 
@@ -179,7 +180,9 @@ router.get("/search", async (req, res) => {
   const destaque: any[] = [];
   const free: any[] = [];
 
-  for (const biz of data) {
+  for (const rawBiz of data) {
+    // Task #12 — strip campos internos (hiddenPhotos, contadores) antes de devolver.
+    const biz = stripPrivateBusinessFields(rawBiz);
     const boost = boostMap.get(biz.id);
     if (boost) {
       const enriched = {

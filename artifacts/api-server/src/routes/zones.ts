@@ -3,6 +3,7 @@ import { validatePagination } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, searchBoostsTable, zonesTable } from "@workspace/db/schema";
 import { eq, and, ne, desc, asc, sql, or } from "drizzle-orm";
+import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 
 const router: IRouter = Router();
 
@@ -154,7 +155,8 @@ router.get("/zones/:zone/stats", async (req: Request, res: Response) => {
       color: ZONE_COLORS[zone],
       totalBusinesses,
       byCategory: byCategoryWithName,
-      topRated,
+      // Task #12 — strip campos internos.
+      topRated: topRated.map(stripPrivateBusinessFields),
     });
   } catch (err) {
     console.error("[zones/stats error]", err);
@@ -201,7 +203,9 @@ router.get("/zones/:zone/businesses", validatePagination, async (req: Request, r
       .limit(limit)
       .offset(offset);
 
-    const data = rows.map(b => {
+    const data = rows.map(rawB => {
+      // Task #12 — strip campos internos antes de devolver publicamente.
+      const b = stripPrivateBusinessFields(rawB);
       const boost = boostMap.get(b.id);
       return {
         ...b,

@@ -6,6 +6,7 @@ import { validateId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable, businessUsersTable, productsTable, zonesTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte, inArray } from "drizzle-orm";
+import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 import {
   ListBusinessesQueryParams,
   GetBusinessByIdParams,
@@ -145,7 +146,9 @@ router.get("/businesses", async (req: Request, res: Response) => {
 
   const isDev = process.env.NODE_ENV !== "production";
 
-  for (const biz of data) {
+  for (const rawBiz of data) {
+    // Task #12 — não vazar campos internos (hiddenPhotos, contadores) em rota pública.
+    const biz = stripPrivateBusinessFields(rawBiz);
     const boost = boostMap.get(biz.id);
     if (boost) {
       const enriched = {
@@ -245,7 +248,8 @@ router.get("/businesses/nearby", async (req: Request, res: Response) => {
     .orderBy(asc(haversine));
 
   const result = data.map(r => ({
-    ...r.business,
+    // Task #12 — strip campos internos antes de devolver publicamente.
+    ...stripPrivateBusinessFields(r.business),
     distanceKm: Math.round((r.distanceKm ?? 0) * 10) / 10,
   }));
 
@@ -287,7 +291,8 @@ router.get("/businesses/:id", businessViewLimiter, validateId, async (req: Reque
     .execute()
     .catch(() => {});
 
-  res.json({ ...business, category, reviews, boostInfo });
+  // Task #12 — não vazar `hiddenPhotos` no detalhe público.
+  res.json({ ...stripPrivateBusinessFields(business), category, reviews, boostInfo });
 });
 
 // Lista pública de produtos de um negócio (usado pela aba Vitrine do perfil).

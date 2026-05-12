@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTable, vitrineBoostsTable, productsTable } from "@workspace/db/schema";
-import { enforceProductLimitForBusiness } from "../lib/enforce-product-limits";
+import { enforceProductLimitForBusiness, enforcePhotoLimitForBusiness } from "../lib/enforce-product-limits";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
 import { categoryLockKey, zoneLockKey, homeSearchLockKey, homeSearchPositionLockKey, vitrineSlotLockKey } from "../lib/boost-locks";
@@ -118,6 +118,8 @@ async function syncSubscriptionFromStripe(stripeSubId: string): Promise<{ busine
   // Task #8 — desativa produtos excedentes ao limite do novo plano
   // (idempotente: no-op se já está dentro do limite).
   await enforceProductLimitForBusiness(businessId, finalPlan);
+  // Task #12 — mesma ideia para fotos da galeria do negócio.
+  await enforcePhotoLimitForBusiness(businessId, finalPlan);
 
   // Pagamento confirmado = autorização para publicar imediatamente.
   // O fluxo de documentação (10 dias) é para planos gratuitos; quem paga
@@ -906,6 +908,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
     // Task #8 — se houve downgrade (premium→destaque, destaque→free, etc),
     // desativa produtos excedentes para respeitar limite do novo plano.
     await enforceProductLimitForBusiness(businessId, finalPlan);
+    // Task #12 — mesma lógica para fotos da galeria.
+    await enforcePhotoLimitForBusiness(businessId, finalPlan);
   }
 
   try {
@@ -1024,6 +1028,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
               );
             // Task #8 — desativar produtos excedentes (free=0).
             await enforceProductLimitForBusiness(sub.businessId, "free");
+            // Task #12 — ocultar fotos excedentes da galeria.
+            await enforcePhotoLimitForBusiness(sub.businessId, "free");
             logger.info(`[Stripe] Downgrade por pagamento falho: businessId ${sub.businessId} (boosts expirados)`);
             try {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
@@ -1100,6 +1106,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           .where(eq(subscriptionsTable.id, sub[0].id));
         // Task #8 — desativar produtos excedentes (free=0).
         await enforceProductLimitForBusiness(sub[0].businessId, "free");
+        // Task #12 — ocultar fotos excedentes da galeria.
+        await enforcePhotoLimitForBusiness(sub[0].businessId, "free");
         const [biz] = await db.select().from(businessesTable)
           .where(eq(businessesTable.id, sub[0].businessId));
         if (biz?.ownerEmail) {
@@ -1124,6 +1132,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           .where(eq(subscriptionsTable.id, sub[0].id));
         // Task #8 — desativar produtos excedentes (free=0).
         await enforceProductLimitForBusiness(sub[0].businessId, "free");
+        // Task #12 — ocultar fotos excedentes da galeria.
+        await enforcePhotoLimitForBusiness(sub[0].businessId, "free");
         const [biz] = await db.select().from(businessesTable)
           .where(eq(businessesTable.id, sub[0].businessId));
         if (biz?.ownerEmail) {
