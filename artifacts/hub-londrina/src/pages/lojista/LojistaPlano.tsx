@@ -4,12 +4,39 @@ import { LojistaLayout } from "./LojistaLayout";
 import {
   getProfile, getStripeConfig, getSubscription, getSubscriptions,
   createCheckoutSession, createPortalSession, changePlan, getInvoices,
+  getProducts,
   type StripeInvoice,
 } from "@/lib/lojista-api";
 import {
   Check, X, Lock, Zap, Crown, Star, AlertCircle, CheckCircle2, ExternalLink,
   CreditCard, Layout, Clock, XCircle, ArrowRight, RefreshCw, FileText, Download,
+  EyeOff, Eye,
 } from "lucide-react";
+
+// Espelha PRODUCT_LIMITS_BY_PLAN do servidor (artifacts/api-server/src/lib/enforce-product-limits.ts).
+// Mantenha em sincronia.
+const PRODUCT_LIMITS_BY_PLAN: Record<string, number> = {
+  free: 0,
+  destaque: 6,
+  premium: 10,
+};
+
+interface ProductLite {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number | null;
+  createdAt: string | null;
+}
+
+interface DowngradeConfirm {
+  plan: { key: string; label: string };
+  newLimit: number;
+  kept: ProductLite[];
+  hidden: ProductLite[];
+  isCancel: boolean;
+  onConfirm: () => Promise<void> | void;
+}
 
 interface Profile { planType: string; name: string }
 interface Subscription {
@@ -456,6 +483,8 @@ export default function LojistaPlano() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [tab, setTab] = useState<"overview" | "change">("overview");
+  const [downgradeConfirm, setDowngradeConfirm] = useState<DowngradeConfirm | null>(null);
+  const [preparingDowngrade, setPreparingDowngrade] = useState<string | null>(null);
   const [location] = useLocation();
 
   const isSuccess = location.includes("success=1");
@@ -576,10 +605,45 @@ export default function LojistaPlano() {
       alert("Preço não configurado para este plano.");
       return;
     }
-    const verb = direction === "upgrade" ? "fazer upgrade" : "fazer downgrade";
+
+    // Em downgrade, avisa quantos produtos vão sumir antes de confirmar (Task #11).
+    if (direction === "downgrade") {
+      const ready = await prepareDowngradeWarning(
+        { key: plan.key, label: plan.label },
+        false,
+        async () => {
+          setCheckingOut(plan.key);
+          try {
+            await changePlan(priceId);
+            window.location.reload();
+          } catch (err: any) {
+            alert(err.message || "Erro ao trocar de plano");
+            setCheckingOut(null);
+          }
+        },
+      );
+      if (ready === "no-warning-needed") {
+        // Sem produtos excedentes: usa confirm simples e prossegue.
+        const ok = window.confirm(
+          `Confirmar fazer downgrade para o plano ${plan.label} (${cycle === "annual" ? "anual" : "mensal"})?\n\n` +
+            `A diferença será calculada automaticamente (proração) e cobrada/creditada no seu próximo ciclo.`,
+        );
+        if (!ok) return;
+        setCheckingOut(plan.key);
+        try {
+          await changePlan(priceId);
+          window.location.reload();
+        } catch (err: any) {
+          alert(err.message || "Erro ao trocar de plano");
+          setCheckingOut(null);
+        }
+      }
+      return;
+    }
+
     const ok = window.confirm(
-      `Confirmar ${verb} para o plano ${plan.label} (${cycle === "annual" ? "anual" : "mensal"})?\n\n` +
-      `A diferença será calculada automaticamente (proração) e cobrada/creditada no seu próximo ciclo.`
+      `Confirmar fazer upgrade para o plano ${plan.label} (${cycle === "annual" ? "anual" : "mensal"})?\n\n` +
+        `A diferença será calculada automaticamente (proração) e cobrada/creditada no seu próximo ciclo.`,
     );
     if (!ok) return;
 
@@ -592,6 +656,78 @@ export default function LojistaPlano() {
       alert(err.message || "Erro ao trocar de plano");
       setCheckingOut(null);
     }
+  }
+
+  // Cancelar plano = voltar para Gratuito. Stripe não permite cancelamento via API
+  // sem portal, então abrimos o portal após confirmar o impacto nos produtos (Task #11).
+  async function handleCancelPlan(targetPlan: { key: string; label: string }) {
+    await prepareDowngradeWarning(targetPlan, true, async () => {
+      await handlePortal();
+    });
+  }
+
+  // Abre o modal de aviso se houver produtos que serão ocultados; caso contrário,
+  // retorna "no-warning-needed" para o caller decidir o fluxo (confirm simples ou direto).
+  async function prepareDowngradeWarning(
+    targetPlan: { key: string; label: string },
+    isCancel: boolean,
+    onConfirm: () => Promise<void> | void,
+  ): Promise<"opened" | "no-warning-needed"> {
+    const newLimit = PRODUCT_LIMITS_BY_PLAN[targetPlan.key] ?? 0;
+    setPreparingDowngrade(targetPlan.key);
+    let products: ProductLite[] = [];
+    try {
+      const res = await getProducts();
+      products = ((res?.data ?? []) as ProductLite[]).filter((p) => p.isActive);
+    } catch {
+      // Se falhar ao buscar produtos, segue fluxo sem o aviso detalhado.
+      setPreparingDowngrade(null);
+      if (isCancel) {
+        const ok = window.confirm(
+          `Cancelar a assinatura? Você voltará ao plano Gratuito e seus produtos serão ocultados.`,
+        );
+        if (ok) await onConfirm();
+        return "opened";
+      }
+      return "no-warning-needed";
+    }
+    setPreparingDowngrade(null);
+
+    if (products.length <= newLimit) {
+      if (isCancel) {
+        const ok = window.confirm(
+          `Cancelar a assinatura? Você voltará ao plano Gratuito.`,
+        );
+        if (ok) await onConfirm();
+        return "opened";
+      }
+      return "no-warning-needed";
+    }
+
+    // Servidor desativa por sortOrder DESC, createdAt DESC, id DESC: novos somem,
+    // antigos ficam. Aqui mantemos a mesma ordem de exibição: kept = primeiros
+    // (mais antigos / menor sortOrder), hidden = últimos.
+    const sorted = [...products].sort((a, b) => {
+      const sa = a.sortOrder ?? 0;
+      const sb = b.sortOrder ?? 0;
+      if (sa !== sb) return sa - sb;
+      const ca = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const cb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (ca !== cb) return ca - cb;
+      return a.id - b.id;
+    });
+    const kept = sorted.slice(0, newLimit);
+    const hidden = sorted.slice(newLimit);
+
+    setDowngradeConfirm({
+      plan: targetPlan,
+      newLimit,
+      kept,
+      hidden,
+      isCancel,
+      onConfirm,
+    });
+    return "opened";
   }
 
   if (loading) {
@@ -762,13 +898,27 @@ export default function LojistaPlano() {
                   )}
                   {isDowngrade && (
                     isSubscribed ? (
-                      <button
-                        onClick={() => handleChangePlan(plan, "downgrade")}
-                        disabled={checkingOut === plan.key}
-                        className="w-full py-3 rounded-xl font-bold text-sm border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-60"
-                      >
-                        {checkingOut === plan.key ? "Alterando..." : `Fazer downgrade para ${plan.label}`}
-                      </button>
+                      plan.key === "free" ? (
+                        <button
+                          onClick={() => handleCancelPlan({ key: plan.key, label: plan.label })}
+                          disabled={preparingDowngrade === plan.key || openingPortal}
+                          className="w-full py-3 rounded-xl font-bold text-sm border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                        >
+                          {preparingDowngrade === plan.key ? "Verificando..." : openingPortal ? "Abrindo portal..." : "Cancelar assinatura"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleChangePlan(plan, "downgrade")}
+                          disabled={checkingOut === plan.key || preparingDowngrade === plan.key}
+                          className="w-full py-3 rounded-xl font-bold text-sm border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                        >
+                          {checkingOut === plan.key
+                            ? "Alterando..."
+                            : preparingDowngrade === plan.key
+                              ? "Verificando..."
+                              : `Fazer downgrade para ${plan.label}`}
+                        </button>
+                      )
                     ) : (
                       <div className="w-full py-3 rounded-xl text-center border border-dashed border-gray-200 text-gray-400 text-xs">
                         Plano inferior ao atual
@@ -792,6 +942,155 @@ export default function LojistaPlano() {
           </div>
         </div>
       )}
+
+      {downgradeConfirm && (
+        <DowngradeConfirmModal
+          data={downgradeConfirm}
+          cycle={cycle}
+          onCancel={() => setDowngradeConfirm(null)}
+          onConfirm={async () => {
+            const onConfirm = downgradeConfirm.onConfirm;
+            setDowngradeConfirm(null);
+            await onConfirm();
+          }}
+        />
+      )}
     </LojistaLayout>
+  );
+}
+
+function DowngradeConfirmModal({
+  data,
+  cycle,
+  onCancel,
+  onConfirm,
+}: {
+  data: DowngradeConfirm;
+  cycle: "monthly" | "annual";
+  onCancel: () => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const totalActive = data.kept.length + data.hidden.length;
+
+  async function handleConfirm() {
+    setSubmitting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="downgrade-title"
+    >
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="p-5 border-b border-gray-100">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <h3 id="downgrade-title" className="text-lg font-black text-gray-800">
+                {data.isCancel
+                  ? "Cancelar assinatura?"
+                  : `Trocar para o plano ${data.plan.label}?`}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {data.isCancel ? (
+                  <>
+                    Você voltará ao plano <strong>Gratuito</strong>. Você tem{" "}
+                    <strong>{totalActive}</strong> produto{totalActive === 1 ? "" : "s"} ativo
+                    {totalActive === 1 ? "" : "s"} — todos serão ocultados.
+                  </>
+                ) : (
+                  <>
+                    O plano {data.plan.label} permite até <strong>{data.newLimit}</strong> produto
+                    {data.newLimit === 1 ? "" : "s"} ativo{data.newLimit === 1 ? "" : "s"}. Você tem{" "}
+                    <strong>{totalActive}</strong> hoje, então{" "}
+                    <strong>{data.hidden.length}</strong> serão ocultados.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {data.kept.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 mb-2 flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5" />
+                Continuam visíveis ({data.kept.length})
+              </p>
+              <ul className="border border-emerald-100 bg-emerald-50/40 rounded-xl divide-y divide-emerald-100">
+                {data.kept.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <span className="truncate">{p.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.hidden.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-red-700 mb-2 flex items-center gap-1.5">
+                <EyeOff className="w-3.5 h-3.5" />
+                Serão ocultados ({data.hidden.length})
+              </p>
+              <ul className="border border-red-100 bg-red-50/40 rounded-xl divide-y divide-red-100">
+                {data.hidden.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700">
+                    <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <span className="truncate">{p.name}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500 mt-2">
+                Os produtos ocultados não serão excluídos. Se você voltar para um plano com mais
+                espaço, basta reativá-los na aba Produtos.
+              </p>
+            </div>
+          )}
+
+          {!data.isCancel && (
+            <p className="text-xs text-gray-500">
+              A diferença de valor será calculada automaticamente (proração) no próximo ciclo
+              {cycle === "annual" ? " anual" : " mensal"}.
+            </p>
+          )}
+          {data.isCancel && (
+            <p className="text-xs text-gray-500">
+              Você será redirecionado para o portal Stripe para concluir o cancelamento.
+            </p>
+          )}
+        </div>
+
+        <div className="p-5 border-t border-gray-100 flex flex-wrap justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-60"
+          >
+            Voltar
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={submitting}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors disabled:opacity-60 inline-flex items-center gap-2"
+          >
+            {submitting && <RefreshCw className="w-4 h-4 animate-spin" />}
+            {data.isCancel ? "Cancelar assinatura" : `Confirmar troca para ${data.plan.label}`}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
