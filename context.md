@@ -1,5 +1,5 @@
 # Hub Londrina — Contexto Completo do Projeto
-# Atualizado: 09/05/2026
+# Atualizado: 12/05/2026
 # LEIA ESTE ARQUIVO ANTES DE QUALQUER ALTERAÇÃO
 
 ---
@@ -634,10 +634,20 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 | STRIPE_HOME_BOOST_PRICE_ID     | boost home/busca | 30d=R$149 | env var shared |
 
 ### Impulsionamentos Especiais (boosts.ts)
-- **Destaque de Zona** (`boostContext=zone`): destaque na página de zona por 30 dias. Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
-- **Destaque Home/Busca** (`boostContext=home_search`): aparece em `/busca` e home. Máximo 6 vagas. Fila de espera automática. Exclusivo Premium. Price ID: `STRIPE_HOME_BOOST_PRICE_ID`.
-- **Busca Patrocinada** (`boostContext=search`): posição fixa na busca (mensal). Gerenciado pelo admin.
-- **Boost Direto Admin** (`businesses.boostedUntil`): admin define período manualmente.
+- **Vitrine de Produtos** (`vitrine_boosts`): 4 slots fixos no carrossel da home, R$ 49/mês, exclusivo Premium com vídeo aprovado. Fila de espera quando esgotado. Aprovação admin obrigatória para o vídeo.
+- **Vagas Mensais (Boost de Categoria)** (`boostContext=search`, `boostType=monthly`): 5 posições por categoria no autocomplete de busca. Preço fixo (1ª = R$149 → 5ª = R$59). Exclusivo Premium. Compra direta no cartão.
+- **Boost Avulso** (`boostContext=search`, `boostType=avulso`): 7/15/30 dias (R$29/R$49/R$79). Lojista solicita via WhatsApp e admin adiciona manualmente em `/admin/impulsionamento`.
+- **Destaque Home + Busca** (`boostContext=home_search`): 6 slots globais com 3 posições numeradas. Aparece no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente. Price ID: `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`.
+- **Destaque de Zona** (`boostContext=zone`): destaque na página da zona por 30 dias (R$79). Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
+- **Banner na Home** (`home_banners`): R$299/mês, máx. 2 lojistas simultâneos. Exclusivo Premium e sujeito a aprovação do admin antes de publicar.
+- **Boost Direto Admin** (`businesses.boostedUntil`): admin define período sem cobrança (cortesia/promoção interna). Sobrescreve `boostedUntil` direto no negócio.
+
+**UX de bloqueio (regra R12):** todo card de impulsionamento em `LojistaBoost.tsx` exibe:
+1. Texto explicativo de 1 parágrafo em caixa colorida ANTES do botão de compra (linguagem leiga).
+2. Badge laranja "Exclusivo Premium" / "Exclusivo Destaque+" no canto do título quando o lojista não é elegível.
+3. Botão cinza desabilitado + caixa amarela com link "Ver planos" → `/lojista/plano` quando bloqueado.
+
+**UX admin:** `/admin/impulsionamento` tem painel colapsável "Como funcionam os impulsionamentos?" no topo com 7 explicações + subtítulo muted (12px) abaixo de cada seção.
 
 **Fluxo de compra self-service (lojista):**
 1. `GET /api/lojista/boosts/availability` — verifica vagas e elegibilidade de plano

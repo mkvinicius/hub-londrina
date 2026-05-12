@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-05-12
+
+### UX — textos explicativos e bloqueios visuais nos impulsionamentos
+- **LojistaBoost.tsx (4 cards)**: cada card de produto (Destaque de Zona, Destaque Home+Busca, Banner Home, Vagas Mensais/Boost de Categoria) ganhou caixa colorida com 1 parágrafo em linguagem leiga ANTES do botão de compra explicando o que o produto faz. Quando o lojista não é elegível, badge laranja "Exclusivo Premium" / "Exclusivo Destaque+" no canto do título; botão cinza desabilitado e caixa amarela com link "Ver planos" → `/lojista/plano` permanecem (já existiam).
+- **AdminImpulsionamento.tsx**: painel colapsável "Como funcionam os impulsionamentos?" no topo (useState + CSS puro, começa fechado) com 7 cartões coloridos explicando Vitrine, Vagas Mensais, Boost Avulso, Destaque Home+Busca, Boost Direto, Destaque de Zona, Banner Home. Subtítulo muted (`text-xs text-gray-500 ml-7`) com resumo de 1 linha abaixo de cada `<h2>` (Vagas Mensais, Boosts Avulsos, Destaque Home+Busca, Boost Direto).
+- **Desvio**: a spec listava Vitrine como card em LojistaBoost, mas Vitrine não é card de compra dessa página (é em LojistaProdutos via upload de vídeo). Os 4 cards existentes foram tratados; a explicação da Vitrine ficou no painel de ajuda do admin.
+- **RULES.md**: nova invariante R12 documentando o padrão de UX (texto explicativo + badge + botão cinza) que deve ser preservado em qualquer mudança futura nesses cards.
+- **Tarefas anteriores na sequência (#11, #12, #13)**: aviso de downgrade pré-confirmação, aplicação do limite de fotos da galeria em downgrade, cura de negócios em downgrade com produtos acima do limite. Todas mergeadas.
+
+---
+
 ## 2026-05-10
 
 ### UX — Logo e banner liberados para TODOS os planos (inclusive Gratuito)

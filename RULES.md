@@ -125,6 +125,19 @@ Bloco "Vitrine de Produtos" em `landing.tsx` segue regras estritas:
 
 ---
 
+### R12 · UX de bloqueio nos cards de impulsionamento (lojista)
+Todo card de produto em `LojistaBoost.tsx` (Vitrine, Vagas Mensais/Categoria, Destaque Home+Busca, Destaque de Zona, Banner na Home) **deve ter**:
+
+1. **Texto explicativo** em caixa colorida (1 parágrafo, linguagem leiga, sem jargão técnico) ANTES do botão de compra, explicando o que o produto faz na prática.
+2. **Badge laranja** "Exclusivo Premium" ou "Exclusivo Destaque+" no canto do título quando o lojista atual não é elegível (`!eligible` ou `planType !== "premium"` conforme o produto).
+3. **Botão cinza desabilitado** (`bg-gray-200 text-gray-500 cursor-not-allowed opacity-70`) + caixa amarela (`bg-amber-50 border-amber-200`) com link "Ver planos" → `/lojista/plano`. Nunca mostrar botão clicável que cobra um free.
+
+Equivalente no admin (`AdminImpulsionamento.tsx`): painel colapsável "Como funcionam os impulsionamentos?" no topo (CSS puro, começa fechado) + subtítulo muted (`text-xs text-gray-500 ml-7`) com resumo de 1 linha abaixo de cada `<h2>` de seção. Sem essas explicações o admin novato confunde os 7 produtos diferentes.
+
+**Por quê é regra**: os 7 produtos de impulsionamento são facilmente confundidos entre si. A explicação inline reduz tickets de suporte e aumenta conversão. Removê-la equivale a esconder o produto.
+
+---
+
 ## 🚧 Workflow de qualidade (para o agente)
 
 ### W1 · "Pronto" exige prova
