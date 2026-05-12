@@ -40,13 +40,25 @@ function authMiddleware(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-router.post("/admin/login", loginLimiter, (req: Request, res: Response) => {
+router.post("/admin/login", loginLimiter, async (req: Request, res: Response) => {
+  // Pentest fix — timing attack: tempo mínimo fixo de 300ms.
+  const loginStart = Date.now();
+  const minTime = 300;
+  const padTiming = async () => {
+    const elapsed = Date.now() - loginStart;
+    if (elapsed < minTime) {
+      await new Promise((resolve) => setTimeout(resolve, minTime - elapsed));
+    }
+  };
+
   const { password } = req.body;
   if (!password || password !== ADMIN_PASSWORD) {
+    await padTiming();
     res.status(401).json({ error: "Senha incorreta" });
     return;
   }
   const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "24h" });
+  await padTiming();
   res.json({ token });
 });
 

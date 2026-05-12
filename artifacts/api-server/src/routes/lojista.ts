@@ -74,8 +74,20 @@ router.post("/lojista/register", (_req: Request, res: Response) => {
 });
 
 router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) => {
+  // Pentest fix — timing attack: força tempo mínimo de resposta para que
+  // email inexistente, senha errada e login OK levem o mesmo tempo aparente.
+  const loginStart = Date.now();
+  const minTime = 300;
+  const padTiming = async () => {
+    const elapsed = Date.now() - loginStart;
+    if (elapsed < minTime) {
+      await new Promise((resolve) => setTimeout(resolve, minTime - elapsed));
+    }
+  };
+
   const { email, password } = req.body;
   if (!email || !password) {
+    await padTiming();
     res.status(400).json({ error: "Email e senha são obrigatórios" });
     return;
   }
@@ -86,12 +98,14 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
     .where(eq(businessUsersTable.email, email.toLowerCase().trim()));
 
   if (!user) {
+    await padTiming();
     res.status(401).json({ error: "Email ou senha incorretos" });
     return;
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    await padTiming();
     res.status(401).json({ error: "Email ou senha incorretos" });
     return;
   }
@@ -116,6 +130,7 @@ router.post("/lojista/login", loginLimiter, async (req: Request, res: Response) 
     { expiresIn: "7d" }
   );
 
+  await padTiming();
   res.json({ token, businessId: user.businessId });
 });
 
@@ -373,8 +388,10 @@ router.delete("/lojista/photos/:index", async (req: Request, res: Response) => {
 });
 
 router.get("/lojista/cep/:cep", async (req: Request, res: Response) => {
+  // Pentest fix — SSRF/path-injection: aceita só 8 dígitos antes de chamar
+  // a ViaCEP. `replace` já tira tudo que não é dígito; regex confirma.
   const cep = req.params.cep.replace(/\D/g, "");
-  if (cep.length !== 8) {
+  if (!/^\d{8}$/.test(cep)) {
     res.status(400).json({ error: "CEP inválido" });
     return;
   }
