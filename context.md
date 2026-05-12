@@ -26,7 +26,7 @@ Linguagem      | TypeScript em todo o projeto
 Banco          | PostgreSQL + Drizzle ORM
 Monorepo       | pnpm workspaces
 SSR            | server.mjs (Node puro, sem Next.js)
-Email          | Resend (onboarding@resend.dev sandbox)
+Email          | Resend (noreply@hublondrina.com.br — domínio verificado)
 Pagamentos     | Stripe (checkout + webhooks + portal)
 Upload         | GCS (Google Cloud Storage) via uploadBufferToGCS
 PDF            | pdfkit (puro Node.js — sem puppeteer)
@@ -126,7 +126,7 @@ email                       text UNIQUE
 passwordHash                text
 passwordResetToken          text
 passwordResetExpiresAt      timestamp
-emailVerified               text DEFAULT 'false'
+emailVerified               boolean DEFAULT false  (coluna email_verified_bool)
 emailVerificationToken      text
 firstLoginAt                timestamp (iniciado no 1º login)
 documentationDeadline       timestamp (firstLoginAt + 10 dias)
@@ -227,6 +227,60 @@ id / name / slug / icon / color / businessCount
 ```
 id / businessId / name / description / price / imageUrl / videoUrl / order / active
 ```
+
+### Tabela `zones`
+```
+id          serial PK
+slug        text UNIQUE NOT NULL  (centro|norte|sul|leste|oeste)
+name        text NOT NULL          (display: "Zona Centro", "Zona Norte"...)
+description text
+icon        text
+color       text
+order       integer DEFAULT 0
+createdAt   timestamp DEFAULT now()
+```
+Metadata canônica das 5 zonas. Fallback em `lib/zones.ts`.
+
+### Tabela `job_runs`
+```
+id          serial PK
+jobName     text NOT NULL  (boost-expiration | documentation-job | subscription-job | reminder-job...)
+ranAt       timestamp DEFAULT now()
+status      text           (success | failed | partial)
+durationMs  integer
+detailsJson jsonb          (contadores, erros, payload de execução)
+```
+Checkpoint de execução de cron jobs — usado para idempotência diária e auditoria.
+
+### Tabela `admin_actions`
+```
+id          serial PK
+adminId     text                  (identificador do admin que executou)
+action      text NOT NULL         (approve_doc | reject_doc | boost_grant | boost_revoke |
+                                    business_edit | business_delete | impersonate | banner_approve...)
+targetType  text                  (business | review | banner | subscription | document)
+targetId    integer
+metadata    jsonb                 (snapshot de antes/depois, motivo, etc)
+createdAt   timestamp DEFAULT now()
+```
+Audit log de toda ação sensível do painel admin.
+
+### Tabela `support_tickets`
+```
+id            serial PK
+businessId    FK → businesses.id (nullable — público pode abrir sem login)
+authorEmail   text
+authorName    text
+subject       text NOT NULL
+message       text NOT NULL
+status        text DEFAULT 'open'   (open | in_progress | resolved | closed)
+priority      text DEFAULT 'normal' (low | normal | high | urgent)
+adminResponse text
+respondedAt   timestamp
+createdAt     timestamp DEFAULT now()
+updatedAt     timestamp DEFAULT now()
+```
+Tickets de suporte abertos por lojistas (`/lojista/suporte`) ou administrados em `/admin/suporte`.
 
 ---
 
@@ -343,6 +397,13 @@ POST /api/lojista/documents   Upload documento (personal_id|cnpj_card|address_pr
 GET  /api/lojista/documents   Lista documentos + documentationStatus/RemainingDays/etc
 ```
 
+**Suporte**
+```
+GET   /api/lojista/support            Lista tickets do próprio negócio
+POST  /api/lojista/support            Abre novo ticket (subject, message, priority)
+                                       Cria registro em support_tickets vinculado ao businessId
+```
+
 **Impulsionamento (`boosts.ts`)**
 ```
 GET  /api/lojista/boosts/availability   Verifica vagas (max 6) por contexto/zona
@@ -424,6 +485,36 @@ GET /api/admin/stats   Dashboard: totalBusinesses, totalPremium, totalDestaque,
                         recentSignups, boostRevenue, etc.
 ```
 
+**Audit Log**
+```
+GET /api/admin/audit-log   Lista admin_actions ordenadas por createdAt DESC
+                            Filtros: action, targetType, targetId, adminId, intervalo
+                            Usado em /admin/audit-log
+```
+
+**Reviews (moderação)**
+```
+GET    /api/admin/reviews             Lista todas as reviews (filtros: businessId, rating, verified)
+DELETE /api/admin/reviews/:id         Remove review (registra em admin_actions)
+PATCH  /api/admin/reviews/:id         Edita/marca como verified (moderação)
+```
+
+**Suporte**
+```
+GET   /api/admin/support              Lista support_tickets (filtros: status, priority)
+GET   /api/admin/support/:id          Detalhe do ticket
+PATCH /api/admin/support/:id          Atualiza status / prioridade / adminResponse
+                                       Envia email de resposta ao authorEmail
+```
+
+**Impersonação**
+```
+POST /api/admin/impersonate/:businessId
+     Gera JWT lojista temporário para o admin acessar o painel do negócio
+     como se fosse o dono. Registra em admin_actions (action='impersonate').
+     Usado para suporte e debugging de fluxos do lojista.
+```
+
 ---
 
 ### 4.4 Stripe (`/api/stripe/*`)
@@ -444,6 +535,11 @@ POST /api/stripe/checkout      Cria sessão Stripe Checkout (mode=subscription)
 POST /api/stripe/portal        Cria sessão do portal de faturamento Stripe
 
 GET  /api/stripe/subscription  Retorna status atual da assinatura
+
+GET  /api/stripe/invoices      Lista histórico de invoices da assinatura ativa
+                                Retorna: id, amountPaid, status, hostedInvoiceUrl,
+                                invoicePdf, periodStart, periodEnd, createdAt
+                                Usado em /lojista/plano (aba Faturas)
 
 POST /api/stripe/webhook       Webhook Stripe (raw body, STRIPE_WEBHOOK_SECRET)
                                 Eventos: checkout.session.completed,
@@ -492,10 +588,7 @@ POST /api/auth/reset-password    Valida token + salva nova senha (bcrypt)
 ## 6. SERVIÇO DE EMAIL
 
 **Provider:** Resend SDK (`resend` npm)
-**FROM atual:** `Hub Londrina <onboarding@resend.dev>` ← sandbox Resend
-**⚠️ ATENÇÃO:** Domínio `hublondrina.com.br` NÃO verificado no Resend
-- Para produção: verificar em https://resend.com/domains
-- Depois: alterar `FROM` em `email.ts` para `noreply@hublondrina.com.br`
+**FROM atual:** `Hub Londrina <noreply@hublondrina.com.br>` (domínio verificado em 03/05/2026)
 - Quota free: 3 emails/dia, 3/mês
 
 **Templates disponíveis (`emails` object em `services/email.ts`):**
