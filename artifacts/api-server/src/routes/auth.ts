@@ -169,6 +169,16 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
 
   const validZones = ["centro", "norte", "sul", "leste", "oeste"];
   const selectedZone = validZones.includes(zone) ? zone : "centro";
+  // RULES.md R8 — region é o nome de exibição ("Zona Sul"), zone é o slug ("sul").
+  // Antes salvava o slug em ambos, quebrando o card no front (mostrava "sul").
+  const ZONE_DISPLAY: Record<string, string> = {
+    centro: "Centro",
+    norte: "Zona Norte",
+    sul: "Zona Sul",
+    leste: "Zona Leste",
+    oeste: "Zona Oeste",
+  };
+  const selectedRegion = ZONE_DISPLAY[selectedZone] ?? "Centro";
 
   let street = "";
   let neighborhood = "";
@@ -196,7 +206,7 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     name: businessName.trim(),
     categorySlug,
     zone: selectedZone,
-    region: selectedZone,
+    region: selectedRegion,
     ownerName: name.trim(),
     ownerEmail: normalizedEmail,
     phone: cleanPhone,

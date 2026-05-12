@@ -102,3 +102,40 @@ export async function healOverflowingProductLimits() {
     logger.error({ err }, "[StartupHeal] Falha ao curar negócios com produtos acima do limite");
   }
 }
+
+/**
+ * Backfill idempotente: corrige `businesses.region` quando salvo errado como
+ * slug ("sul", "norte", "leste", "oeste") em vez do nome de exibição
+ * ("Zona Sul", "Zona Norte", etc). Causado pelo bug histórico em
+ * `routes/auth.ts` que gravava `region: selectedZone` (slug) no cadastro.
+ *
+ * Roda uma vez no startup. Não-op se nada precisa ser corrigido.
+ */
+export async function healZoneRegionDisplayNames() {
+  const ZONE_DISPLAY: Record<string, string> = {
+    centro: "Centro",
+    norte: "Zona Norte",
+    sul: "Zona Sul",
+    leste: "Zona Leste",
+    oeste: "Zona Oeste",
+  };
+  try {
+    let totalFixed = 0;
+    for (const [slug, display] of Object.entries(ZONE_DISPLAY)) {
+      const result = await db
+        .update(businessesTable)
+        .set({ region: display })
+        .where(and(eq(businessesTable.zone, slug), eq(businessesTable.region, slug)))
+        .returning({ id: businessesTable.id });
+      totalFixed += result.length;
+    }
+    if (totalFixed > 0) {
+      logger.info(
+        { totalFixed },
+        `[StartupHeal] ${totalFixed} negócio(s) com region salvo como slug foram corrigidos para nome de exibição`,
+      );
+    }
+  } catch (err) {
+    logger.error({ err }, "[StartupHeal] Falha ao curar regions com slug");
+  }
+}
