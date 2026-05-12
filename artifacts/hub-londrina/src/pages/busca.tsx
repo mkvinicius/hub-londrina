@@ -132,7 +132,10 @@ export default function Busca() {
     );
   }
 
-  const { data: categoriesData } = useListCategories();
+  const categoriesZone = zone && zone !== "todas" ? zone : undefined;
+  const { data: categoriesData } = useListCategories(
+    categoriesZone ? { zone: categoriesZone } : undefined,
+  );
   const categories = categoriesData?.data ?? [];
 
   const [dynamicRegions, setDynamicRegions] = useState<string[]>([
