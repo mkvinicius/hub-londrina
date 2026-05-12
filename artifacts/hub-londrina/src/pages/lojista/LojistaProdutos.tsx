@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from "react";
+import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice } from "@/lib/lojista-api";
 import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle, ArrowLeft, ArrowRight, Star } from "lucide-react";
@@ -40,6 +42,14 @@ export default function LojistaProdutos() {
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [vitrineUploading, setVitrineUploading] = useState(false);
   const vitrineFileRef = useRef<HTMLInputElement>(null);
+
+  // Crop modal (galeria de fotos do produto) — abre quando o usuário escolhe um arquivo,
+  // recorta em 4:3 antes do upload. Mantém o limite por plano (free=0, destaque=5, premium=8).
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropFileName, setCropFileName] = useState<string>("");
+  const [crop, setCrop] = useState<Crop | undefined>(undefined);
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
+  const cropImgRef = useRef<HTMLImageElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [mediaMode, setMediaMode] = useState<"url" | "upload">("url");
@@ -107,49 +117,98 @@ export default function LojistaProdutos() {
     setUploadPreview(p.mediaUrl || null);
   }
 
-  // Upload de uma foto adicional para a galeria do produto.
-  // Reaproveita o endpoint /lojista/upload/product-media (somente imagens aqui).
-  async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  // Abre o modal de crop quando o usuário escolhe um arquivo para a galeria.
+  // O upload real só acontece depois de "Recortar e enviar".
+  function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (galleryFileRef.current) galleryFileRef.current.value = "";
+    if (!file) return;
     const limit = IMAGE_LIMITS[profile?.planType] ?? 0;
-    const remaining = Math.max(0, limit - form.images.length);
-    if (remaining === 0) {
+    if (form.images.length >= limit) {
       setMsg(`Erro: limite de ${limit} fotos atingido para o plano ${profile?.planType}.`);
       return;
     }
-    const toUpload = files.slice(0, remaining);
+    if (!file.type.startsWith("image/")) {
+      setMsg("Erro: galeria aceita apenas imagens (JPG, PNG, WebP).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setMsg(`Erro: ${file.name} acima de 10MB.`);
+      return;
+    }
+    setMsg("");
+    setCropFileName(file.name);
+    setCrop(undefined);
+    setCompletedCrop(null);
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
+  }
+
+  function onCropImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    cropImgRef.current = e.currentTarget;
+    const initial = centerCrop(
+      makeAspectCrop({ unit: "%", width: 90 }, 4 / 3, naturalWidth, naturalHeight),
+      naturalWidth,
+      naturalHeight,
+    );
+    setCrop(initial);
+  }
+
+  function closeCrop() {
+    setCropSrc(null);
+    setCropFileName("");
+    setCrop(undefined);
+    setCompletedCrop(null);
+    cropImgRef.current = null;
+  }
+
+  // Converte o recorte em Blob (JPEG q=0.92) e envia via /lojista/upload/product-media.
+  async function confirmCropAndUpload() {
+    const img = cropImgRef.current;
+    const c = completedCrop;
+    if (!img || !c || !c.width || !c.height) {
+      setMsg("Selecione uma área para recortar.");
+      return;
+    }
     setGalleryUploading(true);
     setMsg("");
     try {
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(c.width * scaleX));
+      canvas.height = Math.max(1, Math.round(c.height * scaleY));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas indisponível");
+      ctx.drawImage(
+        img,
+        c.x * scaleX, c.y * scaleY, c.width * scaleX, c.height * scaleY,
+        0, 0, canvas.width, canvas.height,
+      );
+      const blob: Blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error("Falha ao gerar imagem")), "image/jpeg", 0.92);
+      });
       const token = getLojistaToken();
-      const uploaded: string[] = [];
-      for (const file of toUpload) {
-        if (!file.type.startsWith("image/")) {
-          setMsg("Erro: galeria aceita apenas imagens (JPG, PNG, WebP).");
-          continue;
-        }
-        if (file.size > 10 * 1024 * 1024) {
-          setMsg(`Erro: ${file.name} acima de 10MB.`);
-          continue;
-        }
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch(`${API_BASE}/api/lojista/upload/product-media`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        });
-        const data = await res.json();
-        if (!res.ok) { setMsg(`Erro: ${data.error || "Falha no upload"}`); continue; }
-        if (data.mediaType === "image" && data.mediaUrl) uploaded.push(data.mediaUrl);
+      const fd = new FormData();
+      const baseName = (cropFileName || "foto").replace(/\.[^.]+$/, "") + ".jpg";
+      fd.append("file", blob, baseName);
+      const res = await fetch(`${API_BASE}/api/lojista/upload/product-media`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha no upload");
+      if (data.mediaType === "image" && data.mediaUrl) {
+        setForm(f => ({ ...f, images: [...f.images, data.mediaUrl] }));
       }
-      if (uploaded.length > 0) {
-        setForm(f => ({ ...f, images: [...f.images, ...uploaded] }));
-      }
+      closeCrop();
+    } catch (err: any) {
+      setMsg(`Erro: ${err.message}`);
     } finally {
       setGalleryUploading(false);
-      if (galleryFileRef.current) galleryFileRef.current.value = "";
     }
   }
 
@@ -479,10 +538,15 @@ export default function LojistaProdutos() {
             </div>
             <div className="md:col-span-2 border-t border-gray-100 pt-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-bold text-gray-700">
+                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   Galeria de fotos
+                  <span
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold cursor-help"
+                    title="Tamanho recomendado: 800x600px (4:3). JPG, PNG ou WebP. Máx 10MB por foto. Você pode recortar antes de enviar. A primeira foto vira a capa do card."
+                    aria-label="Ajuda sobre fotos da galeria"
+                  >?</span>
                   {profile?.planType && profile.planType !== "free" && (
-                    <span className="ml-2 text-xs font-medium text-gray-500">
+                    <span className="ml-1 text-xs font-medium text-gray-500">
                       ({form.images.length}/{IMAGE_LIMITS[profile.planType] ?? 0})
                     </span>
                   )}
@@ -499,7 +563,7 @@ export default function LojistaProdutos() {
                     ) : (
                       <Plus className="w-3.5 h-3.5" />
                     )}
-                    Adicionar foto(s)
+                    Adicionar foto
                   </button>
                 )}
               </div>
@@ -507,7 +571,6 @@ export default function LojistaProdutos() {
                 type="file"
                 ref={galleryFileRef}
                 accept="image/jpeg,image/png,image/webp"
-                multiple
                 onChange={handleGalleryUpload}
                 className="hidden"
               />
@@ -743,6 +806,77 @@ export default function LojistaProdutos() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal de crop da galeria de produtos — abre ao escolher um arquivo. */}
+      {cropSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => { if (!galleryUploading) closeCrop(); }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <div>
+                <h3 className="font-bold text-gray-800">Recortar imagem</h3>
+                <p className="text-xs text-gray-500">Arraste para ajustar. Proporção sugerida 4:3 (você pode mudar pelas alças).</p>
+              </div>
+              <button
+                onClick={closeCrop}
+                disabled={galleryUploading}
+                className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-40"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto bg-gray-900 flex items-center justify-center p-4">
+              <ReactCrop
+                crop={crop}
+                onChange={(_, pct) => setCrop(pct)}
+                onComplete={(c) => setCompletedCrop(c)}
+                minWidth={50}
+                minHeight={50}
+                keepSelection
+              >
+                <img
+                  src={cropSrc}
+                  alt="Pré-visualização para recorte"
+                  onLoad={onCropImageLoad}
+                  style={{ maxHeight: "65vh", maxWidth: "100%" }}
+                />
+              </ReactCrop>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3">
+              <button
+                onClick={closeCrop}
+                disabled={galleryUploading}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmCropAndUpload}
+                disabled={galleryUploading || !completedCrop?.width}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {galleryUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Recortar e enviar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </LojistaLayout>

@@ -303,6 +303,7 @@ GET  /api/regions                 Lista de regiões distintas
 GET  /api/stats                   totalBusinesses, totalCategories, totalZones (SSR)
 GET  /api/autocomplete?q=         Patrocinados (boostContext=search) + sugestões
 GET  /api/home-featured           Negócios em destaque na home (homeFeatured=true)
+GET  /api/categories/:slug/featured  Até 3 negócios da categoria com boost ativo (boostContext='category')
 GET  /api/home-banners            Banners ativos da home
 ```
 

@@ -55,6 +55,18 @@ export default function Busca() {
       .catch(() => {});
   }, []);
 
+  // Destaques em [Categoria] — só busca quando uma categoria está selecionada
+  const [categoryFeatured, setCategoryFeatured] = useState<any[]>([]);
+  useEffect(() => {
+    if (!categoria) { setCategoryFeatured([]); return; }
+    let cancelled = false;
+    fetch(`${API_BASE}/api/categories/${encodeURIComponent(categoria)}/featured`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setCategoryFeatured(d.data || []); })
+      .catch(() => { if (!cancelled) setCategoryFeatured([]); });
+    return () => { cancelled = true; };
+  }, [categoria]);
+
   const fetchAutocomplete = useCallback((q: string) => {
     if (q.length < 2) { setAcSponsored([]); setAcSuggestions([]); setAcOpen(false); return; }
     if (acTimer.current) clearTimeout(acTimer.current);
@@ -349,6 +361,35 @@ export default function Busca() {
                 {homeFeatured.map((biz: any) => (
                   <div key={biz.id} className="relative">
                     {/* Patrocinado pin — bottom-right pra não cobrir o rating ("Novo") em top-left */}
+                    <div className="absolute bottom-[180px] sm:bottom-[200px] right-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
+                      <Star className="h-2.5 w-2.5 fill-white" />
+                      Patrocinado
+                    </div>
+                    <BusinessCard business={biz} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 border-t border-gray-200" />
+            </div>
+          )}
+
+          {/* ─── DESTAQUES EM [CATEGORIA] ──────────────────────────────────── */}
+          {categoria && categoryFeatured.length > 0 && !nearbyMode && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-700">
+                    Destaques em {selectedCategoryLabel || categoria}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-400">
+                  {categoryFeatured.length} patrocinado{categoryFeatured.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categoryFeatured.map((biz: any) => (
+                  <div key={`cf-${biz.id}`} className="relative">
                     <div className="absolute bottom-[180px] sm:bottom-[200px] right-3 z-10 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
                       <Star className="h-2.5 w-2.5 fill-white" />
                       Patrocinado

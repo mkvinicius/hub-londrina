@@ -386,12 +386,17 @@ export default function LojistaPerfil() {
             <div className="md:col-span-2 relative">
               <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
                 URL do Vídeo
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold cursor-help"
+                  title="Cole o link do YouTube ou Vimeo. O vídeo aparece na vitrine da home (Premium). Duração recomendada: até 60 segundos."
+                  aria-label="Ajuda sobre URL do vídeo"
+                >?</span>
                 {!isPremium && <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Lock className="w-3 h-3" /> Premium</span>}
               </label>
               <input
                 value={profile.videoUrl || ""}
                 onChange={e => update("videoUrl", e.target.value)}
-                placeholder="https://youtube.com/..."
+                placeholder="https://youtube.com/... ou https://vimeo.com/..."
                 disabled={!isPremium}
                 className={!isPremium ? lockedInputCls : inputCls}
               />
