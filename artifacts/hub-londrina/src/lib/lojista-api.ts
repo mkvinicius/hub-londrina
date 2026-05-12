@@ -158,6 +158,10 @@ export async function deleteProduct(id: number) {
   return lojistaFetch(`/lojista/products/${id}`, { method: "DELETE" });
 }
 
+export async function dismissDeactivationNotice() {
+  return lojistaFetch("/lojista/products/dismiss-deactivation-notice", { method: "POST" });
+}
+
 export async function reorderProducts(items: Array<{ id: number; sortOrder: number }>) {
   return lojistaFetch("/lojista/products/reorder", { method: "PATCH", body: JSON.stringify(items) });
 }

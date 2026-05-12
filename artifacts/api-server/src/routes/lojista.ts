@@ -158,6 +158,10 @@ router.get("/lojista/profile", async (req: Request, res: Response) => {
     _documentationDaysLeft: userRecord?.documentationRemainingDays ?? null,
     _documentationStatus: userRecord?.documentationStatus ?? null,
     _documentationDeadline: userRecord?.documentationDeadline ?? null,
+    // Task #8 — quantos produtos foram desativados em downgrades recentes,
+    // ainda não dispensado pelo lojista. Frontend mostra banner em
+    // LojistaProdutos com link para reativar.
+    _productsAutoDeactivated: business.lastDowngradeDeactivatedCount ?? 0,
     _boost: boost ? {
       boostType: boost.boostType,
       position: boost.position,
@@ -497,6 +501,17 @@ router.patch("/lojista/instagram-posts", async (req: Request, res: Response) => 
   res.json({ posts: cleaned });
 });
 
+// Task #8 — Dispensa o aviso "X produtos desativados após mudança de plano".
+// Limpa o contador acumulado em businesses.lastDowngradeDeactivatedCount.
+router.post("/lojista/products/dismiss-deactivation-notice", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  await db
+    .update(businessesTable)
+    .set({ lastDowngradeDeactivatedCount: 0 })
+    .where(eq(businessesTable.id, businessId));
+  res.json({ ok: true });
+});
+
 router.get("/lojista/products", async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   const products = await db
@@ -589,13 +604,16 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
     res.status(403).json({ error: "Cadastro de produtos disponível nos planos Base e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz.planType });
     return;
   }
+  // Conta apenas ATIVOS — produtos desativados (ex: por downgrade na Task #8)
+  // não consomem slot. Mantém consistência com a UI e permite criar novos
+  // produtos mesmo havendo inativos guardados no painel.
   const [{ count: existing }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(productsTable)
-    .where(eq(productsTable.businessId, businessId));
+    .where(and(eq(productsTable.businessId, businessId), eq(productsTable.isActive, true)));
   if (existing >= limit) {
     res.status(400).json({
-      error: `Limite de ${limit} produto(s) atingido para o plano ${biz.planType}. Faça upgrade para Premium para cadastrar mais.`,
+      error: `Limite de ${limit} produto(s) ativo(s) atingido para o plano ${biz.planType}. Faça upgrade para Premium para cadastrar mais.`,
       code: "PRODUCT_LIMIT_REACHED",
       currentPlan: biz.planType,
       limit,
@@ -675,6 +693,48 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  // Task #8 — Ao reativar um produto (isActive false→true), validar que o
+  // limite do plano atual ainda permite mais um produto ativo. Sem isso,
+  // lojista que sofreu downgrade poderia reativar todos os produtos
+  // desativados e burlar o limite do novo plano.
+  if (updates.isActive === true) {
+    const [biz] = await db
+      .select({ planType: businessesTable.planType })
+      .from(businessesTable)
+      .where(eq(businessesTable.id, businessId));
+    if (!biz) {
+      res.status(404).json({ error: "Negócio não encontrado" });
+      return;
+    }
+    const [existingProd] = await db
+      .select({ isActive: productsTable.isActive })
+      .from(productsTable)
+      .where(and(eq(productsTable.id, id), eq(productsTable.businessId, businessId)));
+    if (!existingProd) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+    if (existingProd.isActive === false) {
+      const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
+      const limit = PRODUCT_LIMITS[biz.planType] ?? 0;
+      const [{ count: activeCount }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(productsTable)
+        .where(and(eq(productsTable.businessId, businessId), eq(productsTable.isActive, true)));
+      if (activeCount >= limit) {
+        res.status(400).json({
+          error: limit === 0
+            ? `Plano ${biz.planType} não permite produtos ativos. Faça upgrade para reativar.`
+            : `Limite de ${limit} produto(s) ativo(s) atingido para o plano ${biz.planType}. Desative outro antes de reativar este, ou faça upgrade.`,
+          code: "PRODUCT_LIMIT_REACHED",
+          currentPlan: biz.planType,
+          limit,
+        });
+        return;
+      }
+    }
   }
 
   // Plan-aware validations para galeria e vídeo 360°.

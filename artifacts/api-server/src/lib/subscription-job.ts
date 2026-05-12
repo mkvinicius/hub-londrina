@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "./logger";
 import { runOnceDaily } from "./job-checkpoint";
+import { enforceProductLimitForBusiness } from "./enforce-product-limits";
 
 async function runPastDueDowngradeJob(): Promise<void> {
   try {
@@ -37,6 +38,9 @@ async function runPastDueDowngradeJob(): Promise<void> {
           .update(subscriptionsTable)
           .set({ status: "canceled" })
           .where(eq(subscriptionsTable.id, sub.id));
+
+        // Task #8 — desativar produtos excedentes (free=0).
+        await enforceProductLimitForBusiness(sub.businessId, "free");
 
         const [biz] = await db
           .select({ ownerEmail: businessesTable.ownerEmail, ownerName: businessesTable.ownerName })

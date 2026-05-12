@@ -70,6 +70,12 @@ export const businessesTable = pgTable(
     razaoSocial: text("razao_social"),
     nomeFantasia: text("nome_fantasia"),
     planFrozen: boolean("plan_frozen").notNull().default(false),
+    // Task #8 — Quando o plano cai (ex: premium→destaque), produtos excedentes
+    // são desativados automaticamente. Este contador acumula quantos foram
+    // desativados desde que o lojista visualizou pela última vez. O painel
+    // do lojista mostra um aviso e permite reativar manualmente até o limite
+    // do plano atual. Limpado via POST /api/lojista/products/dismiss-deactivation-notice.
+    lastDowngradeDeactivatedCount: integer("last_downgrade_deactivated_count").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo } from "@/lib/lojista-api";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice } from "@/lib/lojista-api";
 import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle, ArrowLeft, ArrowRight, Star } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -65,8 +65,19 @@ export default function LojistaProdutos() {
   // os que foram migrados do antigo upload de fotos.
   const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
   const productLimit = PRODUCT_LIMITS[profile?.planType] ?? 0;
-  const reachedLimit = products.length >= productLimit;
+  const activeCount = products.filter(p => p.isActive).length;
+  const reachedLimit = activeCount >= productLimit;
   const isFree = profile?.planType === "free";
+  const autoDeactivated = profile?._productsAutoDeactivated ?? 0;
+
+  async function handleDismissNotice() {
+    try {
+      await dismissDeactivationNotice();
+      setProfile((prev: any) => prev ? { ...prev, _productsAutoDeactivated: 0 } : prev);
+    } catch {
+      // best-effort: o aviso reaparece no próximo refresh do profile
+    }
+  }
 
   function resetForm() {
     setForm({ name: "", description: "", price: "", mediaUrl: "", mediaType: "image", whatsappLink: "", videoUrl: "", instagramReelUrl: "", quantity: "", images: [], video360Url: "" });
@@ -298,7 +309,9 @@ export default function LojistaProdutos() {
     try {
       const result = await updateProduct(p.id, { isActive: !p.isActive });
       setProducts(ps => ps.map(x => x.id === p.id ? result : x));
+      setMsg("");
     } catch (err: any) {
+      // Task #8 — backend rejeita reativação se o limite do plano foi atingido.
       setMsg(`Erro: ${err.message}`);
     }
   }
@@ -321,8 +334,32 @@ export default function LojistaProdutos() {
           </button>
         )}
       </div>
+      {autoDeactivated > 0 && (
+        <div className="mb-4 p-4 rounded-xl border border-amber-300 bg-amber-50 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm text-amber-900">
+            <p className="font-bold mb-1">
+              {autoDeactivated} produto{autoDeactivated === 1 ? "" : "s"} foi{autoDeactivated === 1 ? "" : "ram"} desativado{autoDeactivated === 1 ? "" : "s"} após mudança de plano
+            </p>
+            <p>
+              Seu plano atual permite até <strong>{productLimit}</strong> produto{productLimit === 1 ? "" : "s"} ativo{productLimit === 1 ? "" : "s"}.
+              Os mais recentes foram ocultados do perfil público, mas continuam salvos abaixo. Clique em <strong>Inativo</strong> para reativar
+              {productLimit === 0 ? " (requer upgrade do plano)" : " — desative outro antes se já estiver no limite"}.
+            </p>
+          </div>
+          <button
+            onClick={handleDismissNotice}
+            className="text-amber-700 hover:text-amber-900 font-bold text-xs px-2 py-1 rounded-md hover:bg-amber-100"
+          >
+            Dispensar
+          </button>
+        </div>
+      )}
       <p className="text-sm text-gray-500 mb-6">
-        {products.length}/{productLimit} produtos cadastrados
+        {activeCount}/{productLimit} produtos ativos
+        {products.length !== activeCount && (
+          <> · {products.length - activeCount} inativo{products.length - activeCount === 1 ? "" : "s"}</>
+        )}
         {isFree && (
           <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Faça upgrade</a> para cadastrar produtos (Base: 6 · Premium: 10)</>
         )}
