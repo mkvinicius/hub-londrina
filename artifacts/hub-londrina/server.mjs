@@ -7,6 +7,34 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = resolve(__dirname, "dist/public");
 const PORT = Number(process.env.PORT || 3000);
 
+// Pentest fix — security headers no SSR (espelha o middleware do api-server).
+// Aplica em todas as respostas antes de qualquer writeHead/end. CSP libera
+// Stripe, Google Fonts/Maps e ViaCEP/BrasilAPI usados pelo cadastro.
+const SECURITY_HEADERS = {
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "X-XSS-Protection": "1; mode=block",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https://api.stripe.com https://maps.googleapis.com https://viacep.com.br https://brasilapi.com.br",
+    "frame-src https://js.stripe.com",
+    "object-src 'none'",
+  ].join("; "),
+};
+
+function applySecurityHeaders(res) {
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
+    res.setHeader(k, v);
+  }
+  res.removeHeader("X-Powered-By");
+}
+
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript",
@@ -79,6 +107,7 @@ async function safeFetch(url) {
 }
 
 async function handler(req, res) {
+  applySecurityHeaders(res);
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
 

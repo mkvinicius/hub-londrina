@@ -57,7 +57,39 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: true }));
+// Pentest fix — CORS com allowlist em vez de reflexão de Origin.
+// `origin: true` espelhava QUALQUER origin junto com credentials:true,
+// permitindo CSRF cross-site. Allowlist explícita + domínios Replit
+// (REPLIT_DOMAINS, vírgula-separados) para ambientes de dev/preview.
+const STATIC_ALLOWED_ORIGINS = [
+  "https://www.hublondrina.com.br",
+  "https://hublondrina.com.br",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+const REPLIT_ORIGINS = (process.env.REPLIT_DOMAINS ?? "")
+  .split(",")
+  .map((d) => d.trim())
+  .filter(Boolean)
+  .flatMap((d) => [`https://${d}`, `http://${d}`]);
+const ALLOWED_ORIGINS = new Set([...STATIC_ALLOWED_ORIGINS, ...REPLIT_ORIGINS]);
+
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      // Same-origin/server-to-server (sem header Origin) é permitido.
+      if (!origin || ALLOWED_ORIGINS.has(origin)) {
+        callback(null, true);
+      } else {
+        // Não jogar Error (vira 500). Apenas omite ACAO — o browser
+        // bloqueia o request, e mis-config aparece como CORS error
+        // no client em vez de 500 no server.
+        callback(null, false);
+      }
+    },
+  }),
+);
 app.use(cookieParser());
 app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());

@@ -1,0 +1,44 @@
+Leia o context.md e RULES.md. Corrija as vulnerabilidades do segundo pentest em ordem de prioridade. Após alterações rode cd ~/workspace/artifacts/api-server && pnpm build.
+
+CRÍTICO 1 — CORS aceitando qualquer origem com credentials
+
+Em artifacts/api-server/src/app.ts, localize a configuração de CORS e corrija para aceitar apenas origens autorizadas:
+
+const ALLOWED_ORIGINS = [
+  'https://www.hublondrina.com.br',
+  'https://hublondrina.com.br',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS não permitido'));
+    }
+  },
+  credentials: true,
+}));
+
+CRÍTICO 2 — /api/businesses ainda expondo ownerEmail, cnpj, ownerName
+
+Verifique se a função stripPrivateBusinessFields em artifacts/api-server/src/lib/strip-private-business-fields.ts realmente está removendo ownerEmail, cnpj, ownerName, ownerPhone.
+
+Execute curl http://localhost:8080/api/businesses e verifique se esses campos ainda aparecem. Se aparecerem, mostre o código atual de stripPrivateBusinessFields e corrija para garantir remoção de: ownerEmail, ownerName, ownerPhone, cnpj, razaoSocial, nomeFantasia, planFrozen, rejectionReason, homeFeatured, zoneFeatured, boostedUntil.
+
+ALTO 1 — Security headers não chegando ao cliente
+
+Os headers foram adicionados no backend mas o relatório diz que não aparecem. Verifique se o middleware de headers em app.ts está sendo aplicado antes das rotas. Se o projeto usa um proxy reverso (server.mjs ou nginx), os headers podem estar sendo removidos. Verifique server.mjs e adicione os headers lá também se necessário.
+
+ALTO 2 — Rate limiting não funcionando
+
+Verifique se o rate limiter está configurado corretamente em admin.ts e auth.ts. Rode:
+for i in {1..12}; do curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/api/admin/login -H "Content-Type: application/json" -d '{"password":"errada"}'; done
+
+Se não retornar 429 após 10 tentativas, mostrar o código atual do rate limiter e corrigir.
+
+APÓS TUDO: cd ~/workspace/artifacts/api-server && pnpm build
+
+Retornar relatório com smoke test de cada correção confirmando que funcionou.
