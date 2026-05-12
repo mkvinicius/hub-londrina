@@ -82,8 +82,11 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
   // Capa: prioriza bannerUrl (subido em "Fotos" do painel), cai em photoUrl.
   const cardImg = imgSrc((biz as any).bannerUrl || biz.photoUrl);
   const logoImg = imgSrc((biz as any).logoUrl);
+  // Vídeo no card: exclusivo Premium (decisão de produto: grátis pro Premium,
+  // sem add-on cobrado por enquanto). Cai pra foto se não houver vídeo.
+  const videoSrc = isPremium ? imgSrc((biz as any).videoUrl) : null;
 
-  const bannerH = size === "sm" ? "h-36" : "h-44";
+  const bannerH = size === "sm" ? "h-48" : "h-56";
   const logoSize = size === "sm" ? "w-20 h-20" : "w-[88px] h-[88px]";
   const logoOffset = size === "sm" ? "-top-10" : "-top-11";
 
@@ -94,7 +97,18 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
     >
       {/* Banner com rating + favorito */}
       <div className={`relative overflow-hidden flex-shrink-0 ${bannerH}`}>
-        {cardImg ? (
+        {videoSrc ? (
+          <video
+            src={videoSrc}
+            poster={cardImg ?? undefined}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : cardImg ? (
           <img
             src={cardImg}
             alt={biz.name}
@@ -143,9 +157,13 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
         </div>
       </div>
 
-      {/* Conteúdo centralizado */}
+      {/* Conteúdo centralizado — ordem: nome → badges → descrição */}
       <div className={`pt-12 px-5 pb-5 flex flex-col flex-grow text-center ${size === "sm" ? "pt-10" : ""}`}>
-        <div className="flex items-center justify-center gap-1.5 flex-wrap mb-2">
+        <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight tracking-tight">
+          {biz.name}
+        </h3>
+
+        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-2">
           <span className="inline-block text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
             {biz.categorySlug}
           </span>
@@ -175,10 +193,6 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
             />
           ))}
         </div>
-
-        <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight tracking-tight">
-          {biz.name}
-        </h3>
 
         {biz.description && (
           <p className="text-gray-500 dark:text-gray-400 text-xs mt-2 line-clamp-2 leading-snug">
