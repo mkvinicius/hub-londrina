@@ -756,10 +756,10 @@ export default function Landing() {
           </div>
 
           <div
-            className="flex md:flex-wrap gap-3 overflow-x-auto md:overflow-visible -mx-4 md:mx-0 px-4 md:px-0 pb-2 md:pb-0"
+            className="cat-pills-scroll flex md:flex-wrap gap-3 overflow-x-auto md:overflow-visible -mx-4 md:mx-0 px-4 md:px-0 pb-2 md:pb-0"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            <style>{`.cat-pills-row::-webkit-scrollbar{display:none}`}</style>
+            <style>{`.cat-pills-scroll::-webkit-scrollbar{display:none}`}</style>
             {categories.slice(0, 10).map((category) => {
               const Icon = getCategoryIcon(category.icon);
               const colorClasses = getCategoryColorClasses(category.color);
