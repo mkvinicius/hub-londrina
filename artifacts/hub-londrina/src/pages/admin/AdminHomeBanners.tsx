@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
 import { imgSrc } from "@/lib/utils";
-import { ImageIcon, Plus, Trash2, Eye, EyeOff, RefreshCw, Check, X, Clock, ShoppingBag } from "lucide-react";
+import { ImageIcon, Plus, Trash2, Eye, EyeOff, RefreshCw, Check, X, Clock, ShoppingBag, Pencil } from "lucide-react";
 
 interface Banner {
   id: number;
@@ -61,6 +61,7 @@ export default function AdminHomeBanners() {
   const [businesses, setBusinesses] = useState<ListBusiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "", subtitle: "", ctaLabel: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -83,28 +84,62 @@ export default function AdminHomeBanners() {
 
   const selectedBiz = businesses.find(b => String(b.id) === form.businessId);
 
-  async function handleCreate(e: React.FormEvent) {
+  function resetForm() {
+    setForm({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "", subtitle: "", ctaLabel: "" });
+    setEditingId(null);
+    setError("");
+  }
+
+  function startEdit(banner: Banner) {
+    setEditingId(banner.id);
+    setForm({
+      businessId: banner.businessId ? String(banner.businessId) : "",
+      imageUrl: banner.imageUrl || "",
+      linkUrl: banner.linkUrl || "",
+      endsAt: banner.endsAt ? banner.endsAt.slice(0, 10) : "",
+      subtitle: banner.subtitle || "",
+      ctaLabel: banner.ctaLabel || "",
+    });
+    setShowForm(true);
+    setError("");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!form.businessId) { setError("Selecione um negócio."); return; }
     setSaving(true);
     try {
-      await adminFetch("/api/admin/home-banners", {
-        method: "POST",
-        body: JSON.stringify({
-          businessId: Number(form.businessId),
-          imageUrl: form.imageUrl || undefined,
-          linkUrl: form.linkUrl || undefined,
-          endsAt: form.endsAt || null,
-          subtitle: form.subtitle || undefined,
-          ctaLabel: form.ctaLabel || undefined,
-        }),
-      });
-      setForm({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "", subtitle: "", ctaLabel: "" });
+      if (editingId) {
+        await adminFetch(`/api/admin/home-banners/${editingId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            imageUrl: form.imageUrl || undefined,
+            linkUrl: form.linkUrl || undefined,
+            endsAt: form.endsAt || null,
+            subtitle: form.subtitle,
+            ctaLabel: form.ctaLabel,
+          }),
+        });
+      } else {
+        if (!form.businessId) { setError("Selecione um negócio."); setSaving(false); return; }
+        await adminFetch("/api/admin/home-banners", {
+          method: "POST",
+          body: JSON.stringify({
+            businessId: Number(form.businessId),
+            imageUrl: form.imageUrl || undefined,
+            linkUrl: form.linkUrl || undefined,
+            endsAt: form.endsAt || null,
+            subtitle: form.subtitle || undefined,
+            ctaLabel: form.ctaLabel || undefined,
+          }),
+        });
+      }
+      resetForm();
       setShowForm(false);
       fetchBanners();
     } catch (e: any) {
-      setError(e.message || "Erro ao criar banner");
+      setError(e.message || "Erro ao salvar banner");
     } finally {
       setSaving(false);
     }
@@ -161,8 +196,8 @@ export default function AdminHomeBanners() {
             <RefreshCw className="w-4 h-4 text-gray-500" />
           </button>
           <button
-            onClick={() => setShowForm(!showForm)}
-            disabled={activeSlots >= 2}
+            onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }}
+            disabled={!editingId && activeSlots >= 2}
             className="flex items-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
@@ -197,31 +232,35 @@ export default function AdminHomeBanners() {
       )}
 
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-4">Novo Banner (cadastro direto pelo admin)</h3>
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
+          <h3 className="font-bold text-gray-800 mb-4">
+            {editingId ? `Editar banner #${editingId}` : "Novo Banner (cadastro direto pelo admin)"}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Negócio cadastrado *</label>
-              <select
-                value={form.businessId}
-                onChange={e => setForm(f => ({ ...f, businessId: e.target.value }))}
-                className={inputClass}
-                required
-              >
-                <option value="">— escolha um negócio ativo —</option>
-                {businesses.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} {b.zone ? `(${b.zone})` : ""} • {b.planType}
-                  </option>
-                ))}
-              </select>
-              {selectedBiz && (
-                <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-2">
-                  {selectedBiz.logoUrl && <img src={imgSrc(selectedBiz.logoUrl)} alt="" className="w-6 h-6 rounded object-cover" />}
-                  Título do banner = nome do negócio • link = /negocio/{selectedBiz.id}
-                </p>
-              )}
-            </div>
+            {!editingId && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Negócio cadastrado *</label>
+                <select
+                  value={form.businessId}
+                  onChange={e => setForm(f => ({ ...f, businessId: e.target.value }))}
+                  className={inputClass}
+                  required
+                >
+                  <option value="">— escolha um negócio ativo —</option>
+                  {businesses.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} {b.zone ? `(${b.zone})` : ""} • {b.planType}
+                    </option>
+                  ))}
+                </select>
+                {selectedBiz && (
+                  <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-2">
+                    {selectedBiz.logoUrl && <img src={imgSrc(selectedBiz.logoUrl)} alt="" className="w-6 h-6 rounded object-cover" />}
+                    Título do banner = nome do negócio • link = /negocio/{selectedBiz.id}
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">URL da imagem (opcional)</label>
               <input
@@ -279,9 +318,9 @@ export default function AdminHomeBanners() {
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
           <div className="flex gap-3 mt-4">
             <button type="submit" disabled={saving} className="bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50">
-              {saving ? "Salvando..." : "Criar Banner"}
+              {saving ? "Salvando..." : (editingId ? "Salvar alterações" : "Criar Banner")}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={() => { resetForm(); setShowForm(false); }} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-colors">
               Cancelar
             </button>
           </div>
@@ -350,6 +389,12 @@ export default function AdminHomeBanners() {
                       {banner.active ? "Desativar" : "Ativar"}
                     </button>
                   )}
+                  <button
+                    onClick={() => startEdit(banner)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" /> Editar
+                  </button>
                   <button
                     onClick={() => handleDelete(banner.id)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"

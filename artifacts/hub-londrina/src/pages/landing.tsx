@@ -665,10 +665,10 @@ export default function Landing() {
           const defaultBanner = {
             id: 0,
             title: "Anuncie seu negócio aqui",
-            subtitle: "Apareça para milhares de londrinenses todos os dias.",
+            subtitle: "Apareça para quem já está procurando o que você oferece",
             imageUrl: "/hero-empreendedores.jpg",
             linkUrl: "/anuncie",
-            ctaLabel: "Quero anunciar",
+            ctaLabel: "Anuncie Agora",
             businessId: null as number | null,
           };
           const slides = homeBanners.length > 0 ? homeBanners : [defaultBanner];
@@ -721,11 +721,9 @@ export default function Landing() {
                       {current.subtitle}
                     </p>
                   )}
-                  {current.ctaLabel && (
-                    <span className="mt-4 md:mt-5 inline-flex items-center gap-2 self-start bg-[#FF9800] hover:bg-[#f57c00] text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg">
-                      {current.ctaLabel} <ArrowRight className="h-4 w-4" />
-                    </span>
-                  )}
+                  <span className="mt-4 md:mt-5 inline-flex items-center gap-2 self-start bg-[#FF9800] hover:bg-[#f57c00] text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg">
+                    {current.ctaLabel || "Saiba mais"} <ArrowRight className="h-4 w-4" />
+                  </span>
                 </div>
                 {slides.length > 1 && (
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
@@ -757,7 +755,11 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div
+            className="flex md:flex-wrap gap-3 overflow-x-auto md:overflow-visible -mx-4 md:mx-0 px-4 md:px-0 pb-2 md:pb-0"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            <style>{`.cat-pills-row::-webkit-scrollbar{display:none}`}</style>
             {categories.slice(0, 10).map((category) => {
               const Icon = getCategoryIcon(category.icon);
               const colorClasses = getCategoryColorClasses(category.color);
@@ -765,13 +767,13 @@ export default function Landing() {
                 <button
                   key={category.id}
                   onClick={() => navigate(`/busca?categoria=${category.slug}`)}
-                  className="group inline-flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white/80 hover:bg-white border border-white hover:border-[#d97706]/40 transition-all shadow-sm hover:shadow-md"
+                  className="cat-pills-row group inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white/80 hover:bg-white border border-white hover:border-[#d97706]/40 transition-all shadow-sm hover:shadow-md"
                   data-testid={`pill-category-${category.slug}`}
                 >
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center ${colorClasses} group-hover:scale-110 transition-transform`}>
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span className="font-semibold text-sm text-[#3a2512] group-hover:text-[#d97706] transition-colors">
+                  <span className="font-semibold text-sm text-[#3a2512] group-hover:text-[#d97706] transition-colors whitespace-nowrap">
                     {category.name}
                   </span>
                 </button>
@@ -779,13 +781,13 @@ export default function Landing() {
             })}
             <button
               onClick={() => navigate("/categorias")}
-              className="inline-flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-[#6F4E37] hover:bg-[#5a3d2b] text-white transition-all shadow-sm hover:shadow-md"
+              className="cat-pills-row inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-[#6F4E37] hover:bg-[#5a3d2b] text-white transition-all shadow-sm hover:shadow-md"
               data-testid="pill-category-ver-todos"
             >
               <span className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15">
                 <ArrowRight className="h-4 w-4" />
               </span>
-              <span className="font-semibold text-sm">Ver Todos</span>
+              <span className="font-semibold text-sm whitespace-nowrap">Ver Todos</span>
             </button>
           </div>
         </div>
