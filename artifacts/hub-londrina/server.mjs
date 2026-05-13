@@ -18,12 +18,12 @@ const SECURITY_HEADERS = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
   "Content-Security-Policy": [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.instagram.com https://platform.instagram.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://api.stripe.com https://maps.googleapis.com https://viacep.com.br https://brasilapi.com.br",
-    "frame-src https://js.stripe.com",
+    "connect-src 'self' https://api.stripe.com https://maps.googleapis.com https://viacep.com.br https://brasilapi.com.br https://www.instagram.com https://graph.instagram.com",
+    "frame-src https://js.stripe.com https://www.instagram.com",
     "object-src 'none'",
   ].join("; "),
 };
