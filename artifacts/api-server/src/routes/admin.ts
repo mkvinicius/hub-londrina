@@ -1126,8 +1126,10 @@ router.get("/admin/home-banners", async (_req: Request, res: Response) => {
       id: homeBannersTable.id,
       businessId: homeBannersTable.businessId,
       title: homeBannersTable.title,
+      subtitle: homeBannersTable.subtitle,
       imageUrl: homeBannersTable.imageUrl,
       linkUrl: homeBannersTable.linkUrl,
+      ctaLabel: homeBannersTable.ctaLabel,
       active: homeBannersTable.active,
       status: homeBannersTable.status,
       requestedBy: homeBannersTable.requestedBy,
@@ -1150,7 +1152,7 @@ router.get("/admin/home-banners", async (_req: Request, res: Response) => {
 });
 
 router.post("/admin/home-banners", async (req: Request, res: Response) => {
-  const { businessId, imageUrl, linkUrl, endsAt } = req.body;
+  const { businessId, imageUrl, linkUrl, endsAt, subtitle, ctaLabel } = req.body;
 
   const parsedBizId = parseId(String(businessId ?? ""));
   if (!parsedBizId) {
@@ -1204,8 +1206,10 @@ router.post("/admin/home-banners", async (req: Request, res: Response) => {
   const [banner] = await db.insert(homeBannersTable).values({
     businessId: parsedBizId,
     title: biz.name,
+    subtitle: (subtitle && String(subtitle).trim()) || null,
     imageUrl: finalImageUrl,
     linkUrl: (linkUrl && String(linkUrl).trim()) || `/negocio/${parsedBizId}`,
+    ctaLabel: (ctaLabel && String(ctaLabel).trim()) || null,
     active: true,
     status: "active",
     requestedBy: "admin",
@@ -1218,12 +1222,14 @@ router.post("/admin/home-banners", async (req: Request, res: Response) => {
 router.patch("/admin/home-banners/:id", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
 
-  const { imageUrl, linkUrl, active, endsAt } = req.body;
+  const { imageUrl, linkUrl, active, endsAt, subtitle, ctaLabel } = req.body;
   const updates: Record<string, unknown> = {};
   if (imageUrl !== undefined) updates.imageUrl = imageUrl;
   if (linkUrl !== undefined) updates.linkUrl = linkUrl;
   if (active !== undefined) updates.active = Boolean(active);
   if (endsAt !== undefined) updates.endsAt = endsAt ? new Date(endsAt) : null;
+  if (subtitle !== undefined) updates.subtitle = subtitle ? String(subtitle).trim() : null;
+  if (ctaLabel !== undefined) updates.ctaLabel = ctaLabel ? String(ctaLabel).trim() : null;
 
   const [banner] = await db.update(homeBannersTable).set(updates).where(eq(homeBannersTable.id, id)).returning();
   if (!banner) { res.status(404).json({ error: "Banner não encontrado" }); return; }

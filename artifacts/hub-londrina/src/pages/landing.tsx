@@ -288,7 +288,7 @@ export default function Landing() {
   const [regionOpen, setRegionOpen] = useState(false);
   const [, navigate] = useLocation();
 
-  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; imageUrl: string; linkUrl: string | null; businessId: number | null }[]>([]);
+  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; subtitle: string | null; imageUrl: string; linkUrl: string | null; ctaLabel: string | null; businessId: number | null }[]>([]);
   const [bannerIdx, setBannerIdx] = useState(0);
   // T9 — produto da Vitrine selecionado para o modal/carrossel (>1 foto).
   const [vitrineModal, setVitrineModal] = useState<VitrineCardData | null>(null);
@@ -614,58 +614,6 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* ===== HOME BANNERS ===== */}
-      {homeBanners.length > 0 && (
-        <div className="bg-gray-50 py-4 px-4">
-          <div className="max-w-5xl mx-auto relative overflow-hidden rounded-2xl shadow-md">
-            {homeBanners.map((banner, idx) => (
-              <div
-                key={banner.id}
-                className={`transition-opacity duration-700 ${idx === bannerIdx ? "opacity-100" : "opacity-0 absolute inset-0"}`}
-              >
-                {banner.linkUrl || banner.businessId ? (
-                  <a
-                    href={banner.linkUrl || `/negocio/${banner.businessId}`}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      try {
-                        const r = await fetch(`${BASE}/api/home-banners/${banner.id}/click`, { method: "POST" });
-                        const j = await r.json().catch(() => ({}));
-                        const target = j.redirectTo || banner.linkUrl || `/negocio/${banner.businessId}`;
-                        if (target.startsWith("/")) navigate(target);
-                        else window.open(target, "_blank", "noopener,noreferrer");
-                      } catch {
-                        const target = banner.linkUrl || `/negocio/${banner.businessId}`;
-                        if (target.startsWith("/")) navigate(target);
-                        else window.open(target, "_blank", "noopener,noreferrer");
-                      }
-                    }}
-                  >
-                    <img src={banner.imageUrl} alt={banner.title || ""} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
-                  </a>
-                ) : (
-                  <img src={banner.imageUrl} alt={banner.title || ""} className="w-full h-36 md:h-48 object-cover rounded-2xl" />
-                )}
-              </div>
-            ))}
-            {homeBanners.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {homeBanners.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setBannerIdx(idx)}
-                    className={`w-2 h-2 rounded-full transition-all ${idx === bannerIdx ? "bg-white scale-125" : "bg-white/50"}`}
-                  />
-                ))}
-              </div>
-            )}
-            <div className="absolute top-2 right-3 text-[10px] text-white/70 font-medium bg-black/30 px-2 py-0.5 rounded-full">
-              Publicidade
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ===== CATEGORIES SECTION ===== */}
       <section
         style={{
@@ -711,21 +659,105 @@ export default function Landing() {
             ))}
           </div>
         </div>
+
+        {/* ===== HOME BANNERS (entre stats e categorias) ===== */}
+        {(() => {
+          const defaultBanner = {
+            id: 0,
+            title: "Anuncie seu negócio aqui",
+            subtitle: "Apareça para milhares de londrinenses todos os dias.",
+            imageUrl: "/hero-empreendedores.jpg",
+            linkUrl: "/anuncie",
+            ctaLabel: "Quero anunciar",
+            businessId: null as number | null,
+          };
+          const slides = homeBanners.length > 0 ? homeBanners : [defaultBanner];
+          const current = slides[Math.min(bannerIdx, slides.length - 1)];
+          const targetFor = (b: typeof defaultBanner) => b.linkUrl || (b.businessId ? `/negocio/${b.businessId}` : "/anuncie");
+          const handleClick = async (e: React.MouseEvent) => {
+            e.preventDefault();
+            const fallback = targetFor(current);
+            if (current.id === 0) {
+              navigate(fallback);
+              return;
+            }
+            try {
+              const r = await fetch(`${BASE}/api/home-banners/${current.id}/click`, { method: "POST" });
+              const j = await r.json().catch(() => ({}));
+              const target = j.redirectTo || fallback;
+              if (target.startsWith("/")) navigate(target);
+              else window.open(target, "_blank", "noopener,noreferrer");
+            } catch {
+              if (fallback.startsWith("/")) navigate(fallback);
+              else window.open(fallback, "_blank", "noopener,noreferrer");
+            }
+          };
+          return (
+            <div className="max-w-7xl mx-auto px-4 md:px-8 mb-10">
+              <a
+                href={targetFor(current)}
+                onClick={handleClick}
+                className="group block relative overflow-hidden rounded-3xl shadow-lg"
+                style={{ minHeight: "220px" }}
+              >
+                {slides.map((banner, idx) => (
+                  <img
+                    key={banner.id}
+                    src={banner.imageUrl}
+                    alt={banner.title || ""}
+                    className={`w-full h-[220px] md:h-[280px] object-cover transition-opacity duration-700 ${idx === bannerIdx % slides.length ? "opacity-100" : "opacity-0 absolute inset-0"}`}
+                    loading="lazy"
+                  />
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+                <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 max-w-2xl">
+                  {current.title && (
+                    <h3 className="text-white font-black text-2xl md:text-4xl leading-tight drop-shadow-lg">
+                      {current.title}
+                    </h3>
+                  )}
+                  {current.subtitle && (
+                    <p className="text-white/90 text-sm md:text-lg mt-2 md:mt-3 max-w-xl drop-shadow">
+                      {current.subtitle}
+                    </p>
+                  )}
+                  {current.ctaLabel && (
+                    <span className="mt-4 md:mt-5 inline-flex items-center gap-2 self-start bg-[#FF9800] hover:bg-[#f57c00] text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg">
+                      {current.ctaLabel} <ArrowRight className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+                {slides.length > 1 && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                    {slides.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBannerIdx(idx); }}
+                        className={`w-2 h-2 rounded-full transition-all ${idx === bannerIdx % slides.length ? "bg-white scale-125" : "bg-white/50"}`}
+                        aria-label={`Banner ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+                {homeBanners.length > 0 && (
+                  <div className="absolute top-3 right-3 text-[10px] text-white/80 font-medium bg-black/40 px-2 py-0.5 rounded-full">
+                    Publicidade
+                  </div>
+                )}
+              </a>
+            </div>
+          );
+        })()}
+
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-end justify-between mb-10 gap-4">
+          <div className="flex items-end justify-between mb-8 gap-4">
             <div>
               <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Negócios do seu bairro, da sua cidade</span>
               <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Quando você compra local, Londrina cresce.</h2>
             </div>
-            <button
-              onClick={() => navigate("/categorias")}
-              className="hidden md:flex items-center gap-2 text-sm font-bold text-[#d97706] hover:text-[#b45309] transition-colors whitespace-nowrap"
-            >
-              Ver todas <ArrowRight className="h-4 w-4" />
-            </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+          <div className="flex flex-wrap gap-3">
             {categories.slice(0, 10).map((category) => {
               const Icon = getCategoryIcon(category.icon);
               const colorClasses = getCategoryColorClasses(category.color);
@@ -733,50 +765,27 @@ export default function Landing() {
                 <button
                   key={category.id}
                   onClick={() => navigate(`/busca?categoria=${category.slug}`)}
-                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl transition-all duration-300"
-                  style={{
-                    background: "rgba(255,255,255,0.62)",
-                    backdropFilter: "blur(16px)",
-                    WebkitBackdropFilter: "blur(16px)",
-                    border: "1px solid rgba(255,255,255,0.85)",
-                    boxShadow: "0 4px 20px rgba(111,78,55,0.10), 0 1px 4px rgba(0,0,0,0.04)",
-                    transform: "translateY(0px)",
-                  }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLButtonElement;
-                    el.style.transform = "translateY(-5px)";
-                    el.style.boxShadow = "0 12px 36px rgba(111,78,55,0.18), 0 4px 12px rgba(217,119,6,0.12)";
-                    el.style.background = "rgba(255,255,255,0.85)";
-                    el.style.border = "1px solid rgba(217,119,6,0.25)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLButtonElement;
-                    el.style.transform = "translateY(0px)";
-                    el.style.boxShadow = "0 4px 20px rgba(111,78,55,0.10), 0 1px 4px rgba(0,0,0,0.04)";
-                    el.style.background = "rgba(255,255,255,0.62)";
-                    el.style.border = "1px solid rgba(255,255,255,0.85)";
-                  }}
+                  className="group inline-flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white/80 hover:bg-white border border-white hover:border-[#d97706]/40 transition-all shadow-sm hover:shadow-md"
+                  data-testid={`pill-category-${category.slug}`}
                 >
-                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${colorClasses} group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-7 w-7" />
-                  </div>
-                  <span className="font-bold text-sm text-center text-[#3a2512] group-hover:text-[#d97706] transition-colors leading-tight">
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center ${colorClasses} group-hover:scale-110 transition-transform`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="font-semibold text-sm text-[#3a2512] group-hover:text-[#d97706] transition-colors">
                     {category.name}
                   </span>
-                  {category.businessCount !== undefined && (
-                    <span className="text-xs text-[#6F4E37]/50">{category.businessCount} negócios</span>
-                  )}
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-6 md:hidden text-center">
             <button
               onClick={() => navigate("/categorias")}
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#d97706]"
+              className="inline-flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-[#6F4E37] hover:bg-[#5a3d2b] text-white transition-all shadow-sm hover:shadow-md"
+              data-testid="pill-category-ver-todos"
             >
-              Ver todas as categorias <ArrowRight className="h-4 w-4" />
+              <span className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15">
+                <ArrowRight className="h-4 w-4" />
+              </span>
+              <span className="font-semibold text-sm">Ver Todos</span>
             </button>
           </div>
         </div>

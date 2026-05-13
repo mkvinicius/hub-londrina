@@ -8,8 +8,10 @@ interface Banner {
   id: number;
   businessId: number | null;
   title: string | null;
+  subtitle: string | null;
   imageUrl: string;
   linkUrl: string | null;
+  ctaLabel: string | null;
   active: boolean;
   status: "active" | "pending_review" | "rejected" | "expired";
   requestedBy: "admin" | "lojista";
@@ -59,7 +61,7 @@ export default function AdminHomeBanners() {
   const [businesses, setBusinesses] = useState<ListBusiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "" });
+  const [form, setForm] = useState({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "", subtitle: "", ctaLabel: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"pending" | "active" | "all">("pending");
@@ -94,9 +96,11 @@ export default function AdminHomeBanners() {
           imageUrl: form.imageUrl || undefined,
           linkUrl: form.linkUrl || undefined,
           endsAt: form.endsAt || null,
+          subtitle: form.subtitle || undefined,
+          ctaLabel: form.ctaLabel || undefined,
         }),
       });
-      setForm({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "" });
+      setForm({ businessId: "", imageUrl: "", linkUrl: "", endsAt: "", subtitle: "", ctaLabel: "" });
       setShowForm(false);
       fetchBanners();
     } catch (e: any) {
@@ -246,6 +250,30 @@ export default function AdminHomeBanners() {
                 placeholder="(padrão: /negocio/:id)"
                 className={inputClass}
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Subtítulo (opcional)</label>
+              <input
+                type="text"
+                value={form.subtitle}
+                onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))}
+                placeholder="Ex: Promoção de inverno até 30/06"
+                maxLength={120}
+                className={inputClass}
+              />
+              <p className="text-xs text-gray-400 mt-1">Texto curto exibido sobre a imagem (máx. 120 caracteres).</p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Texto do botão CTA (opcional)</label>
+              <input
+                type="text"
+                value={form.ctaLabel}
+                onChange={e => setForm(f => ({ ...f, ctaLabel: e.target.value }))}
+                placeholder="Ex: Ver ofertas, Conhecer, Saiba mais"
+                maxLength={32}
+                className={inputClass}
+              />
+              <p className="text-xs text-gray-400 mt-1">Se preenchido, exibe um botão sobre o banner com este texto.</p>
             </div>
           </div>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
