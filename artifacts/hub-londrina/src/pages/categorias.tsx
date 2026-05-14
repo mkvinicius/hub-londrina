@@ -26,7 +26,7 @@ export default function Categorias() {
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-56 bg-gray-100 rounded-2xl animate-pulse" />
+                <div key={i} className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : (
@@ -39,37 +39,38 @@ export default function Categorias() {
                   <button
                     key={category.id}
                     onClick={() => navigate(`/busca?categoria=${category.slug}`)}
-                    className="group relative overflow-hidden rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-500 text-left aspect-[4/3]"
+                    className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-300 text-left flex flex-col"
+                    data-testid={`card-category-${category.slug}`}
                   >
-                    {/* Background photo */}
-                    <img
-                      src={photo}
-                      alt={category.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    />
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    {/* Foto (topo) */}
+                    <div className="relative overflow-hidden flex-shrink-0 h-32">
+                      <img
+                        src={photo}
+                        alt={category.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
 
-                    {/* Content */}
-                    <div className="absolute inset-0 flex flex-col justify-between p-5">
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${colorClasses} shadow-lg`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="font-black text-xl text-white leading-tight mb-1 drop-shadow-sm">
-                          {category.name}
-                        </h3>
-                        <div className="flex items-center justify-between">
-                          {category.businessCount !== undefined && (
-                            <span className="text-sm text-white/70 font-medium">
-                              {category.businessCount} {category.businessCount === 1 ? "negócio" : "negócios"}
-                            </span>
-                          )}
-                          <span className="text-white/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-sm font-bold">
-                            Ver todos <ArrowRight className="h-4 w-4" />
-                          </span>
+                    {/* Círculo com ícone colorido sobreposto na divisa */}
+                    <div className="relative">
+                      <div className="absolute left-1/2 -translate-x-1/2 -top-7 z-10">
+                        <div className={`w-14 h-14 rounded-full ${colorClasses} shadow-md flex items-center justify-center border-[3px] border-white dark:border-gray-800`}>
+                          <Icon className="h-6 w-6" />
                         </div>
                       </div>
+                    </div>
+
+                    {/* Conteúdo */}
+                    <div className="px-4 pt-9 pb-5 flex flex-col text-center flex-grow">
+                      <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] transition-colors leading-tight tracking-tight line-clamp-1">
+                        {category.name}
+                      </h3>
+                      {category.businessCount !== undefined && (
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1 font-medium">
+                          {category.businessCount} {category.businessCount === 1 ? "negócio" : "negócios"}
+                        </p>
+                      )}
                     </div>
                   </button>
                 );
