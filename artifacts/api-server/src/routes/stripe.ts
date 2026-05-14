@@ -949,6 +949,19 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         }
 
         if (session.subscription) {
+          // Task #32 — captura plano anterior ANTES do sync para detectar upgrade.
+          let prevPlan: string | null = null;
+          try {
+            const stripeSub = await stripe.subscriptions.retrieve(String(session.subscription));
+            const bizIdMeta = Number(stripeSub.metadata.businessId);
+            if (Number.isFinite(bizIdMeta) && bizIdMeta > 0) {
+              const [bizPrev] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, bizIdMeta));
+              prevPlan = bizPrev?.planType ?? null;
+            }
+          } catch {
+            prevPlan = null;
+          }
+
           await syncSubscription(String(session.subscription));
           try {
             const sub = await db.query.subscriptionsTable.findFirst({
@@ -970,7 +983,19 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
               if (biz?.ownerEmail) {
                 const planLabel = sub.plan === "premium" ? "Premium" : "Destaque";
                 const valor = sub.plan === "premium" ? "R$89,90" : "R$49,90";
-                const tpl = emails.pagamentoConfirmado(biz.ownerName || "Lojista", planLabel, valor);
+                const PLAN_RANK: Record<string, number> = { free: 0, destaque: 1, premium: 2 };
+                const isUpgrade =
+                  prevPlan !== null &&
+                  prevPlan !== sub.plan &&
+                  (PLAN_RANK[sub.plan] ?? 0) > (PLAN_RANK[prevPlan] ?? 0);
+                const tpl = isUpgrade
+                  ? emails.upgradePlano(
+                      biz.ownerName || "Lojista",
+                      prevPlan === "premium" ? "Premium" : prevPlan === "destaque" ? "Destaque" : "Gratuito",
+                      planLabel,
+                      valor,
+                    )
+                  : emails.pagamentoConfirmado(biz.ownerName || "Lojista", planLabel, valor);
                 await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
               }
             }
@@ -982,22 +1007,67 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
       }
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        if ((invoice as any).subscription) {
-          await syncSubscription(String((invoice as any).subscription));
+        const subIdStr = (invoice as any).subscription ? String((invoice as any).subscription) : null;
+        if (subIdStr) {
+          // Task #32 — captura plano + (planType, isVisible) ANTES do sync
+          // para detectar upgrade vs renovação vs publicação inicial.
+          let prevPlan: string | null = null;
+          let wasInvisible = false;
+          try {
+            const stripeSub = await stripe.subscriptions.retrieve(subIdStr);
+            const bizIdMeta = Number(stripeSub.metadata.businessId);
+            if (Number.isFinite(bizIdMeta) && bizIdMeta > 0) {
+              const [bizPrev] = await db
+                .select({ planType: businessesTable.planType, isVisible: businessesTable.isVisible, status: businessesTable.status })
+                .from(businessesTable)
+                .where(eq(businessesTable.id, bizIdMeta));
+              prevPlan = bizPrev?.planType ?? null;
+              wasInvisible = !!bizPrev && (!bizPrev.isVisible || bizPrev.status === "pending");
+            }
+          } catch {
+            prevPlan = null;
+          }
+
+          await syncSubscription(subIdStr);
+
           // Task #32 — invoice success também precisa garantir publicação
           // (caso o checkout.session.completed tenha sido perdido). Mesma
-          // regra: publica, NÃO toca documentationStatus.
+          // regra: publica, NÃO toca documentationStatus. E envia email
+          // diferenciado (upgrade vs primeira publicação). Renovação pura
+          // (mesmo plano, já visível) não dispara email para evitar spam.
           try {
             const sub = await db.query.subscriptionsTable.findFirst({
-              where: eq(subscriptionsTable.stripeSubscriptionId, String((invoice as any).subscription)),
+              where: eq(subscriptionsTable.stripeSubscriptionId, subIdStr),
             });
             if (sub && (sub.status === "active" || sub.status === "trialing")) {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
-              if (biz && (biz.status === "pending" || !biz.isVisible)) {
+              const justPublished = !!biz && wasInvisible;
+              if (justPublished) {
                 await db.update(businessesTable)
                   .set({ status: "active", isVisible: true })
                   .where(eq(businessesTable.id, sub.businessId));
                 logger.info(`[Stripe Webhook invoice] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento — documentação NÃO foi alterada`);
+              }
+
+              if (biz?.ownerEmail) {
+                const PLAN_RANK: Record<string, number> = { free: 0, destaque: 1, premium: 2 };
+                const isUpgrade =
+                  prevPlan !== null &&
+                  prevPlan !== sub.plan &&
+                  (PLAN_RANK[sub.plan] ?? 0) > (PLAN_RANK[prevPlan] ?? 0);
+                if (isUpgrade || justPublished) {
+                  const planLabel = sub.plan === "premium" ? "Premium" : "Destaque";
+                  const valor = sub.plan === "premium" ? "R$89,90" : "R$49,90";
+                  const tpl = isUpgrade
+                    ? emails.upgradePlano(
+                        biz.ownerName || "Lojista",
+                        prevPlan === "premium" ? "Premium" : prevPlan === "destaque" ? "Destaque" : "Gratuito",
+                        planLabel,
+                        valor,
+                      )
+                    : emails.pagamentoConfirmado(biz.ownerName || "Lojista", planLabel, valor);
+                  await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+                }
               }
             }
           } catch (e) {

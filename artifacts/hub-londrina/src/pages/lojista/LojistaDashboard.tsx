@@ -196,11 +196,11 @@ export default function LojistaDashboard() {
             <div>
               <h3 className="font-bold text-blue-900 text-sm mb-1">
                 {profile._documentationDaysLeft > 0
-                  ? `Seu negócio será publicado em ${profile._documentationDaysLeft} dia${profile._documentationDaysLeft !== 1 ? "s" : ""}`
-                  : "Seu negócio será publicado em breve"}
+                  ? `Você tem ${profile._documentationDaysLeft} dia${profile._documentationDaysLeft !== 1 ? "s" : ""} para enviar a documentação`
+                  : "Prazo da documentação encerrado"}
               </h3>
               <p className="text-blue-700 text-xs">
-                Use esse período para completar seu perfil — adicione logo, fotos e descrição. Após esse prazo, seu negócio aparece automaticamente no diretório público.
+                Envie os 3 documentos solicitados em <a href="/lojista/documentacao" className="underline font-semibold">Documentação</a>. Nossa equipe analisa cada um individualmente. Quando os 3 forem aprovados, seu negócio entra no diretório público. <strong>Pagar um plano não substitui essa análise</strong>.
               </p>
             </div>
           </div>

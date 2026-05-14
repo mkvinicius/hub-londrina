@@ -131,6 +131,23 @@ export const emails = {
     `,
   }),
 
+  upgradePlano: (nome: string, planoAnterior: string, planoNovo: string, valor: string) => ({
+    subject: `🚀 Upgrade confirmado — bem-vindo ao plano ${planoNovo}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#FF9800">Upgrade confirmado!</h2>
+        <p>Olá, <strong>${nome}</strong>!</p>
+        <p>Seu plano foi atualizado de <strong>${planoAnterior}</strong> para <strong>${planoNovo}</strong> (${valor}/mês). Os benefícios extras já estão liberados na sua conta de lojista.</p>
+        <p style="background:#FFF3E0;border-left:4px solid #FF9800;padding:12px;border-radius:6px;margin:16px 0">
+          <strong>Lembrete importante:</strong> a análise da sua documentação é uma trilha <em>independente</em> do pagamento. Mudar de plano não altera o status dos seus documentos — eles continuam sendo avaliados individualmente pela nossa equipe. Acompanhe em <a href="https://www.hublondrina.com.br/lojista/documentacao" style="color:#FF9800">Documentação</a>.
+        </p>
+        <p><a href="https://www.hublondrina.com.br/lojista" style="background:#FF9800;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Acessar painel</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+      </div>
+    `,
+  }),
+
   documentacaoExpirada: (nome: string, planoPago: boolean = false) => ({
     subject: planoPago
       ? `⚠️ Prazo da documentação venceu — envie para conseguir o selo Verificado`
