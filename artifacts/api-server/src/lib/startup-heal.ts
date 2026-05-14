@@ -35,19 +35,15 @@ export async function healPaidInvisibleBusinesses() {
 
     const ids = stuck.map((s) => s.id);
 
+    // Task #32 — Apenas publica. NÃO toca documentationStatus (trilho independente).
     await db
       .update(businessesTable)
       .set({ isVisible: true, status: "active" })
       .where(inArray(businessesTable.id, ids));
 
-    await db
-      .update(businessUsersTable)
-      .set({ documentationStatus: "approved", documentationRemainingDays: 0 })
-      .where(inArray(businessUsersTable.businessId, ids));
-
     logger.info(
       { ids, names: stuck.map((s) => s.name) },
-      `[StartupHeal] ${stuck.length} negócio(s) pago(s) que estavam invisíveis foram publicados`,
+      `[StartupHeal] ${stuck.length} negócio(s) pago(s) que estavam invisíveis foram publicados (documentação NÃO foi alterada)`,
     );
   } catch (err) {
     logger.error({ err }, "[StartupHeal] Falha ao curar negócios pagos invisíveis");

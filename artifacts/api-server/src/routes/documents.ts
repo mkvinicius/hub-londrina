@@ -419,7 +419,16 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
     .where(eq(businessesTable.id, doc.businessId));
   if (biz?.ownerEmail) {
     try {
-      const tpl = emails.documentacaoRejeitada(biz.ownerName || "Lojista", reason!.trim());
+      // Task #32 — email lista TODOS os documentos atualmente rejeitados (não só o que acabou de ser rejeitado)
+      const allRejected = await db
+        .select({ documentType: businessDocumentsTable.documentType, rejectionReason: businessDocumentsTable.rejectionReason })
+        .from(businessDocumentsTable)
+        .where(and(eq(businessDocumentsTable.businessId, doc.businessId), eq(businessDocumentsTable.status, "rejected")));
+      const rejeitados = allRejected.map((r) => ({
+        tipo: r.documentType,
+        motivo: r.rejectionReason || "Sem motivo informado",
+      }));
+      const tpl = emails.documentacaoRejeitada(biz.ownerName || "Lojista", rejeitados);
       await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
     } catch (err) {
       logger.error({ err }, "[Documents] Falha ao enviar email de rejeição");

@@ -38,14 +38,21 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 
 ---
 
-### R2 · Visibilidade pós-pagamento
-Quando um lojista paga (Destaque ou Premium), o negócio **deve ficar visível imediatamente**, mesmo que `isVisible=false` por causa do período de aprovação de docs.
+### R2 · Pagamento e aprovação de documentos são trilhos INDEPENDENTES (Task #32)
+Pagar o plano publica a loja imediatamente, mas **NÃO aprova nenhum documento**. A análise da documentação é feita pelo admin, doc por doc, em paralelo. As duas trilhas nunca se contaminam.
 
-- Webhook `checkout.session.completed` e `invoice.payment_succeeded` em `stripe.ts` devem rodar `(status === "pending" || !isVisible)` → setar `isVisible=true` + `business_users.documentationStatus="approved"`.
-- Mesma lógica em `POST /api/lojista/stripe/sync` (caminho de fallback sem webhook).
-- Backfill `lib/startup-heal.ts → healPaidInvisibleBusinesses()` roda no startup; deve ser idempotente.
+**Trilha A — Pagamento** (Stripe):
+- `checkout.session.completed`, `invoice.payment_succeeded` (webhook), `POST /api/lojista/stripe/sync` (fallback) e `healPaidInvisibleBusinesses()` (startup) devem, quando o pagamento confirma:
+  - setar `businesses.isVisible = true` e `businesses.status = "active"` se ainda não estiverem.
+  - **NUNCA** alterar `business_users.documentationStatus` nem `documentationRemainingDays`.
+- Email enviado: apenas `pagamentoConfirmado` (que explica que docs são separadas). **Proibido** disparar `cadastroAprovado` aqui — o admin não aprovou nada.
 
-**Teste**: criar lojista novo → pagar → verificar `SELECT is_visible FROM businesses WHERE id=X` retorna `true` em até 5s.
+**Trilha B — Documentação** (admin + cron):
+- Status (`pending → submitted → approved | rejected | expired`) só muda em: `POST /api/lojista/documents`, `PATCH /api/admin/documents/:id`, e `documentation-job.ts` (cron). Pagamento NÃO aciona nenhum desses.
+- Quando os 10 dias estouram em `documentation-job.ts` SEM os 3 docs aprovados, status vai para `expired`. **Não** auto-aprova nem mexe em `isVisible` (loja paga continua visível por R2-A; loja free fica offline porque nasce com `isVisible=false`).
+- Email de rejeição lista TODOS os docs atualmente rejeitados no negócio (não só o último), via `emails.documentacaoRejeitada(nome, Array<{tipo, motivo}>)`.
+
+**Teste**: lojista free novo → paga → 1) `SELECT is_visible FROM businesses WHERE id=X` retorna `true` em até 5s; 2) `SELECT documentation_status FROM business_users WHERE business_id=X` continua `pending` (não foi tocado).
 
 ---
 

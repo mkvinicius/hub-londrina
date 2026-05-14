@@ -124,18 +124,21 @@ export default function LojistaDocumentacao() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Documentação</h1>
           <p className="text-gray-600">
-            Envie os 3 documentos abaixo para validar sua loja. A análise leva até 24h.
+            Envie os 3 documentos abaixo para validar oficialmente sua loja. A análise é feita pela nossa equipe em até 24h após o envio.
+          </p>
+          <p className="text-xs text-gray-500 mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <strong>📌 Importante:</strong> a análise da documentação é <strong>independente do pagamento do plano</strong>. Pagar o plano não aprova automaticamente seus documentos, e ter documentos pendentes não bloqueia os benefícios do plano que você pagou. O que a documentação aprovada libera é o <strong>selo "Verificado"</strong> no seu perfil público (e, no plano gratuito, mantém sua loja online após o prazo de 10 dias).
           </p>
         </div>
 
         {data && (() => {
           const s = data.documentationStatus;
           const statusMap: Record<string, { cls: string; msg: string }> = {
-            expired:   { cls: "bg-red-50 border-red-200 text-red-800",       msg: "⏰ Prazo encerrado. Sua loja está offline. Envie a documentação para reativar." },
-            submitted: { cls: "bg-blue-50 border-blue-200 text-blue-800",    msg: "📋 Documentação em análise. Sua loja será ativada em até 24h." },
-            approved:  { cls: "bg-green-50 border-green-200 text-green-800", msg: "✅ Documentação aprovada. Sua loja está ativa!" },
-            rejected:  { cls: "bg-red-50 border-red-200 text-red-800",       msg: "❌ Documentação rejeitada. Corrija e reenvie os documentos abaixo." },
-            pending:   { cls: "bg-amber-50 border-amber-200 text-amber-800", msg: "📎 Envie os 3 documentos abaixo para validar sua loja." },
+            expired:   { cls: "bg-red-50 border-red-200 text-red-800",       msg: "⏰ Prazo de 10 dias encerrado sem documentação completa. Envie os documentos abaixo para conseguir o selo Verificado." },
+            submitted: { cls: "bg-blue-50 border-blue-200 text-blue-800",    msg: "📋 Documentação enviada — aguardando análise da nossa equipe (até 24h). Cada documento é avaliado individualmente." },
+            approved:  { cls: "bg-green-50 border-green-200 text-green-800", msg: "✅ Documentação aprovada. Você agora tem o selo Verificado no seu perfil público." },
+            rejected:  { cls: "bg-red-50 border-red-200 text-red-800",       msg: "❌ Um ou mais documentos foram rejeitados. Veja o motivo em cada card abaixo e reenvie apenas os marcados em vermelho." },
+            pending:   { cls: "bg-amber-50 border-amber-200 text-amber-800", msg: "📎 Envie os 3 documentos abaixo para receber o selo Verificado." },
           };
           const entry = statusMap[s] ?? statusMap["pending"];
           return (

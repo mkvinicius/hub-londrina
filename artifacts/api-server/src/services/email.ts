@@ -74,8 +74,11 @@ export const emails = {
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
         <h2 style="color:#3d7a28">Pagamento confirmado!</h2>
         <p>Olá, <strong>${nome}</strong>!</p>
-        <p>Seu plano <strong>${plano}</strong> está ativo. Cobrança de <strong>${valor}/mês</strong>.</p>
-        <p><a href="https://www.hublondrina.com.br/lojista/plano" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Ver meu plano</a></p>
+        <p>Seu plano <strong>${plano}</strong> está ativo. Cobrança de <strong>${valor}/mês</strong>. Sua loja já está publicada e com todos os benefícios do plano liberados.</p>
+        <p style="background:#fffbeb;border-left:4px solid #d97706;padding:12px;border-radius:6px;margin:14px 0">
+          <strong>📄 Sobre sua documentação:</strong> a análise dos seus documentos é feita à parte pela nossa equipe e <strong>não depende do pagamento</strong>. Se você ainda não enviou os 3 documentos (documento pessoal, cartão CNPJ e comprovante de endereço), tem até <strong>10 dias</strong> para enviá-los — só com a documentação aprovada você recebe o selo "Verificado" no perfil.
+        </p>
+        <p><a href="https://www.hublondrina.com.br/lojista/plano" style="background:#d97706;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Ver meu plano</a> &nbsp; <a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:#3d7a28;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin:10px 0">Enviar documentação</a></p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
         <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
       </div>
@@ -128,15 +131,21 @@ export const emails = {
     `,
   }),
 
-  documentacaoExpirada: (nome: string) => ({
-    subject: `🔴 Sua loja está offline — regularize agora`,
+  documentacaoExpirada: (nome: string, planoPago: boolean = false) => ({
+    subject: planoPago
+      ? `⚠️ Prazo da documentação venceu — envie para conseguir o selo Verificado`
+      : `🔴 Sua loja está offline — regularize a documentação`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-        <h2 style="color:#dc2626">Sua loja foi colocada offline</h2>
+        <h2 style="color:${planoPago ? "#d97706" : "#dc2626"}">Prazo da documentação encerrado</h2>
         <p>Olá, <strong>${nome}</strong>!</p>
-        <p>O prazo para envio da documentação expirou e sua loja foi temporariamente removida da listagem pública do Hub Londrina.</p>
-        <p>Para reativar, envie os 3 documentos solicitados. Assim que aprovados, sua loja volta ao ar imediatamente.</p>
-        <p><a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:#dc2626;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Regularizar agora</a></p>
+        ${
+          planoPago
+            ? `<p>Os 10 dias para envio da documentação acabaram. <strong>Como você tem plano pago, sua loja segue publicada normalmente</strong> — todos os benefícios do plano continuam ativos. Mas, sem documentação aprovada, você não recebe o <strong>selo "Verificado"</strong> no perfil público (que aumenta a confiança dos clientes).</p>`
+            : `<p>O prazo para envio da documentação expirou e sua loja do plano gratuito foi temporariamente removida da listagem pública do Hub Londrina.</p>
+               <p>Para reativar, envie os 3 documentos solicitados. Assim que aprovados pela nossa equipe, sua loja volta ao ar.</p>`
+        }
+        <p><a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:${planoPago ? "#d97706" : "#dc2626"};color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">${planoPago ? "Enviar documentação" : "Regularizar agora"}</a></p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
         <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
       </div>
@@ -157,21 +166,43 @@ export const emails = {
     `,
   }),
 
-  documentacaoRejeitada: (nome: string, motivo: string) => ({
-    subject: `❌ Documentação rejeitada — corrija e reenvie`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-        <h2 style="color:#dc2626">Um documento foi rejeitado</h2>
-        <p>Olá, <strong>${nome}</strong>!</p>
-        <p>Ao analisar sua documentação encontramos um problema:</p>
-        <p style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px;border-radius:6px"><strong>Motivo:</strong> ${motivo}</p>
-        <p>Por favor, corrija e reenvie o documento. Seu prazo voltou a contar.</p>
-        <p><a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Corrigir documentação</a></p>
-        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
-        <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
-      </div>
-    `,
-  }),
+  documentacaoRejeitada: (
+    nome: string,
+    rejeitados: Array<{ tipo: string; motivo: string }>,
+  ) => {
+    const TIPO_LABEL: Record<string, string> = {
+      personal_id: "Documento pessoal (RG/CNH)",
+      cnpj_card: "Cartão CNPJ",
+      address_proof: "Comprovante de endereço",
+    };
+    const itens = rejeitados
+      .map(
+        (r) =>
+          `<li style="margin-bottom:10px"><strong>${TIPO_LABEL[r.tipo] || r.tipo}:</strong> ${r.motivo}</li>`,
+      )
+      .join("");
+    const total = rejeitados.length;
+    return {
+      subject:
+        total === 1
+          ? `❌ 1 documento foi rejeitado — corrija e reenvie`
+          : `❌ ${total} documentos foram rejeitados — corrija e reenvie`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+          <h2 style="color:#dc2626">${total === 1 ? "Um documento foi rejeitado" : `${total} documentos foram rejeitados`}</h2>
+          <p>Olá, <strong>${nome}</strong>!</p>
+          <p>Nossa equipe analisou sua documentação e encontrou problemas nos itens abaixo:</p>
+          <ul style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 14px 14px 32px;border-radius:6px;list-style-type:disc">
+            ${itens}
+          </ul>
+          <p>Reenvie apenas os documentos rejeitados. Os demais (já aprovados ou em análise) continuam válidos. <strong>O pagamento do plano não é afetado</strong> — sua loja segue publicada normalmente.</p>
+          <p><a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Corrigir documentação</a></p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+          <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
+        </div>
+      `,
+    };
+  },
 
   planoGratuitoExpirando: (nome: string) => ({
     subject: `Seu período gratuito está acabando — assine o plano Base`,

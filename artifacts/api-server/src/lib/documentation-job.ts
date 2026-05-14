@@ -16,6 +16,7 @@ async function tickDocumentationTimers() {
         businessId: businessUsersTable.businessId,
         ownerEmail: businessesTable.ownerEmail,
         ownerName: businessesTable.ownerName,
+        planType: businessesTable.planType,
         remaining: businessUsersTable.documentationRemainingDays,
         firstLoginAt: businessUsersTable.firstLoginAt,
         status: businessUsersTable.documentationStatus,
@@ -60,38 +61,29 @@ async function tickDocumentationTimers() {
           }
         }
       } else {
-        // Período de 10 dias concluído — publicar o negócio automaticamente
+        // Task #32 — Prazo de 10 dias estourou SEM documentação completa.
+        // Marca como `expired` e NÃO auto-aprova/publica (trilho independente
+        // do pagamento). Para plano free isso mantém a loja offline; para
+        // pagos a loja continua visível (R2) mas o status reflete a pendência.
         await db
           .update(businessUsersTable)
           .set({
-            documentationStatus: "approved",
+            documentationStatus: "expired",
             documentationRemainingDays: 0,
           })
           .where(eq(businessUsersTable.id, u.userId));
 
-        await db
-          .update(businessesTable)
-          .set({ isVisible: true })
-          .where(eq(businessesTable.id, u.businessId));
-
         if (u.ownerEmail) {
           try {
-            await sendEmail(
-              u.ownerEmail,
-              "Seu negócio está publicado no Hub Londrina! 🎉",
-              `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-                <h2 style="color:#d97706">Parabéns, ${u.ownerName || "Lojista"}!</h2>
-                <p>Seu negócio já está <strong>visível para todos os usuários</strong> do Hub Londrina.</p>
-                <p>Acesse seu painel para acompanhar as métricas e impulsionar ainda mais sua presença.</p>
-                <p><a href="https://www.hublondrina.com.br/lojista" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Acessar meu painel</a></p>
-              </div>`,
-            );
+            const planoPago = u.planType === "destaque" || u.planType === "premium";
+            const tpl = emails.documentacaoExpirada(u.ownerName || "Lojista", planoPago);
+            await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
           } catch (err) {
-            logger.error({ err }, "[DocJob] Falha ao enviar email de publicação");
+            logger.error({ err }, "[DocJob] Falha ao enviar email de documentação expirada");
           }
         }
 
-        logger.info({ businessId: u.businessId }, "[DocJob] Negócio publicado automaticamente após 10 dias");
+        logger.info({ businessId: u.businessId }, "[DocJob] Documentação marcada como expirada após 10 dias sem envio");
       }
     }
 

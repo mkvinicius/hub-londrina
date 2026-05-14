@@ -121,20 +121,17 @@ async function syncSubscriptionFromStripe(stripeSubId: string): Promise<{ busine
   // Task #12 — mesma ideia para fotos da galeria do negócio.
   await enforcePhotoLimitForBusiness(businessId, finalPlan);
 
-  // Pagamento confirmado = autorização para publicar imediatamente.
-  // O fluxo de documentação (10 dias) é para planos gratuitos; quem paga
-  // não pode ficar invisível esperando aprovação manual.
+  // Task #32 — Pagamento confirmado = autorização para PUBLICAR imediatamente,
+  // mas NÃO aprova a documentação. São trilhos independentes: o admin continua
+  // analisando cada documento individualmente. Por isso não tocamos em
+  // `documentationStatus` aqui.
   if (isActive) {
     const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
     if (biz && (biz.status === "pending" || !biz.isVisible)) {
       await db.update(businessesTable)
         .set({ status: "active", isVisible: true })
         .where(eq(businessesTable.id, businessId));
-      // Marca documentação como aprovada para não cair na expiração de 30d do plano free
-      await db.update(businessUsersTable)
-        .set({ documentationStatus: "approved", documentationRemainingDays: 0 })
-        .where(eq(businessUsersTable.businessId, businessId));
-      logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) publicado após pagamento (plano=${planType})`);
+      logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) publicado após pagamento (plano=${planType}) — documentação NÃO foi alterada`);
     }
   }
 
@@ -960,21 +957,14 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             if (sub) {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
 
-              // Pagamento confirmado = publicar imediatamente (mesmo se status=active mas isVisible=false)
+              // Task #32 — Pagamento = publicar imediatamente, mas NÃO toca documentationStatus.
+              // Análise de docs é trilho independente do admin.
+              // Removido email `cadastroAprovado` (era enganoso: dizia "perfil aprovado" sem o admin ter aprovado nada).
               if (biz && (biz.status === "pending" || !biz.isVisible)) {
                 await db.update(businessesTable)
                   .set({ status: "active", isVisible: true })
                   .where(eq(businessesTable.id, sub.businessId));
-                await db.update(businessUsersTable)
-                  .set({ documentationStatus: "approved", documentationRemainingDays: 0 })
-                  .where(eq(businessUsersTable.businessId, sub.businessId));
-                logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento`);
-                try {
-                  const tpl = emails.cadastroAprovado(biz.ownerName || "Lojista", biz.name);
-                  if (biz.ownerEmail) await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
-                } catch (emailErr) {
-                  logger.error("[Stripe Webhook] Erro enviando email de aprovação:", emailErr);
-                }
+                logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento — documentação NÃO foi alterada`);
               }
 
               if (biz?.ownerEmail) {
@@ -994,6 +984,25 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         const invoice = event.data.object as Stripe.Invoice;
         if ((invoice as any).subscription) {
           await syncSubscription(String((invoice as any).subscription));
+          // Task #32 — invoice success também precisa garantir publicação
+          // (caso o checkout.session.completed tenha sido perdido). Mesma
+          // regra: publica, NÃO toca documentationStatus.
+          try {
+            const sub = await db.query.subscriptionsTable.findFirst({
+              where: eq(subscriptionsTable.stripeSubscriptionId, String((invoice as any).subscription)),
+            });
+            if (sub && (sub.status === "active" || sub.status === "trialing")) {
+              const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
+              if (biz && (biz.status === "pending" || !biz.isVisible)) {
+                await db.update(businessesTable)
+                  .set({ status: "active", isVisible: true })
+                  .where(eq(businessesTable.id, sub.businessId));
+                logger.info(`[Stripe Webhook invoice] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento — documentação NÃO foi alterada`);
+              }
+            }
+          } catch (e) {
+            logger.error({ err: e }, "[Stripe Webhook] Erro ao garantir publicação em invoice.payment_succeeded");
+          }
         }
         break;
       }
