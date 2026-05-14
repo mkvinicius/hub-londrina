@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Layout } from "@/components/Layout";
 import { useListCategories, useListBusinesses } from "@workspace/api-client-react";
-import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
+import { getCategoryIcon, getCategoryColorClasses, getCategoryPhoto } from "@/lib/icons";
 import { BusinessCard } from "@/components/BusinessCard";
 import { imgSrc } from "@/lib/utils";
 import { useSeo } from "@/lib/seo";
@@ -764,31 +764,45 @@ export default function Landing() {
             {categories.slice(0, 10).map((category) => {
               const Icon = getCategoryIcon(category.icon);
               const colorClasses = getCategoryColorClasses(category.color);
+              const photo = getCategoryPhoto(category);
               return (
                 <button
                   key={category.id}
                   onClick={() => navigate(`/busca?categoria=${category.slug}`)}
-                  className="cat-pills-row group inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white/80 hover:bg-white border border-white hover:border-[#d97706]/40 transition-all shadow-sm hover:shadow-md"
+                  className="group relative shrink-0 w-[150px] h-[110px] rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 transition-all duration-500 text-left"
                   data-testid={`pill-category-${category.slug}`}
                 >
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center ${colorClasses} group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="font-semibold text-sm text-[#3a2512] group-hover:text-[#d97706] transition-colors whitespace-nowrap">
-                    {category.name}
-                  </span>
+                  <img
+                    src={photo}
+                    alt={category.name}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-between p-2.5">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClasses} shadow-md`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <h3 className="font-black text-sm text-white leading-tight drop-shadow-sm">
+                      {category.name}
+                    </h3>
+                  </div>
                 </button>
               );
             })}
             <button
               onClick={() => navigate("/categorias")}
-              className="cat-pills-row inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-[#6F4E37] hover:bg-[#5a3d2b] text-white transition-all shadow-sm hover:shadow-md"
+              className="group relative shrink-0 w-[150px] h-[110px] rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-[#5a3d2b] transition-all duration-500 text-left bg-gradient-to-br from-[#6F4E37] to-[#4a2c0e]"
               data-testid="pill-category-ver-todos"
             >
-              <span className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15">
-                <ArrowRight className="h-4 w-4" />
-              </span>
-              <span className="font-semibold text-sm whitespace-nowrap">Ver Todos</span>
+              <div className="absolute inset-0 flex flex-col justify-between p-2.5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/15 text-white shadow-md group-hover:scale-110 transition-transform">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+                <h3 className="font-black text-sm text-white leading-tight drop-shadow-sm">
+                  Ver Todos
+                </h3>
+              </div>
             </button>
           </div>
         </div>

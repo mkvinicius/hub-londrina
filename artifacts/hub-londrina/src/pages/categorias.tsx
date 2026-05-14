@@ -2,30 +2,7 @@ import { useLocation } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useListCategories } from "@workspace/api-client-react";
-import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
-import { imgSrc } from "@/lib/utils";
-import type { Category } from "@workspace/api-client-react";
-
-const CATEGORY_PHOTOS: Record<string, string> = {
-  restaurantes: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=70",
-  saloes: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&q=70",
-  academias: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=70",
-  mercados: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=70",
-  cafeterias: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=70",
-  servicos: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=70",
-  educacao: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=70",
-  farmacias: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=70",
-  petshops: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&q=70",
-  confeitarias: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=600&q=70",
-};
-
-function getCategoryPhoto(category: Category): string {
-  if (category.photoUrl) return imgSrc(category.photoUrl);
-  const key = Object.keys(CATEGORY_PHOTOS).find(
-    (k) => category.slug.includes(k) || k.includes(category.slug)
-  );
-  return key ? CATEGORY_PHOTOS[key] : `https://images.unsplash.com/photo-1604594849809-dfedbc827105?w=600&q=70`;
-}
+import { getCategoryIcon, getCategoryColorClasses, getCategoryPhoto } from "@/lib/icons";
 
 export default function Categorias() {
   const [, navigate] = useLocation();

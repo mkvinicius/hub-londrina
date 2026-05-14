@@ -1,5 +1,6 @@
 import type { SVGProps } from "react";
 import { Building2, type LucideIcon } from "lucide-react";
+import { imgSrc } from "@/lib/utils";
 
 type IconProps = SVGProps<SVGSVGElement> & { className?: string };
 
@@ -100,6 +101,27 @@ export function getCategoryIcon(iconName: string): (props: IconProps) => JSX.Ele
   return customIconMap[iconName] ?? (({ className, ...props }: IconProps) => (
     <Building2 className={className} {...props} />
   ));
+}
+
+const CATEGORY_PHOTOS: Record<string, string> = {
+  restaurantes: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=70",
+  saloes: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&q=70",
+  academias: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=70",
+  mercados: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=70",
+  cafeterias: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=70",
+  servicos: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=70",
+  educacao: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=70",
+  farmacias: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=70",
+  petshops: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&q=70",
+  confeitarias: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=600&q=70",
+};
+
+export function getCategoryPhoto(category: { slug: string; photoUrl?: string | null }): string {
+  if (category.photoUrl) return imgSrc(category.photoUrl);
+  const key = Object.keys(CATEGORY_PHOTOS).find(
+    (k) => category.slug.includes(k) || k.includes(category.slug)
+  );
+  return key ? CATEGORY_PHOTOS[key] : `https://images.unsplash.com/photo-1604594849809-dfedbc827105?w=600&q=70`;
 }
 
 export function getCategoryColorClasses(hexColor: string): string {
