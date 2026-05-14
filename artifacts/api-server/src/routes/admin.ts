@@ -10,6 +10,7 @@ import { businessesTable, categoriesTable, businessClicksTable, businessUsersTab
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
+import { z } from "zod/v4";
 
 const router: IRouter = Router();
 
@@ -1739,11 +1740,19 @@ const partnerImageFilter = (_req: any, file: Express.Multer.File, cb: multer.Fil
 };
 const partnerUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: partnerImageFilter,
 });
 
-const VALID_TIERS = ["master", "apoiador"] as const;
+const partnerCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  tier: z.enum(["master", "apoiador"]),
+  logoUrl: z.string().min(1).max(500),
+  businessId: z.union([z.number().int().positive(), z.null(), z.literal("")]).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.union([z.number().int(), z.string()]).optional(),
+});
+const partnerUpdateSchema = partnerCreateSchema.partial();
 
 router.get("/admin/partners", async (_req: Request, res: Response) => {
   const rows = await db
@@ -1764,37 +1773,33 @@ router.get("/admin/partners", async (_req: Request, res: Response) => {
   res.json({ data: rows });
 });
 
+async function resolveBusinessId(input: unknown): Promise<{ ok: true; value: number | null } | { ok: false; error: string }> {
+  if (input === undefined || input === null || input === "") return { ok: true, value: null };
+  const bid = Number(input);
+  if (!Number.isFinite(bid) || bid <= 0) return { ok: false, error: "businessId inválido" };
+  const [biz] = await db.select({ id: businessesTable.id }).from(businessesTable).where(eq(businessesTable.id, bid));
+  if (!biz) return { ok: false, error: "Negócio não encontrado" };
+  return { ok: true, value: bid };
+}
+
 router.post("/admin/partners", async (req: Request, res: Response) => {
-  const { name, tier, logoUrl, businessId, isActive, sortOrder } = req.body ?? {};
-  if (!name || typeof name !== "string" || !name.trim()) {
-    res.status(400).json({ error: "Nome é obrigatório" });
+  const parsed = partnerCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Payload inválido", details: parsed.error.issues });
     return;
   }
-  if (!VALID_TIERS.includes(tier)) {
-    res.status(400).json({ error: "Tier deve ser 'master' ou 'apoiador'" });
-    return;
-  }
-  if (!logoUrl || typeof logoUrl !== "string") {
-    res.status(400).json({ error: "Logo é obrigatório" });
-    return;
-  }
-  let bizId: number | null = null;
-  if (businessId !== undefined && businessId !== null && businessId !== "") {
-    bizId = Number(businessId);
-    if (!Number.isFinite(bizId) || bizId <= 0) {
-      res.status(400).json({ error: "businessId inválido" });
-      return;
-    }
-    const [biz] = await db.select({ id: businessesTable.id }).from(businessesTable).where(eq(businessesTable.id, bizId));
-    if (!biz) { res.status(400).json({ error: "Negócio não encontrado" }); return; }
-  }
+  const { name, tier, logoUrl, businessId, isActive, sortOrder } = parsed.data;
+  const biz = await resolveBusinessId(businessId);
+  if (!biz.ok) { res.status(400).json({ error: biz.error }); return; }
+  const sortOrderNum = sortOrder === undefined ? 0 : Number(sortOrder);
+  if (!Number.isFinite(sortOrderNum)) { res.status(400).json({ error: "sortOrder inválido" }); return; }
   const [created] = await db.insert(partnersTable).values({
     name: name.trim(),
     tier,
     logoUrl,
-    businessId: bizId,
-    isActive: isActive === false ? false : true,
-    sortOrder: Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : 0,
+    businessId: biz.value,
+    isActive: isActive ?? true,
+    sortOrder: sortOrderNum,
   }).returning();
   await logAdminAction(ADMIN_DEFAULT_ID, "partner.create", "partner", created.id, JSON.stringify({ tier, name: created.name }), getReqIp(req));
   res.status(201).json({ data: created });
@@ -1802,35 +1807,22 @@ router.post("/admin/partners", async (req: Request, res: Response) => {
 
 router.patch("/admin/partners/:id", validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
+  const parsed = partnerUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Payload inválido", details: parsed.error.issues });
+    return;
+  }
+  const { name, tier, logoUrl, businessId, isActive, sortOrder } = parsed.data;
   const updates: Record<string, unknown> = {};
-  const { name, tier, logoUrl, businessId, isActive, sortOrder } = req.body ?? {};
-  if (name !== undefined) {
-    if (typeof name !== "string" || !name.trim()) { res.status(400).json({ error: "Nome inválido" }); return; }
-    updates.name = name.trim();
-  }
-  if (tier !== undefined) {
-    if (!VALID_TIERS.includes(tier)) { res.status(400).json({ error: "Tier inválido" }); return; }
-    updates.tier = tier;
-  }
-  if (logoUrl !== undefined) {
-    if (typeof logoUrl !== "string" || !logoUrl) { res.status(400).json({ error: "logoUrl inválido" }); return; }
-    updates.logoUrl = logoUrl;
-  }
+  if (name !== undefined) updates.name = name.trim();
+  if (tier !== undefined) updates.tier = tier;
+  if (logoUrl !== undefined) updates.logoUrl = logoUrl;
   if (businessId !== undefined) {
-    if (businessId === null || businessId === "") {
-      updates.businessId = null;
-    } else {
-      const bid = Number(businessId);
-      if (!Number.isFinite(bid) || bid <= 0) { res.status(400).json({ error: "businessId inválido" }); return; }
-      const [biz] = await db.select({ id: businessesTable.id }).from(businessesTable).where(eq(businessesTable.id, bid));
-      if (!biz) { res.status(400).json({ error: "Negócio não encontrado" }); return; }
-      updates.businessId = bid;
-    }
+    const biz = await resolveBusinessId(businessId);
+    if (!biz.ok) { res.status(400).json({ error: biz.error }); return; }
+    updates.businessId = biz.value;
   }
-  if (isActive !== undefined) {
-    if (typeof isActive !== "boolean") { res.status(400).json({ error: "isActive deve ser boolean" }); return; }
-    updates.isActive = isActive;
-  }
+  if (isActive !== undefined) updates.isActive = isActive;
   if (sortOrder !== undefined) {
     const so = Number(sortOrder);
     if (!Number.isFinite(so)) { res.status(400).json({ error: "sortOrder inválido" }); return; }

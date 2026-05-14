@@ -1,56 +1,48 @@
-import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useListPartners, getListPartnersQueryKey } from "@workspace/api-client-react";
 import { imgSrc } from "@/lib/utils";
 
-interface Partner {
+interface PartnerLite {
   id: number;
   name: string;
-  tier: "master" | "apoiador";
+  tier: string;
   logoUrl: string;
-  businessId: number | null;
+  businessId?: number | null;
   sortOrder: number;
 }
 
-interface PartnersResponse {
-  master: Partner[];
-  apoiador: Partner[];
-}
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
-
 export function PartnersSection() {
-  const [data, setData] = useState<PartnersResponse | null>(null);
+  const { data } = useListPartners({
+    query: { queryKey: getListPartnersQueryKey(), staleTime: 60_000 },
+  });
   const [, navigate] = useLocation();
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/partners`)
-      .then((r) => (r.ok ? r.json() : { master: [], apoiador: [] }))
-      .then((d: PartnersResponse) => setData(d))
-      .catch(() => setData({ master: [], apoiador: [] }));
-  }, []);
-
   if (!data) return null;
-  const hasMaster = data.master.length > 0;
-  const hasApoiador = data.apoiador.length > 0;
+  const master = (data.master ?? []) as PartnerLite[];
+  const apoiador = (data.apoiador ?? []) as PartnerLite[];
+  const hasMaster = master.length > 0;
+  const hasApoiador = apoiador.length > 0;
   if (!hasMaster && !hasApoiador) return null;
 
-  const goToBusiness = (p: Partner) => {
+  const goToBusiness = (p: PartnerLite) => {
     if (p.businessId) navigate(`/negocio/${p.businessId}`);
   };
 
   return (
     <section className="py-16" style={{ backgroundColor: "#FAF7F2" }} data-testid="section-partners">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <div className="text-center mb-10">
+          <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-2">Quem apoia o Hub Londrina</h2>
+          <p className="text-sm md:text-base text-[#6F4E37]/70">Marcas que acreditam no comércio local</p>
+        </div>
+
         {hasMaster && (
           <div className="mb-12">
-            <div className="text-center mb-8">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#d97706] mb-2">Patrocinadores Master</p>
-              <h2 className="font-black text-2xl md:text-3xl text-[#3a2512]">
-                Quem acredita no comércio de Londrina
-              </h2>
-            </div>
+            <p className="text-center text-xs font-bold uppercase tracking-widest text-[#d97706] mb-5">
+              Patrocinadores Master
+            </p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
-              {data.master.map((p) => {
+              {master.map((p) => {
                 const clickable = !!p.businessId;
                 return (
                   <div
@@ -81,25 +73,23 @@ export function PartnersSection() {
 
         {hasApoiador && (
           <div>
-            <div className="text-center mb-6">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#6F4E37]/70 mb-1">Apoiadores</p>
-              <h3 className="font-bold text-base md:text-lg text-[#3a2512]/80">
-                Negócios locais que somam com a gente
-              </h3>
-            </div>
+            <p className="text-center text-xs font-bold uppercase tracking-widest text-[#6F4E37]/70 mb-4">
+              Apoiadores
+            </p>
             <div className="partners-marquee" data-testid="carousel-partners-apoiador">
               <div className="partners-marquee-track">
-                {[...data.apoiador, ...data.apoiador].map((p, i) => {
+                {[...apoiador, ...apoiador].map((p, i) => {
                   const clickable = !!p.businessId;
+                  const isClone = i >= apoiador.length;
                   return (
                     <div
                       key={`${p.id}-${i}`}
-                      data-testid={i < data.apoiador.length ? `card-partner-apoiador-${p.id}` : undefined}
+                      data-testid={!isClone ? `card-partner-apoiador-${p.id}` : undefined}
                       onClick={() => goToBusiness(p)}
                       onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToBusiness(p); } } : undefined}
                       role={clickable ? "link" : undefined}
-                      tabIndex={clickable && i < data.apoiador.length ? 0 : -1}
-                      aria-hidden={i >= data.apoiador.length || undefined}
+                      tabIndex={clickable && !isClone ? 0 : -1}
+                      aria-hidden={isClone || undefined}
                       aria-label={clickable ? `Ver perfil de ${p.name}` : p.name}
                       className={`partners-marquee-item h-12 md:h-14 flex items-center justify-center px-6 ${
                         clickable ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#d97706] rounded-lg" : ""
