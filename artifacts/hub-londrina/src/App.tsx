@@ -17,6 +17,7 @@ import AdminCategorias from "@/pages/admin/AdminCategorias";
 import AdminImpulsionamento from "@/pages/admin/AdminImpulsionamento";
 import AdminZonas from "@/pages/admin/AdminZonas";
 import AdminHomeBanners from "@/pages/admin/AdminHomeBanners";
+import AdminPatrocinadores from "@/pages/admin/AdminPatrocinadores";
 import AdminCadastros from "@/pages/admin/AdminCadastros";
 import AdminAssinaturas from "@/pages/admin/AdminAssinaturas";
 import AdminAuditLog from "@/pages/admin/AdminAuditLog";
@@ -81,6 +82,7 @@ function Router() {
       <Route path="/admin/impulsionamento">{() => <PrivateRoute component={AdminImpulsionamento} />}</Route>
       <Route path="/admin/zonas">{() => <PrivateRoute component={AdminZonas} />}</Route>
       <Route path="/admin/home-banners">{() => <PrivateRoute component={AdminHomeBanners} />}</Route>
+      <Route path="/admin/patrocinadores">{() => <PrivateRoute component={AdminPatrocinadores} />}</Route>
       <Route path="/admin/categorias">{() => <PrivateRoute component={AdminCategorias} />}</Route>
       <Route path="/admin/reviews">{() => <PrivateRoute component={AdminReviews} />}</Route>
       <Route path="/admin/audit-log">{() => <PrivateRoute component={AdminAuditLog} />}</Route>

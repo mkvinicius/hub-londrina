@@ -8,6 +8,33 @@
 import * as zod from "zod";
 
 /**
+ * Returns active partners grouped by tier (master and apoiador) for the public landing page.
+ * @summary List active sponsors and supporters
+ */
+export const ListPartnersResponse = zod.object({
+  master: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      tier: zod.enum(["master", "apoiador"]),
+      logoUrl: zod.string(),
+      businessId: zod.number().nullish(),
+      sortOrder: zod.number(),
+    }),
+  ),
+  apoiador: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      tier: zod.enum(["master", "apoiador"]),
+      logoUrl: zod.string(),
+      businessId: zod.number().nullish(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
  * Returns server health status
  * @summary Health check
  */

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { PartnersSection } from "@/components/PartnersSection";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Search, ArrowRight, ArrowLeft, Quote,
+  Search, ArrowRight, ArrowLeft,
   CheckCircle2, ChevronDown, Zap, MessageCircle, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -250,30 +251,6 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
     </div>
   );
 }
-
-const testimonials = [
-  {
-    name: "Mariana Costa",
-    role: "Moradora da Zona Sul",
-    content: "Achei uma padaria artesanal a 3 quadras de casa que eu não sabia que existia. Agora compro lá toda semana.",
-    initials: "MC",
-    bg: "bg-pink-100 text-pink-700",
-  },
-  {
-    name: "Roberto Silva",
-    role: "Dono de oficina, Zona Norte",
-    content: "Na primeira semana já recebi contato de cliente novo pelo WhatsApp. O perfil paga ele mesmo.",
-    initials: "RS",
-    bg: "bg-blue-100 text-blue-700",
-  },
-  {
-    name: "Juliana Alves",
-    role: "Estudante, Centro",
-    content: "Uso toda vez que preciso de algum serviço aqui em Londrina. Muito melhor do que ficar perguntando no grupo do WhatsApp.",
-    initials: "JA",
-    bg: "bg-green-100 text-green-700",
-  },
-];
 
 export default function Landing() {
   useSeo({
@@ -978,31 +955,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ===== TESTIMONIALS ===== */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-12">
-            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-2">O que dizem os londrinenses</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((t, i) => (
-              <div key={i} className="bg-gray-50 rounded-2xl p-7 border border-gray-100">
-                <Quote className="h-7 w-7 text-[#d97706] mb-4 opacity-40" />
-                <p className="text-gray-600 text-sm leading-relaxed mb-5 italic">"{t.content}"</p>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${t.bg}`}>
-                    {t.initials}
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm text-[#3a2512]">{t.name}</div>
-                    <div className="text-xs text-gray-500">{t.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PartnersSection />
+
 
       {/* ===== FINAL CTA ===== */}
       <section className="py-14 bg-[#d97706]">

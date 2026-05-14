@@ -76,6 +76,27 @@ export interface ApiError {
   error: string;
 }
 
+export type PartnerTier = (typeof PartnerTier)[keyof typeof PartnerTier];
+
+export const PartnerTier = {
+  master: "master",
+  apoiador: "apoiador",
+} as const;
+
+export interface Partner {
+  id: number;
+  name: string;
+  tier: PartnerTier;
+  logoUrl: string;
+  businessId?: number | null;
+  sortOrder: number;
+}
+
+export interface PartnersResponse {
+  master: Partner[];
+  apoiador: Partner[];
+}
+
 export type ListBusinessesParams = {
   category?: string;
   region?: string;

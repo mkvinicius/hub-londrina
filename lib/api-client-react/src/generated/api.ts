@@ -22,6 +22,7 @@ import type {
   ListBusinessesParams,
   ListCategoriesParams,
   ListReviewsParams,
+  PartnersResponse,
   ReviewListResponse,
   SearchParams,
 } from "./api.schemas";
@@ -34,6 +35,82 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * Returns active partners grouped by tier (master and apoiador) for the public landing page.
+ * @summary List active sponsors and supporters
+ */
+export const getListPartnersUrl = () => {
+  return `/api/partners`;
+};
+
+export const listPartners = async (
+  options?: RequestInit,
+): Promise<PartnersResponse> => {
+  return customFetch<PartnersResponse>(getListPartnersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPartnersQueryKey = () => {
+  return [`/api/partners`] as const;
+};
+
+export const getListPartnersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPartners>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPartners>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPartnersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPartners>>> = ({
+    signal,
+  }) => listPartners({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPartners>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPartnersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPartners>>
+>;
+export type ListPartnersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active sponsors and supporters
+ */
+
+export function useListPartners<
+  TData = Awaited<ReturnType<typeof listPartners>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPartners>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPartnersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns server health status

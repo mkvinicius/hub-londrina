@@ -1,12 +1,15 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import path from "path";
 import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable, partnersTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
+import { uploadBufferToGCS } from "../lib/gcsUpload";
 
 const router: IRouter = Router();
 
@@ -1727,6 +1730,137 @@ router.post("/admin/products/:id/video/reject", validateId, async (req: Request,
   });
 
   res.json({ success: true });
+});
+
+// ===== Patrocinadores e Apoiadores (Task #31) =====
+const partnerImageFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (/^image\/(png|jpe?g|webp|svg\+xml)$/.test(file.mimetype)) cb(null, true);
+  else cb(new Error("Apenas PNG, JPG, WEBP ou SVG"));
+};
+const partnerUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: partnerImageFilter,
+});
+
+const VALID_TIERS = ["master", "apoiador"] as const;
+
+router.get("/admin/partners", async (_req: Request, res: Response) => {
+  const rows = await db
+    .select({
+      id: partnersTable.id,
+      name: partnersTable.name,
+      tier: partnersTable.tier,
+      logoUrl: partnersTable.logoUrl,
+      businessId: partnersTable.businessId,
+      isActive: partnersTable.isActive,
+      sortOrder: partnersTable.sortOrder,
+      createdAt: partnersTable.createdAt,
+      businessName: businessesTable.name,
+    })
+    .from(partnersTable)
+    .leftJoin(businessesTable, eq(partnersTable.businessId, businessesTable.id))
+    .orderBy(asc(partnersTable.tier), asc(partnersTable.sortOrder), asc(partnersTable.id));
+  res.json({ data: rows });
+});
+
+router.post("/admin/partners", async (req: Request, res: Response) => {
+  const { name, tier, logoUrl, businessId, isActive, sortOrder } = req.body ?? {};
+  if (!name || typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "Nome é obrigatório" });
+    return;
+  }
+  if (!VALID_TIERS.includes(tier)) {
+    res.status(400).json({ error: "Tier deve ser 'master' ou 'apoiador'" });
+    return;
+  }
+  if (!logoUrl || typeof logoUrl !== "string") {
+    res.status(400).json({ error: "Logo é obrigatório" });
+    return;
+  }
+  let bizId: number | null = null;
+  if (businessId !== undefined && businessId !== null && businessId !== "") {
+    bizId = Number(businessId);
+    if (!Number.isFinite(bizId) || bizId <= 0) {
+      res.status(400).json({ error: "businessId inválido" });
+      return;
+    }
+    const [biz] = await db.select({ id: businessesTable.id }).from(businessesTable).where(eq(businessesTable.id, bizId));
+    if (!biz) { res.status(400).json({ error: "Negócio não encontrado" }); return; }
+  }
+  const [created] = await db.insert(partnersTable).values({
+    name: name.trim(),
+    tier,
+    logoUrl,
+    businessId: bizId,
+    isActive: isActive === false ? false : true,
+    sortOrder: Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : 0,
+  }).returning();
+  await logAdminAction(ADMIN_DEFAULT_ID, "partner.create", "partner", created.id, JSON.stringify({ tier, name: created.name }), getReqIp(req));
+  res.status(201).json({ data: created });
+});
+
+router.patch("/admin/partners/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const updates: Record<string, unknown> = {};
+  const { name, tier, logoUrl, businessId, isActive, sortOrder } = req.body ?? {};
+  if (name !== undefined) {
+    if (typeof name !== "string" || !name.trim()) { res.status(400).json({ error: "Nome inválido" }); return; }
+    updates.name = name.trim();
+  }
+  if (tier !== undefined) {
+    if (!VALID_TIERS.includes(tier)) { res.status(400).json({ error: "Tier inválido" }); return; }
+    updates.tier = tier;
+  }
+  if (logoUrl !== undefined) {
+    if (typeof logoUrl !== "string" || !logoUrl) { res.status(400).json({ error: "logoUrl inválido" }); return; }
+    updates.logoUrl = logoUrl;
+  }
+  if (businessId !== undefined) {
+    if (businessId === null || businessId === "") {
+      updates.businessId = null;
+    } else {
+      const bid = Number(businessId);
+      if (!Number.isFinite(bid) || bid <= 0) { res.status(400).json({ error: "businessId inválido" }); return; }
+      const [biz] = await db.select({ id: businessesTable.id }).from(businessesTable).where(eq(businessesTable.id, bid));
+      if (!biz) { res.status(400).json({ error: "Negócio não encontrado" }); return; }
+      updates.businessId = bid;
+    }
+  }
+  if (isActive !== undefined) {
+    if (typeof isActive !== "boolean") { res.status(400).json({ error: "isActive deve ser boolean" }); return; }
+    updates.isActive = isActive;
+  }
+  if (sortOrder !== undefined) {
+    const so = Number(sortOrder);
+    if (!Number.isFinite(so)) { res.status(400).json({ error: "sortOrder inválido" }); return; }
+    updates.sortOrder = so;
+  }
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nenhum campo para atualizar" });
+    return;
+  }
+  updates.updatedAt = new Date();
+  const result = await db.update(partnersTable).set(updates).where(eq(partnersTable.id, id)).returning();
+  if (result.length === 0) { res.status(404).json({ error: "Patrocinador não encontrado" }); return; }
+  await logAdminAction(ADMIN_DEFAULT_ID, "partner.update", "partner", id, JSON.stringify(updates), getReqIp(req));
+  res.json({ data: result[0] });
+});
+
+router.delete("/admin/partners/:id", validateId, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const result = await db.delete(partnersTable).where(eq(partnersTable.id, id)).returning();
+  if (result.length === 0) { res.status(404).json({ error: "Patrocinador não encontrado" }); return; }
+  await logAdminAction(ADMIN_DEFAULT_ID, "partner.delete", "partner", id, undefined, getReqIp(req));
+  res.json({ success: true });
+});
+
+router.post("/admin/upload/partner-logo", partnerUpload.single("file"), async (req: Request, res: Response) => {
+  if (!req.file) { res.status(400).json({ error: "Nenhum arquivo enviado" }); return; }
+  const ext = path.extname(req.file.originalname) || ".png";
+  const filename = `partner-${Date.now()}${ext}`;
+  const logoUrl = await uploadBufferToGCS(req.file.buffer, "partners", filename, req.file.mimetype);
+  res.json({ logoUrl });
 });
 
 export default router;

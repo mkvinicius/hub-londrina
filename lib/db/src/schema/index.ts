@@ -13,3 +13,4 @@ export * from "./job-runs";
 export * from "./admin-actions";
 export * from "./support-tickets";
 export * from "./vitrine-boosts";
+export * from "./partners";

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare, Award } from "lucide-react";
 import { clearToken } from "@/lib/admin-api";
 import { useState } from "react";
 
@@ -13,6 +13,7 @@ const links = [
   { href: "/admin/impulsionamento", label: "Impulsionamento", icon: Zap },
   { href: "/admin/zonas", label: "Destaque por Zona", icon: MapPin },
   { href: "/admin/home-banners", label: "Banners Home", icon: ImageIcon },
+  { href: "/admin/patrocinadores", label: "Patrocinadores", icon: Award },
   { href: "/admin/categorias", label: "Categorias", icon: Tag },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/suporte", label: "Suporte", icon: MessageSquare },

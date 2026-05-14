@@ -29,6 +29,15 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 
 ---
 
+### R1.1 · Seção Patrocinadores na home (Task #31)
+- Tabela `partners` é fonte única; a seção fica em `src/components/PartnersSection.tsx` e é renderizada em `landing.tsx` no lugar do antigo bloco de depoimentos.
+- A seção **só renderiza** se pelo menos 1 patrocinador estiver `isActive=true` (em qualquer tier). Vazio = nada na home (sem placeholder).
+- Clique em logo só leva para rota interna `/negocio/:id` quando `businessId` está vinculado. **Proibido** colocar URLs externas no clique sem nova decisão de produto (link externo = risco de SEO/segurança/abuso).
+- `businessId` usa `ON DELETE SET NULL` — se o negócio for excluído, o patrocinador fica órfão (logo aparece sem link), nunca é deletado em cascata.
+- Upload de logo só por admin via `POST /api/admin/upload/partner-logo` (multer 5MB, PNG/JPG/WEBP/SVG). Lojista **não** tem auto-cadastro nesta versão.
+
+---
+
 ### R2 · Visibilidade pós-pagamento
 Quando um lojista paga (Destaque ou Premium), o negócio **deve ficar visível imediatamente**, mesmo que `isVisible=false` por causa do período de aprovação de docs.
 

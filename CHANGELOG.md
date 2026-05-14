@@ -6,6 +6,16 @@
 
 ## 2026-05-14
 
+### Task #31 — Patrocinadores e Apoiadores na home
+- Removido o bloco fictício de depoimentos "O que dizem os londrinenses" (`landing.tsx`) — incluindo o array hard-coded `testimonials` e o ícone `Quote` que ficou órfão.
+- Nova seção `<PartnersSection />` (`src/components/PartnersSection.tsx`) renderiza duas faixas: **Patrocinadores Master** em grid `2/3/4` colunas com cards `h-20/h-24` e **Apoiadores** em carrossel CSS infinito (`@keyframes partners-scroll` 35s, pause-on-hover, mask gradient nas bordas, respeita `prefers-reduced-motion`). Logos com `businessId` setado são clicáveis e levam para `/negocio/:id`; sem vínculo ficam apenas como referência visual.
+- Apoiadores recebem efeito grayscale + opacidade 60%, voltando a cores no hover.
+- Backend: nova tabela `partners` (`lib/db/src/schema/partners.ts`) com `id, name, tier(master|apoiador), logoUrl, businessId(FK ON DELETE SET NULL), isActive, sortOrder, createdAt, updatedAt`. Aplicada via `pnpm --filter @workspace/db run push`.
+- Endpoints: público `GET /api/partners` (devolve `{ master: [], apoiador: [] }`, somente ativos, ordenados por `sortOrder asc`); admin `GET/POST/PATCH/DELETE /api/admin/partners` + `POST /api/admin/upload/partner-logo` (multer 5MB, PNG/JPG/WEBP/SVG → GCS bucket `partners`). Todas as mutações admin gravam em `admin_actions` (`partner.create|update|delete`).
+- Spec OpenAPI atualizada com schemas `Partner` / `PartnersResponse` e codegen rodado.
+- Admin: nova página `pages/admin/AdminPatrocinadores.tsx` com CRUD completo (upload de logo, seletor de negócio com lista de ativos+visíveis, tier, ordem, ativo/inativo, abas Master/Apoiadores/Todos). Link "Patrocinadores" adicionado no `AdminLayout` entre "Banners Home" e "Categorias". Rota `/admin/patrocinadores` registrada em `App.tsx`.
+- A seção pública só renderiza se houver pelo menos 1 patrocinador ativo (em qualquer tier) — degradação silenciosa quando vazio.
+
 ### UX — categorias na home e na página /categorias
 - **Task #27 (revertida pela #28)**: tentativa de transformar as pílulas de categoria da home em mini cards 150×110 com foto de fundo. Usuário não gostou do resultado.
 - **Task #28**: home (`landing.tsx`) restaurada ao formato anterior — pílulas brancas arredondadas (cápsula horizontal) com badge circular colorido + ícone à esquerda e nome em texto escuro à direita; "Ver Todos" como pílula marrom `#6F4E37` no fim. Mantido scroll-x mobile / wrap desktop com scrollbar oculto.

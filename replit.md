@@ -28,7 +28,7 @@ Diretório SaaS de negócios locais de Londrina/PR.
 
 **Rotas públicas**: `/` · `/categorias` · `/busca` · `/negocio/:id` · `/anuncie`
 
-**Rotas admin** (SPA, JWT): `/admin/login` · `/admin` · `/admin/negocios` · `/admin/categorias` · `/admin/impulsionamento` · `/admin/home-banners` · `/admin/zonas` · `/admin/suporte` · `/admin/reviews` · `/admin/audit-log`
+**Rotas admin** (SPA, JWT): `/admin/login` · `/admin` · `/admin/negocios` · `/admin/categorias` · `/admin/impulsionamento` · `/admin/home-banners` · `/admin/patrocinadores` · `/admin/zonas` · `/admin/suporte` · `/admin/reviews` · `/admin/audit-log`
 
 **Rotas lojista** (SPA, JWT 7d): `/lojista/login` · `/lojista` · `/lojista/perfil` · `/lojista/fotos` · `/lojista/produtos` · `/lojista/metricas` · `/lojista/avaliacoes` · `/lojista/suporte` · `/lojista/boost` · `/lojista/plano` · `/lojista/senha`
 
@@ -40,12 +40,12 @@ Diretório SaaS de negócios locais de Londrina/PR.
 - Premium — R$89,90/mês ou R$958,80/ano (R$79,90/mês)
 
 **Tabelas chave** (DB):
-`businesses` · `business_users` · `products` · `business_clicks` · `reviews` · `home_banners` · `search_boosts` · `subscriptions` · `support_tickets` · `admin_actions` · `job_runs` · `categories` · `zones`
+`businesses` · `business_users` · `products` · `business_clicks` · `reviews` · `home_banners` · `partners` · `search_boosts` · `subscriptions` · `support_tickets` · `admin_actions` · `job_runs` · `categories` · `zones`
 
 **Endpoints chave** (resumo — ver código para lista completa):
-- Público: `/api/businesses`, `/api/search`, `/api/categories`, `/api/zones[/:slug]`, `/api/businesses/:id/reviews`, `/api/home-banners`, `/api/stripe/config`
+- Público: `/api/businesses`, `/api/search`, `/api/categories`, `/api/zones[/:slug]`, `/api/businesses/:id/reviews`, `/api/home-banners`, `/api/partners`, `/api/stripe/config`
 - Lojista: `/api/lojista/{login,profile,upload/*,products,metrics,reviews/:id/respond,boosts/*,home-banner/*,support,stripe/sync,boosts/sync,account}`
-- Admin: `/api/admin/{login,stats,businesses,categories,zones,boosts,home-banners,reviews,audit-log,support,placements,impersonate/:businessId}`
+- Admin: `/api/admin/{login,stats,businesses,categories,zones,boosts,home-banners,partners,upload/partner-logo,reviews,audit-log,support,placements,impersonate/:businessId}`
 - Stripe: `/api/stripe/{config,checkout,portal,subscription,invoices,webhook}`
 
 **Boost system** (resumo): 4 contextos — `category` (5 posições mensais Premium R$149→R$59), `zone` (6 vagas/zona Destaque+ R$79), `home_search` (6 vagas Premium R$149), `home_banner` (Premium R$299/mês com aprovação admin). Avulso 7/15/30d via WhatsApp. Locks `pg_advisory_xact_lock` em `lib/boost-locks.ts`. Expiração horária via `boost-expiration.ts`.

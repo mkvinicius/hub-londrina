@@ -656,4 +656,28 @@ router.post("/home-banners/:id/click", async (req: Request, res: Response) => {
   res.json({ success: true, redirectTo: banner.linkUrl || (banner.businessId ? `/negocio/${banner.businessId}` : null) });
 });
 
+// ===== Patrocinadores e Apoiadores (Task #31) =====
+// Substitui o bloco fictício de depoimentos da home. Devolve duas listas
+// agrupadas por tier — `master` (grid grande) e `apoiador` (carrossel
+// infinito menor). Apenas registros ativos, ordenados por sortOrder asc.
+router.get("/partners", async (_req: Request, res: Response) => {
+  const { partnersTable } = await import("@workspace/db/schema");
+  const rows = await db
+    .select({
+      id: partnersTable.id,
+      name: partnersTable.name,
+      tier: partnersTable.tier,
+      logoUrl: partnersTable.logoUrl,
+      businessId: partnersTable.businessId,
+      sortOrder: partnersTable.sortOrder,
+    })
+    .from(partnersTable)
+    .where(eq(partnersTable.isActive, true))
+    .orderBy(asc(partnersTable.sortOrder), asc(partnersTable.id));
+
+  const master = rows.filter((r) => r.tier === "master");
+  const apoiador = rows.filter((r) => r.tier === "apoiador");
+  res.json({ master, apoiador });
+});
+
 export default router;

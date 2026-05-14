@@ -18,7 +18,23 @@ tags:
     description: Business reviews
   - name: search
     description: Search operations
+  - name: partners
+    description: Sponsors and supporters of the directory
 paths:
+  /partners:
+    get:
+      operationId: listPartners
+      tags: [partners]
+      summary: List active sponsors and supporters
+      description: Returns active partners grouped by tier (master and apoiador) for the public landing page.
+      responses:
+        "200":
+          description: Active partners grouped by tier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnersResponse"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -334,3 +350,42 @@ components:
           type: string
       required:
         - error
+
+    Partner:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [master, apoiador]
+        logoUrl:
+          type: string
+        businessId:
+          type: integer
+          nullable: true
+        sortOrder:
+          type: integer
+      required:
+        - id
+        - name
+        - tier
+        - logoUrl
+        - sortOrder
+
+    PartnersResponse:
+      type: object
+      properties:
+        master:
+          type: array
+          items:
+            $ref: "#/components/schemas/Partner"
+        apoiador:
+          type: array
+          items:
+            $ref: "#/components/schemas/Partner"
+      required:
+        - master
+        - apoiador

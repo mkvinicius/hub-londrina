@@ -214,3 +214,65 @@ export async function rejectVitrineVideo(productId: number, reason: string) {
     body: JSON.stringify({ reason }),
   });
 }
+
+// ===== Task #31 — Patrocinadores e Apoiadores =====
+export interface AdminPartner {
+  id: number;
+  name: string;
+  tier: "master" | "apoiador";
+  logoUrl: string;
+  businessId: number | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  businessName: string | null;
+}
+
+export async function listAdminPartners(): Promise<{ data: AdminPartner[] }> {
+  return adminFetch("/api/admin/partners");
+}
+
+export async function createAdminPartner(input: {
+  name: string;
+  tier: "master" | "apoiador";
+  logoUrl: string;
+  businessId?: number | null;
+  isActive?: boolean;
+  sortOrder?: number;
+}): Promise<{ data: AdminPartner }> {
+  return adminFetch("/api/admin/partners", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateAdminPartner(
+  id: number,
+  patch: Partial<{
+    name: string;
+    tier: "master" | "apoiador";
+    logoUrl: string;
+    businessId: number | null;
+    isActive: boolean;
+    sortOrder: number;
+  }>,
+): Promise<{ data: AdminPartner }> {
+  return adminFetch(`/api/admin/partners/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function deleteAdminPartner(id: number): Promise<{ success: true }> {
+  return adminFetch(`/api/admin/partners/${id}`, { method: "DELETE" });
+}
+
+export async function uploadPartnerLogo(file: File): Promise<{ logoUrl: string }> {
+  const token = getAdminToken();
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_BASE}/api/admin/upload/partner-logo`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
