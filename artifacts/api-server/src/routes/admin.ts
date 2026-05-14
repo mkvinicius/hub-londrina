@@ -1769,7 +1769,7 @@ router.get("/admin/partners", async (_req: Request, res: Response) => {
     })
     .from(partnersTable)
     .leftJoin(businessesTable, eq(partnersTable.businessId, businessesTable.id))
-    .orderBy(asc(partnersTable.tier), asc(partnersTable.sortOrder), asc(partnersTable.id));
+    .orderBy(desc(partnersTable.tier), asc(partnersTable.sortOrder), asc(partnersTable.id));
   res.json({ data: rows });
 });
 
