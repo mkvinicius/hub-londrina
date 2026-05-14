@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-05-14
+
+### UX — categorias na home e na página /categorias
+- **Task #27 (revertida pela #28)**: tentativa de transformar as pílulas de categoria da home em mini cards 150×110 com foto de fundo. Usuário não gostou do resultado.
+- **Task #28**: home (`landing.tsx`) restaurada ao formato anterior — pílulas brancas arredondadas (cápsula horizontal) com badge circular colorido + ícone à esquerda e nome em texto escuro à direita; "Ver Todos" como pílula marrom `#6F4E37` no fim. Mantido scroll-x mobile / wrap desktop com scrollbar oculto.
+- **Task #29**: cards da página `/categorias` (`pages/categorias.tsx`) reformulados pra adotar o mesmo layout visual do `BusinessCard`: foto `h-32` no topo, círculo `w-14 h-14` com a paleta da categoria (`getCategoryColorClasses`) sobreposto centralizado na divisa (`-top-7`, borda branca 3px com suporte a dark mode), nome em `font-black text-lg` centralizado e contagem "X negócios" embaixo em fundo branco. Sem botões CTA — card inteiro continua clicável → `/busca?categoria=<slug>`. Grid responsivo 1/2/3/4 colunas mantido. Adicionado `data-testid="card-category-<slug>"`.
+- **Refactor pequeno**: `getCategoryPhoto` + `CATEGORY_PHOTOS` movidos de `pages/categorias.tsx` para `lib/icons.tsx` (helpers de categoria já viviam ali) para reuso futuro entre páginas.
+- **Não afetado**: `BusinessCard`, `getCategoryPhoto` (assinatura), backend, schema, gates de plano.
+
+### Cleanup — feature Instagram removida
+- Removida a aba pública "Instagram" em `pages/negocio.tsx`, a página `LojistaInstagram`, a rota `PATCH /api/lojista/instagram-posts`, o item de menu correspondente e a função `updateInstagramPosts` no client. Schema `instagramPosts` no DB foi **preservado** (não houve drop) — adoção baixa não justificava manter UI/rota, mas dado histórico fica disponível caso a feature retorne.
+- Commit: `ff8ad7d`.
+
+---
+
 ## 2026-05-12
 
 ### UX — textos explicativos e bloqueios visuais nos impulsionamentos
