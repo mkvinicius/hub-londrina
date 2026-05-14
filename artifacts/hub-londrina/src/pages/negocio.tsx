@@ -290,69 +290,6 @@ function BusinessProdutos({
   );
 }
 
-// Renderiza embeds do Instagram via blockquote oEmbed.
-// IMPORTANTE: este componente só é montado quando o negócio é Premium E tem
-// posts publicados (gating em negocio.tsx). Não há CTA de upgrade aqui — esse
-// aviso vive no painel do lojista (/lojista/instagram), nunca exposto ao público.
-function InstagramTab({ posts }: { posts: string[] }) {
-  // Defesa em profundidade: filtra qualquer URL malformada antes de entregar ao
-  // embed.js de terceiro. Backend já valida/canoniza, mas dados legados ou
-  // resposta corrompida não devem virar input arbitrário do script.
-  const safePosts = posts.filter((url) => {
-    if (typeof url !== "string") return false;
-    try {
-      const u = new URL(url);
-      if (u.protocol !== "https:") return false;
-      const h = u.hostname.toLowerCase();
-      if (h !== "instagram.com" && h !== "www.instagram.com") return false;
-      return /^\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(u.pathname);
-    } catch { return false; }
-  });
-
-  useEffect(() => {
-    if (safePosts.length === 0) return;
-    const SCRIPT_ID = "instagram-embed-script";
-    const ig = (window as any).instgrm;
-    if (ig?.Embeds?.process) {
-      ig.Embeds.process();
-      return;
-    }
-    if (document.getElementById(SCRIPT_ID)) return;
-    const s = document.createElement("script");
-    s.id = SCRIPT_ID;
-    s.async = true;
-    s.src = "https://www.instagram.com/embed.js";
-    document.body.appendChild(s);
-  }, [safePosts]);
-
-  if (safePosts.length === 0) return null;
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Instagram</h2>
-        <span className="text-xs text-gray-400 font-medium">{safePosts.length} {safePosts.length === 1 ? "post" : "posts"}</span>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {safePosts.map((url, i) => (
-          <div key={`${url}-${i}`} className="overflow-hidden">
-            <blockquote
-              className="instagram-media"
-              data-instgrm-permalink={url}
-              data-instgrm-version="14"
-              style={{ background: "#FFF", border: 0, margin: 0, padding: 0, width: "100%" }}
-            >
-              <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#d97706] text-sm font-bold">
-                Ver no Instagram
-              </a>
-            </blockquote>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function BusinessVitrine({
   businessId,
   businessName,
@@ -1129,15 +1066,6 @@ export default function Negocio() {
                   <TabsTrigger value="avaliacoes" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Avaliações ({reviews.length})
                   </TabsTrigger>
-                  {/* Aba Instagram só aparece publicamente se o negócio é Premium E tem
-                      posts publicados. O CTA de upgrade fica restrito ao painel do
-                      lojista (LojistaInstagram.tsx) — não expomos status de plano
-                      para visitantes. */}
-                  {business.planType === "premium" && ((business as any).instagramPosts ?? []).length > 0 && (
-                    <TabsTrigger value="instagram" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
-                      Instagram
-                    </TabsTrigger>
-                  )}
                 </TabsList>
 
                 <TabsContent value="sobre" className="focus-visible:outline-none">
@@ -1154,12 +1082,6 @@ export default function Negocio() {
                 <TabsContent value="vitrine" className="focus-visible:outline-none">
                   <BusinessVitrine businessId={business.id} businessName={business.name} whatsapp={business.whatsapp} />
                 </TabsContent>
-
-                {business.planType === "premium" && ((business as any).instagramPosts ?? []).length > 0 && (
-                  <TabsContent value="instagram" className="focus-visible:outline-none">
-                    <InstagramTab posts={(business as any).instagramPosts ?? []} />
-                  </TabsContent>
-                )}
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">
                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">

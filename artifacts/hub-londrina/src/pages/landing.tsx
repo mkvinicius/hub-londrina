@@ -673,7 +673,8 @@ export default function Landing() {
           };
           const slides = homeBanners.length > 0 ? homeBanners : [defaultBanner];
           const current = slides[Math.min(bannerIdx, slides.length - 1)];
-          const targetFor = (b: typeof defaultBanner) => b.linkUrl || (b.businessId ? `/negocio/${b.businessId}` : "/anuncie");
+          type SlideLike = { id: number; linkUrl: string | null; businessId: number | null };
+          const targetFor = (b: SlideLike) => b.linkUrl || (b.businessId ? `/negocio/${b.businessId}` : "/anuncie");
           const handleClick = async (e: React.MouseEvent) => {
             e.preventDefault();
             const fallback = targetFor(current);

@@ -171,10 +171,6 @@ export async function reorderProducts(items: Array<{ id: number; sortOrder: numb
   return lojistaFetch("/lojista/products/reorder", { method: "PATCH", body: JSON.stringify(items) });
 }
 
-export async function updateInstagramPosts(posts: string[]): Promise<{ posts: string[] }> {
-  return lojistaFetch("/lojista/instagram-posts", { method: "PATCH", body: JSON.stringify({ posts }) });
-}
-
 export async function getMetrics() {
   return lojistaFetch("/lojista/metrics");
 }

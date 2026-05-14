@@ -485,44 +485,6 @@ function canonicalizeInstagramUrl(raw: unknown): string | null {
   return `https://www.instagram.com/${m[1]}/${m[2]}/`;
 }
 
-router.patch("/lojista/instagram-posts", async (req: Request, res: Response) => {
-  const { businessId } = (req as any).lojista;
-  const { posts } = req.body as { posts?: unknown };
-
-  if (!Array.isArray(posts)) {
-    res.status(400).json({ error: "Campo 'posts' deve ser um array de URLs" });
-    return;
-  }
-  if (posts.length > INSTAGRAM_MAX_POSTS) {
-    res.status(400).json({ error: `Máximo ${INSTAGRAM_MAX_POSTS} posts permitidos`, code: "INSTAGRAM_LIMIT" });
-    return;
-  }
-
-  const cleaned: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of posts) {
-    if (typeof raw === "string" && raw.trim() === "") continue;
-    const canon = canonicalizeInstagramUrl(raw);
-    if (!canon) {
-      res.status(400).json({ error: `URL inválida: ${String(raw)}. Use links do Instagram (post/reel/tv).`, code: "INVALID_INSTAGRAM_URL" });
-      return;
-    }
-    if (seen.has(canon)) continue;
-    seen.add(canon);
-    cleaned.push(canon);
-  }
-
-  const [biz] = await db.select({ planType: businessesTable.planType }).from(businessesTable).where(eq(businessesTable.id, businessId));
-  if (!biz) { res.status(404).json({ error: "Negócio não encontrado" }); return; }
-  if (biz.planType !== "premium") {
-    res.status(403).json({ error: "Aba Instagram disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: biz.planType });
-    return;
-  }
-
-  await db.update(businessesTable).set({ instagramPosts: cleaned } as any).where(eq(businessesTable.id, businessId));
-  res.json({ posts: cleaned });
-});
-
 // Task #8 — Dispensa o aviso "X produtos desativados após mudança de plano".
 // Limpa o contador acumulado em businesses.lastDowngradeDeactivatedCount.
 router.post("/lojista/products/dismiss-deactivation-notice", async (req: Request, res: Response) => {
