@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import { CheckCircle2, ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Info, Star, Zap } from "lucide-react";
 import { csrfFetch } from "@/lib/csrf";
+import { LEGAL_CONFIG } from "@/lib/legal-config";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -190,6 +191,7 @@ export default function Cadastro() {
           categorySlug,
           zone,
           cep: cep.trim(),
+          acceptedTermsVersion: LEGAL_CONFIG.TERMS_VERSION,
         }),
       });
       const data = await resp.json();
@@ -507,9 +509,24 @@ export default function Cadastro() {
                 <div className="flex justify-between"><span className="text-gray-500">Endereço:</span><span className="font-semibold text-gray-800">{street ? `${street}, ${numero}` : cep}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Bairro:</span><span className="font-semibold text-gray-800">{neighborhood || "—"}</span></div>
               </div>
-              <label className="flex items-start gap-3 cursor-pointer mt-4">
-                <input type="checkbox" checked={termos} onChange={e => setTermos(e.target.checked)} className="mt-1 w-4 h-4 rounded border-gray-300 text-[#d97706] focus:ring-[#d97706]" />
-                <span className="text-sm text-gray-600">Li e aceito os Termos de Uso</span>
+              <label className="flex items-start gap-3 cursor-pointer mt-4" data-testid="checkbox-termos-consent">
+                <input
+                  type="checkbox"
+                  checked={termos}
+                  onChange={e => setTermos(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-gray-300 text-[#d97706] focus:ring-[#d97706]"
+                />
+                <span className="text-sm text-gray-600">
+                  Li e aceito os{" "}
+                  <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-[#d97706] underline font-semibold">
+                    Termos de Uso
+                  </a>{" "}
+                  e a{" "}
+                  <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-[#d97706] underline font-semibold">
+                    Política de Privacidade
+                  </a>{" "}
+                  do {LEGAL_CONFIG.PLATFORM_NAME}, ciente de que meus dados serão tratados conforme a LGPD.
+                </span>
               </label>
             </div>
           )}

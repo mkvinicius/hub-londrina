@@ -28,6 +28,13 @@ export const businessUsersTable = pgTable(
     documentationStatus: text("documentation_status").default("pending"),
     documentationRemainingDays: integer("documentation_remaining_days").default(10),
     documentationTimerPaused: boolean("documentation_timer_paused").default(false),
+    // LGPD — consentimento explícito (Lei 13.709/2018, art. 8º).
+    consentTermsVersion: text("consent_terms_version"),
+    consentTermsAt: timestamp("consent_terms_at"),
+    consentPrivacyAt: timestamp("consent_privacy_at"),
+    // LGPD — direito ao esquecimento (art. 18, VI). Quando preenchido,
+    // o cron de retenção hard-deleta a conta após 30 dias.
+    accountDeletionRequestedAt: timestamp("account_deletion_requested_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("business_users_email_idx").on(t.email)],

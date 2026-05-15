@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, updateProfile, lookupCep, updateLocation } from "@/lib/lojista-api";
-import { Save, Search, MapPin, Lock, Info } from "lucide-react";
+import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken } from "@/lib/lojista-api";
+import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2 } from "lucide-react";
+import { LEGAL_CONFIG } from "@/lib/legal-config";
+import { csrfFetch } from "@/lib/csrf";
 
 const PAYMENT_OPTIONS = ["Dinheiro", "PIX", "Cartão de crédito", "Cartão de débito", "Vale refeição"];
 const FALLBACK_ZONES = [
@@ -403,7 +405,173 @@ export default function LojistaPerfil() {
             </div>
           </div>
         </section>
+
+        <LgpdSection />
       </div>
     </LojistaLayout>
+  );
+}
+
+function LgpdSection() {
+  const [exporting, setExporting] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const apiBase = import.meta.env.VITE_API_URL || "";
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const token = getLojistaToken();
+      const resp = await fetch(`${apiBase}/api/lojista/account/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error("Falha ao exportar dados");
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cd = resp.headers.get("Content-Disposition") || "";
+      const m = cd.match(/filename="([^"]+)"/);
+      a.download = m?.[1] || `hub-londrina-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Não foi possível exportar seus dados. Tente novamente em instantes.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleteError("");
+    if (deleteConfirm.trim().toUpperCase() !== "EXCLUIR") {
+      setDeleteError('Digite EXCLUIR (em maiúsculas) para confirmar.');
+      return;
+    }
+    if (!deletePassword) {
+      setDeleteError("Informe sua senha atual.");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const token = getLojistaToken();
+      const resp = await csrfFetch(`${apiBase}/api/lojista/account`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setDeleteError(data.error || "Não foi possível excluir a conta.");
+        return;
+      }
+      clearToken();
+      window.location.href = "/?conta_excluida=1";
+    } catch {
+      setDeleteError("Erro de rede. Tente novamente.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm" data-testid="section-lgpd">
+      <h2 className="text-lg font-bold text-gray-800 mb-1">Seus dados (LGPD)</h2>
+      <p className="text-sm text-gray-500 mb-5">
+        Direitos garantidos pela Lei Geral de Proteção de Dados.{" "}
+        <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-[#d97706] underline">
+          Ver Política de Privacidade
+        </a>.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="border border-gray-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <Download className="w-5 h-5 text-[#d97706] mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-800 text-sm">Exportar meus dados</h3>
+              <p className="text-xs text-gray-500 mt-1 mb-3">
+                Baixe um arquivo JSON com todos os dados pessoais e do seu negócio (perfil, produtos, avaliações, métricas, assinaturas).
+              </p>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="text-xs font-bold text-white bg-[#6F4E37] hover:bg-[#5a3f2c] px-4 py-2 rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
+                data-testid="button-export-data"
+              >
+                {exporting ? <><Loader2 className="w-3 h-3 animate-spin" /> Exportando...</> : <><Download className="w-3 h-3" /> Baixar JSON</>}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border border-red-200 rounded-xl p-4 bg-red-50/30">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-red-600 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-800 text-sm">Excluir minha conta</h3>
+              <p className="text-xs text-gray-500 mt-1 mb-3">
+                Anonimiza imediatamente seus dados pessoais e remove o negócio do diretório. Documentos são apagados após {LEGAL_CONFIG.RETENTION_MONTHS} meses (auditoria fiscal). Esta ação é <strong>irreversível</strong>.
+              </p>
+              {!showDelete ? (
+                <button
+                  onClick={() => setShowDelete(true)}
+                  className="text-xs font-bold text-red-600 border border-red-300 hover:bg-red-100 px-4 py-2 rounded-lg inline-flex items-center gap-2"
+                  data-testid="button-show-delete"
+                >
+                  <ShieldAlert className="w-3 h-3" /> Excluir minha conta
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    placeholder="Sua senha atual"
+                    value={deletePassword}
+                    onChange={e => setDeletePassword(e.target.value)}
+                    className="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                    data-testid="input-delete-password"
+                  />
+                  <input
+                    type="text"
+                    placeholder='Digite EXCLUIR para confirmar'
+                    value={deleteConfirm}
+                    onChange={e => setDeleteConfirm(e.target.value)}
+                    className="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                    data-testid="input-delete-confirm"
+                  />
+                  {deleteError && <p className="text-xs text-red-600">{deleteError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
+                      data-testid="button-confirm-delete"
+                    >
+                      {deleting ? <><Loader2 className="w-3 h-3 animate-spin" /> Excluindo...</> : "Confirmar exclusão"}
+                    </button>
+                    <button
+                      onClick={() => { setShowDelete(false); setDeletePassword(""); setDeleteConfirm(""); setDeleteError(""); }}
+                      className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-400 mt-4">
+        Dúvidas sobre seus dados? Contate o Encarregado (DPO):{" "}
+        <a href={`mailto:${LEGAL_CONFIG.DPO_EMAIL}`} className="text-[#d97706] underline">{LEGAL_CONFIG.DPO_EMAIL}</a>.
+      </p>
+    </section>
   );
 }

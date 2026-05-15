@@ -68,6 +68,9 @@ export const businessesTable = pgTable(
     zoneFeaturedExpiresAt: timestamp("zone_featured_expires_at"),
     status: text("status").notNull().default("active"),
     rejectionReason: text("rejection_reason"),
+    // LGPD — marca a data do cancelamento da conta. Usado pelo cron de
+    // retenção para deletar documentos físicos após RETENTION_MONTHS.
+    cancelledAt: timestamp("cancelled_at"),
     razaoSocial: text("razao_social"),
     nomeFantasia: text("nome_fantasia"),
     planFrozen: boolean("plan_frozen").notNull().default(false),

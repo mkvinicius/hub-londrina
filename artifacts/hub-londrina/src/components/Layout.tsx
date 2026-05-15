@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { LEGAL_CONFIG } from "@/lib/legal-config";
 
 function Logo() {
   return (
@@ -157,7 +158,7 @@ export function Layout({ children }: LayoutProps) {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-8 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
               <div>
                 <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Descobrir</h4>
                 <ul className="space-y-2">
@@ -181,6 +182,19 @@ export function Layout({ children }: LayoutProps) {
                   <li><Link href="/sul" className="text-white/70 hover:text-white transition-colors">Zona Sul</Link></li>
                   <li><Link href="/leste" className="text-white/70 hover:text-white transition-colors">Zona Leste</Link></li>
                   <li><Link href="/oeste" className="text-white/70 hover:text-white transition-colors">Zona Oeste</Link></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Legal</h4>
+                <ul className="space-y-2">
+                  <li><Link href="/termos" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-termos">Termos de Uso</Link></li>
+                  <li><Link href="/privacidade" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-privacidade">Política de Privacidade</Link></li>
+                  <li>
+                    <a href={`mailto:${LEGAL_CONFIG.DPO_EMAIL}`} className="text-white/70 hover:text-white transition-colors break-all" data-testid="link-footer-dpo">
+                      Encarregado de Dados (DPO)
+                    </a>
+                    <p className="text-white/40 text-xs mt-1 break-all">{LEGAL_CONFIG.DPO_EMAIL}</p>
+                  </li>
                 </ul>
               </div>
             </div>

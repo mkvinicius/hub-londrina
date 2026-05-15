@@ -9,6 +9,7 @@ import { businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { generateCsrfToken, csrfProtection } from "../middleware/csrf";
+import { LEGAL_CONFIG } from "../lib/legal-config";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for auth routes");
@@ -91,10 +92,21 @@ router.get("/auth/validate-cnpj", cnpjLimiter, async (req: Request, res: Respons
 });
 
 router.post("/auth/register", registerLimiter, csrfProtection, async (req: Request, res: Response) => {
-  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep, razaoSocial, nomeFantasia } = req.body;
+  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep, razaoSocial, nomeFantasia, acceptedTermsVersion } = req.body;
 
   if (!name || !email || !password || !businessName || !cnpj || !phone || !categorySlug || !zone || !cep) {
     res.status(400).json({ error: "Todos os campos são obrigatórios" });
+    return;
+  }
+
+  // LGPD — consentimento explícito é obrigatório (Lei 13.709/2018, art. 8º).
+  // O front envia a versão dos Termos que o usuário viu. Se versão não bate
+  // com a vigente, força re-leitura (impede "aceitar termos antigos").
+  if (!acceptedTermsVersion || acceptedTermsVersion !== LEGAL_CONFIG.TERMS_VERSION) {
+    res.status(400).json({
+      error: "Você precisa aceitar os Termos e a Política de Privacidade para concluir o cadastro.",
+      code: "CONSENT_REQUIRED",
+    });
     return;
   }
 
@@ -236,6 +248,9 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     documentationRemainingDays: 10,
     documentationStatus: "pending",
     documentationTimerPaused: false,
+    consentTermsVersion: LEGAL_CONFIG.TERMS_VERSION,
+    consentTermsAt: new Date(),
+    consentPrivacyAt: new Date(),
   }).returning();
 
   try {

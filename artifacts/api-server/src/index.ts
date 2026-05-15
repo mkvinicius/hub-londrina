@@ -4,6 +4,7 @@ import { initSentry } from "./lib/sentry";
 import { runStartupSeed } from "./lib/startup-seed";
 import { startBoostExpirationJob } from "./lib/boost-expiration";
 import { startDocumentationJob } from "./lib/documentation-job";
+import { startRetentionJob } from "./lib/retention-job";
 import { startSubscriptionJob } from "./lib/subscription-job";
 import { startSubscriptionReminderJob } from "./lib/subscription-reminder-job";
 import { ensureViews } from "./lib/startup-views";
@@ -71,6 +72,7 @@ initSentry()
       );
       startBoostExpirationJob();
       startDocumentationJob();
+      startRetentionJob();
       startSubscriptionJob();
       startSubscriptionReminderJob();
     });

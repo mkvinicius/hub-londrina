@@ -13,6 +13,7 @@ import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
 import { uploadBufferToGCS, deleteGCSObject } from "../lib/gcsUpload";
 import { vitrineSlotLockKey } from "../lib/boost-locks";
 import { generatePdfReport } from "../lib/pdf-report.js";
+import { csrfProtection } from "../middleware/csrf";
 import Stripe from "stripe";
 import { businessDocumentsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
@@ -1271,7 +1272,7 @@ router.get("/lojista/subscriptions", async (req: Request, res: Response) => {
 });
 
 // ─── Sprint 4.3 — DELETE /api/lojista/account (LGPD: anonimização) ───────────
-router.delete("/lojista/account", async (req: Request, res: Response) => {
+router.delete("/lojista/account", csrfProtection, async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista as LojistaPayload;
   const { password } = (req.body ?? {}) as { password?: string };
 
@@ -1315,28 +1316,10 @@ router.delete("/lojista/account", async (req: Request, res: Response) => {
     logger.error({ err, businessId }, "[Account Delete] Erro ao processar assinatura");
   }
 
-  // 2. Deleta documentos do GCS (best-effort) e da tabela
-  try {
-    const docs = await db
-      .select()
-      .from(businessDocumentsTable)
-      .where(eq(businessDocumentsTable.businessId, businessId));
-    for (const doc of docs) {
-      try {
-        const PREFIX = "/storage/objects/";
-        const gcsPath = doc.fileUrl.startsWith(PREFIX) ? doc.fileUrl.slice(PREFIX.length) : doc.fileUrl;
-        const removed = await deleteGCSObject(gcsPath);
-        if (!removed) {
-          logger.warn({ docId: doc.id, gcsPath }, "[Account Delete] Arquivo GCS não encontrado (já removido)");
-        }
-      } catch (err) {
-        logger.warn({ err, docId: doc.id }, "[Account Delete] Falha ao deletar arquivo GCS (continuando)");
-      }
-    }
-    await db.delete(businessDocumentsTable).where(eq(businessDocumentsTable.businessId, businessId));
-  } catch (err) {
-    logger.error({ err, businessId }, "[Account Delete] Erro ao deletar documentos");
-  }
+  // 2. Documentos NÃO são deletados aqui. LGPD permite reter para auditoria
+  //    fiscal por RETENTION_MONTHS (12). O retention-job purga GCS+DB depois.
+  //    Apenas marcamos businesses.cancelledAt (feito no passo 3) para iniciar
+  //    a contagem do prazo de retenção.
 
   const sentinelEmail = `removed_${businessId}@deleted.hub`;
 
@@ -1354,6 +1337,7 @@ router.delete("/lojista/account", async (req: Request, res: Response) => {
       cnpj: null,
       isVisible: false,
       status: "deleted",
+      cancelledAt: new Date(),
       logoUrl: null,
       bannerUrl: null,
       photos: [],
@@ -1389,12 +1373,95 @@ router.delete("/lojista/account", async (req: Request, res: Response) => {
       documentationDeadline: null,
       documentationRemainingDays: null,
       documentationTimerPaused: false,
+      accountDeletionRequestedAt: new Date(),
     })
     .where(eq(businessUsersTable.id, user.id));
 
   logger.info({ businessId, userId: user.id }, "[Account Delete] Conta anonimizada (LGPD)");
 
   res.json({ success: true, message: "Conta removida com sucesso" });
+});
+
+// ─── LGPD art. 18, V — Portabilidade dos dados ──────────────────────────────
+// Retorna um JSON estruturado com TODOS os dados pessoais do lojista.
+// O usuário pode salvar isso (Ctrl+S) ou enviar para outro fornecedor.
+router.get("/lojista/account/export", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista as LojistaPayload;
+
+  const [business] = await db
+    .select()
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const users = await db
+    .select({
+      id: businessUsersTable.id,
+      email: businessUsersTable.email,
+      emailVerified: businessUsersTable.emailVerified,
+      firstLoginAt: businessUsersTable.firstLoginAt,
+      lastLoginAt: businessUsersTable.lastLoginAt,
+      consentTermsVersion: businessUsersTable.consentTermsVersion,
+      consentTermsAt: businessUsersTable.consentTermsAt,
+      consentPrivacyAt: businessUsersTable.consentPrivacyAt,
+      documentationStatus: businessUsersTable.documentationStatus,
+      createdAt: businessUsersTable.createdAt,
+    })
+    .from(businessUsersTable)
+    .where(eq(businessUsersTable.businessId, businessId));
+
+  const products = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.businessId, businessId));
+
+  const reviews = await db
+    .select()
+    .from(reviewsTable)
+    .where(eq(reviewsTable.businessId, businessId));
+
+  const clicks = await db
+    .select()
+    .from(businessClicksTable)
+    .where(eq(businessClicksTable.businessId, businessId));
+
+  const subscriptions = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.businessId, businessId));
+
+  const documents = await db
+    .select({
+      id: businessDocumentsTable.id,
+      documentType: businessDocumentsTable.documentType,
+      status: businessDocumentsTable.status,
+      submittedAt: businessDocumentsTable.submittedAt,
+      reviewedAt: businessDocumentsTable.reviewedAt,
+    })
+    .from(businessDocumentsTable)
+    .where(eq(businessDocumentsTable.businessId, businessId));
+
+  const exportPayload = {
+    exportedAt: new Date().toISOString(),
+    notice:
+      "Exportação LGPD (art. 18, V — direito à portabilidade). Este arquivo contém todos os seus dados pessoais e do seu negócio armazenados no Hub Londrina. Mantenha-o em local seguro.",
+    business,
+    users,
+    products,
+    reviews,
+    clicks,
+    subscriptions,
+    documents,
+  };
+
+  const filename = `hub-londrina-export-${businessId}-${new Date().toISOString().slice(0, 10)}.json`;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  req.log.info({ businessId }, "[LGPD] Export de dados solicitado pelo titular");
+  res.send(JSON.stringify(exportPayload, null, 2));
 });
 
 // B4 — Tickets de suporte (lojista)

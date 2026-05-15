@@ -9,6 +9,8 @@ import Busca from "@/pages/busca";
 import Negocio from "@/pages/negocio";
 import Anuncie from "@/pages/anuncie";
 import Cadastro from "@/pages/Cadastro";
+import Termos from "@/pages/Termos";
+import Privacidade from "@/pages/Privacidade";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminNegocios from "@/pages/admin/AdminNegocios";
@@ -68,6 +70,8 @@ function Router() {
       <Route path="/negocio/:id" component={Negocio} />
       <Route path="/anuncie" component={Anuncie} />
       <Route path="/cadastro" component={Cadastro} />
+      <Route path="/termos" component={Termos} />
+      <Route path="/privacidade" component={Privacidade} />
       <Route path="/norte">{() => <ZonePage zone="norte" />}</Route>
       <Route path="/sul">{() => <ZonePage zone="sul" />}</Route>
       <Route path="/leste">{() => <ZonePage zone="leste" />}</Route>
