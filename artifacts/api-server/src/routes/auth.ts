@@ -9,7 +9,8 @@ import { businessesTable, businessUsersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { generateCsrfToken, csrfProtection } from "../middleware/csrf";
-import { LEGAL_CONFIG } from "../lib/legal-config";
+import { getLegalValue } from "../lib/legal-config-store";
+import { LEGAL_CONFIG_DEFAULTS } from "../lib/legal-config";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for auth routes");
@@ -102,7 +103,8 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
   // LGPD — consentimento explícito é obrigatório (Lei 13.709/2018, art. 8º).
   // O front envia a versão dos Termos que o usuário viu. Se versão não bate
   // com a vigente, força re-leitura (impede "aceitar termos antigos").
-  if (!acceptedTermsVersion || acceptedTermsVersion !== LEGAL_CONFIG.TERMS_VERSION) {
+  const currentTermsVersion = (await getLegalValue("TERMS_VERSION")) ?? LEGAL_CONFIG_DEFAULTS.TERMS_VERSION;
+  if (!acceptedTermsVersion || acceptedTermsVersion !== currentTermsVersion) {
     res.status(400).json({
       error: "Você precisa aceitar os Termos e a Política de Privacidade para concluir o cadastro.",
       code: "CONSENT_REQUIRED",
@@ -248,7 +250,7 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     documentationRemainingDays: 10,
     documentationStatus: "pending",
     documentationTimerPaused: false,
-    consentTermsVersion: LEGAL_CONFIG.TERMS_VERSION,
+    consentTermsVersion: currentTermsVersion,
     consentTermsAt: new Date(),
     consentPrivacyAt: new Date(),
   }).returning();

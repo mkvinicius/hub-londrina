@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken } from "@/lib/lojista-api";
 import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2 } from "lucide-react";
-import { LEGAL_CONFIG } from "@/lib/legal-config";
+import { useLegalConfig } from "@/lib/legal-config";
 import { csrfFetch } from "@/lib/csrf";
 
 const PAYMENT_OPTIONS = ["Dinheiro", "PIX", "Cartão de crédito", "Cartão de débito", "Vale refeição"];
@@ -413,6 +413,7 @@ export default function LojistaPerfil() {
 }
 
 function LgpdSection() {
+  const LEGAL_CONFIG = useLegalConfig();
   const [exporting, setExporting] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");

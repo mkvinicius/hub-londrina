@@ -25,6 +25,7 @@ import AdminAssinaturas from "@/pages/admin/AdminAssinaturas";
 import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 import AdminReviews from "@/pages/admin/AdminReviews";
 import AdminSuporte from "@/pages/admin/AdminSuporte";
+import AdminLegalConfig from "@/pages/admin/AdminLegalConfig";
 import LojistaLogin from "@/pages/lojista/LojistaLogin";
 import EsqueciSenha from "@/pages/lojista/EsqueciSenha";
 import NovaSenha from "@/pages/lojista/NovaSenha";
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/admin/reviews">{() => <PrivateRoute component={AdminReviews} />}</Route>
       <Route path="/admin/audit-log">{() => <PrivateRoute component={AdminAuditLog} />}</Route>
       <Route path="/admin/suporte">{() => <PrivateRoute component={AdminSuporte} />}</Route>
+      <Route path="/admin/legal">{() => <PrivateRoute component={AdminLegalConfig} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>
       <Route path="/lojista/login" component={LojistaLogin} />
       <Route path="/lojista/esqueci-senha" component={EsqueciSenha} />

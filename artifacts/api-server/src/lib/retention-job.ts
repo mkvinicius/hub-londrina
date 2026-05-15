@@ -15,14 +15,22 @@ import { and, eq, isNotNull, lt } from "drizzle-orm";
 import { logger } from "./logger";
 import { runOnceDaily } from "./job-checkpoint";
 import { deleteGCSObject } from "./gcsUpload";
-import { LEGAL_CONFIG } from "./legal-config";
+import { LEGAL_CONFIG_DEFAULTS } from "./legal-config";
+import { getLegalValue } from "./legal-config-store";
+
+async function getRetentionMonths(): Promise<number> {
+  const raw = (await getLegalValue("RETENTION_MONTHS")) ?? LEGAL_CONFIG_DEFAULTS.RETENTION_MONTHS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : Number(LEGAL_CONFIG_DEFAULTS.RETENTION_MONTHS);
+}
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const HARD_DELETE_GRACE_DAYS = 30;
 
 async function purgeOldDocuments() {
+  const retentionMonths = await getRetentionMonths();
   const cutoff = new Date(
-    Date.now() - LEGAL_CONFIG.RETENTION_MONTHS * 30 * ONE_DAY_MS,
+    Date.now() - retentionMonths * 30 * ONE_DAY_MS,
   );
 
   const expired = await db
@@ -65,7 +73,7 @@ async function purgeOldDocuments() {
 
   if (removed > 0) {
     logger.info(
-      `[RetentionJob] ${removed} documento(s) apagado(s) após ${LEGAL_CONFIG.RETENTION_MONTHS} meses do cancelamento`,
+      `[RetentionJob] ${removed} documento(s) apagado(s) após ${retentionMonths} meses do cancelamento`,
     );
   }
 }
@@ -126,6 +134,6 @@ export function startRetentionJob() {
   wrapped();
   setInterval(wrapped, ONE_DAY_MS);
   logger.info(
-    `Job de retenção LGPD iniciado — documentos: ${LEGAL_CONFIG.RETENTION_MONTHS} meses · users: ${HARD_DELETE_GRACE_DAYS}d, intervalo: 24h`,
+    `Job de retenção LGPD iniciado — documentos: ${LEGAL_CONFIG_DEFAULTS.RETENTION_MONTHS} meses (default) · users: ${HARD_DELETE_GRACE_DAYS}d, intervalo: 24h`,
   );
 }

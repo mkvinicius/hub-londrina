@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LEGAL_CONFIG } from "@/lib/legal-config";
+import { useLegalConfig } from "@/lib/legal-config";
 
 function Logo() {
   return (
@@ -30,6 +30,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
+  const LEGAL_CONFIG = useLegalConfig();
 
   const navLinks = [
     { href: "/", label: "Início" },

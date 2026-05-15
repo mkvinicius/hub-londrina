@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import { CheckCircle2, ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Info, Star, Zap } from "lucide-react";
 import { csrfFetch } from "@/lib/csrf";
-import { LEGAL_CONFIG } from "@/lib/legal-config";
+import { useLegalConfig } from "@/lib/legal-config";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -77,6 +77,7 @@ const PLAN_LABELS: Record<string, Record<string, { label: string; color: string;
 };
 
 export default function Cadastro() {
+  const LEGAL_CONFIG = useLegalConfig();
   const search = useSearch();
   const params = new URLSearchParams(search);
   const planoParam = params.get("plano") || "gratuito";

@@ -14,3 +14,4 @@ export * from "./admin-actions";
 export * from "./support-tickets";
 export * from "./vitrine-boosts";
 export * from "./partners";
+export * from "./legal-config";

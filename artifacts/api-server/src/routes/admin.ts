@@ -9,6 +9,14 @@ import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable, partnersTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
+import { csrfProtection } from "../middleware/csrf";
+import {
+  getLegalConfig,
+  invalidateLegalConfig,
+  isCoreKey,
+  listLegalConfigRows,
+} from "../lib/legal-config-store";
+import { legalConfigTable } from "@workspace/db/schema";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
 import { z } from "zod/v4";
 
@@ -1853,6 +1861,107 @@ router.post("/admin/upload/partner-logo", partnerUpload.single("file"), async (r
   const filename = `partner-${Date.now()}${ext}`;
   const logoUrl = await uploadBufferToGCS(req.file.buffer, "partners", filename, req.file.mimetype);
   res.json({ logoUrl });
+});
+
+// ============================================================================
+// CONFIG LEGAL — leitura/edição da tabela legal_config (campos core protegidos)
+// ============================================================================
+
+const KEY_REGEX = /^[A-Z][A-Z0-9_]{0,63}$/;
+const VALUE_MAX_LEN = 1000;
+
+router.get("/admin/legal-config", async (_req: Request, res: Response) => {
+  try {
+    const data = await listLegalConfigRows();
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: "Falha ao listar config legal" });
+  }
+});
+
+router.put("/admin/legal-config/:key", csrfProtection, async (req: Request, res: Response) => {
+  const key = String(req.params.key || "");
+  const { value } = req.body || {};
+  if (!KEY_REGEX.test(key)) {
+    res.status(400).json({ error: "Chave inválida" });
+    return;
+  }
+  if (typeof value !== "string" || value.length === 0 || value.length > VALUE_MAX_LEN) {
+    res.status(400).json({ error: `Valor obrigatório (máx ${VALUE_MAX_LEN} chars)` });
+    return;
+  }
+  await db
+    .insert(legalConfigTable)
+    .values({ key, value, isCore: isCoreKey(key), updatedAt: new Date(), updatedBy: "admin" })
+    .onConflictDoUpdate({
+      target: legalConfigTable.key,
+      set: { value, updatedAt: new Date(), updatedBy: "admin" },
+    });
+  invalidateLegalConfig();
+  await logAdminAction(
+    ADMIN_DEFAULT_ID,
+    "legal_config.update",
+    "legal_config",
+    undefined,
+    JSON.stringify({ key, valueLen: value.length }),
+    getReqIp(req),
+  );
+  res.json({ success: true });
+});
+
+router.post("/admin/legal-config", csrfProtection, async (req: Request, res: Response) => {
+  const { key, value } = req.body || {};
+  if (typeof key !== "string" || !KEY_REGEX.test(key)) {
+    res.status(400).json({ error: "Chave deve ser MAIÚSCULA, alfanumérica + _ (até 64 chars)" });
+    return;
+  }
+  if (isCoreKey(key)) {
+    res.status(400).json({ error: "Chave reservada do sistema (use PUT para editar)" });
+    return;
+  }
+  if (typeof value !== "string" || value.length === 0 || value.length > VALUE_MAX_LEN) {
+    res.status(400).json({ error: `Valor obrigatório (máx ${VALUE_MAX_LEN} chars)` });
+    return;
+  }
+  const existing = await db.select().from(legalConfigTable).where(eq(legalConfigTable.key, key)).limit(1);
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Chave já existe" });
+    return;
+  }
+  await db.insert(legalConfigTable).values({ key, value, isCore: false, updatedAt: new Date(), updatedBy: "admin" });
+  invalidateLegalConfig();
+  await logAdminAction(
+    ADMIN_DEFAULT_ID,
+    "legal_config.create",
+    "legal_config",
+    undefined,
+    JSON.stringify({ key }),
+    getReqIp(req),
+  );
+  res.status(201).json({ success: true });
+});
+
+router.delete("/admin/legal-config/:key", csrfProtection, async (req: Request, res: Response) => {
+  const key = String(req.params.key || "");
+  if (isCoreKey(key)) {
+    res.status(403).json({ error: "Não é possível excluir campo do sistema" });
+    return;
+  }
+  const result = await db.delete(legalConfigTable).where(eq(legalConfigTable.key, key)).returning();
+  if (result.length === 0) {
+    res.status(404).json({ error: "Chave não encontrada" });
+    return;
+  }
+  invalidateLegalConfig();
+  await logAdminAction(
+    ADMIN_DEFAULT_ID,
+    "legal_config.delete",
+    "legal_config",
+    undefined,
+    JSON.stringify({ key }),
+    getReqIp(req),
+  );
+  res.json({ success: true });
 });
 
 export default router;

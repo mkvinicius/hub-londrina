@@ -13,6 +13,7 @@ import storageRouter from "./storage";
 import documentsRouter from "./documents";
 import boostsRouter from "./boosts";
 import vitrineRouter from "./vitrine";
+import legalRouter from "./legal";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(stripeRouter);
 router.use(zonesRouter);
 router.use(storageRouter);
 router.use(documentsRouter);
+router.use(legalRouter);
 
 export default router;

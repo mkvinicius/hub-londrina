@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-05-15
+
+### Task #33 — Aba admin Config Legal (DB-backed)
+- Nova tabela `legal_config` (key PK, value, is_core, updated_at, updated_by) — aplicada via `pnpm --filter @workspace/db run push`.
+- `lib/legal-config-store.ts` no server: cache 60s + fallback aos defaults + `invalidateLegalConfig()` em toda escrita admin.
+- `legal-config.ts` (server e front) agora exporta apenas `LEGAL_CONFIG_DEFAULTS` + `CORE_KEYS`. Front também expõe `useLegalConfig()` hook (fetch único, cache módulo) e mantém `LEGAL_CONFIG` mutável para compat.
+- Endpoints admin: `GET/PUT/POST/DELETE /api/admin/legal-config[/:key]` (auth + csrf + audit). Core keys: PUT permitido, DELETE 403.
+- Endpoint público: `GET /api/legal-config` (cache HTTP 5min) — consumido pelo hook front.
+- `auth.ts` (`/auth/register`) e `retention-job.ts` agora leem TERMS_VERSION e RETENTION_MONTHS do store (com fallback aos defaults).
+- Página `/admin/legal` (`AdminLegalConfig.tsx`): tabela editável com badge Sistema/Custom, modal "Novo campo" e confirmação de exclusão. Item "Config Legal" no sidebar admin.
+- `Termos.tsx`, `Privacidade.tsx`, `Cadastro.tsx`, `Layout.tsx`, `LojistaPerfil.tsx` migrados para `useLegalConfig()`.
+- RULES.md: nova R13 (config legal vive no banco; core protegido; cache invalida em escrita; TERMS_VERSION força re-aceite).
+
+---
+
 ## 2026-05-14
 
 ### Task #31 — Patrocinadores e Apoiadores na home

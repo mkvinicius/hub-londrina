@@ -1,8 +1,9 @@
 import { Link } from "wouter";
 import { ArrowLeft, Download } from "lucide-react";
-import { LEGAL_CONFIG as L } from "@/lib/legal-config";
+import { useLegalConfig } from "@/lib/legal-config";
 
 export default function Termos() {
+  const L = useLegalConfig();
   return (
     <div className="min-h-screen bg-[#FFFCF7]">
       <style>{`@media print { .no-print { display: none !important } body { background: white } main { max-width: 100% !important; padding: 0 !important } }`}</style>

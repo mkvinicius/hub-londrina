@@ -154,6 +154,17 @@ Equivalente no admin (`AdminImpulsionamento.tsx`): painel colapsável "Como func
 
 ---
 
+### R13 · Config Legal vive no banco (Task #33)
+Os dados legais (razão social, CNPJ, DPO_EMAIL, TERMS_VERSION, RETENTION_MONTHS, etc.) são editados em `/admin/legal` e persistidos na tabela `legal_config`. Regras:
+
+1. **Defaults em código são FALLBACK**, não fonte de verdade. `LEGAL_CONFIG_DEFAULTS` (server `lib/legal-config.ts`, front `lib/legal-config.ts`) só é usado se a tabela está vazia ou indisponível.
+2. **Campos CORE são protegidos**: as 10 chaves do `LEGAL_CONFIG_DEFAULTS` (COMPANY_NAME, COMPANY_CNPJ, COMPANY_ADDRESS, CONTACT_EMAIL, DPO_EMAIL, TERMS_VERSION, LAST_UPDATED, RETENTION_MONTHS, PLATFORM_NAME, PLATFORM_URL) **não podem ser excluídas** pelo admin (apenas editadas). DELETE em chave core retorna 403.
+3. **Cache do server**: `getLegalConfig()` (em `legal-config-store.ts`) cacheia 60s. Toda escrita admin **DEVE** chamar `invalidateLegalConfig()` antes de retornar.
+4. **TERMS_VERSION invalida consents implícitos**: trocar a versão força usuários novos a re-aceitar (auth.ts checa contra valor vigente do store, não contra constante hardcoded). Consents antigos no banco mantêm a versão original — auditoria preservada.
+5. **Front consome via `useLegalConfig()` hook** (fetch único + cache módulo + fallback aos defaults). Componentes não devem importar `LEGAL_CONFIG` cru se precisam de reatividade após edição admin.
+
+---
+
 ## 🚧 Workflow de qualidade (para o agente)
 
 ### W1 · "Pronto" exige prova
