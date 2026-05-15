@@ -47,7 +47,7 @@ export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
           {links.map((link) => {
             const Icon = link.icon;
             const active = location === link.href || (link.href !== "/admin" && location.startsWith(link.href));
@@ -71,7 +71,7 @@ export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-white/10 space-y-2">
+        <div className="flex-shrink-0 p-4 border-t border-white/10 space-y-2">
           <div className="flex items-start gap-2 bg-white/5 rounded-xl px-3 py-2.5">
             <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
             <p className="text-[10px] text-white/50 leading-snug">
