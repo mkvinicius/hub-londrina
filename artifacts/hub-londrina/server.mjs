@@ -166,7 +166,7 @@ ${staticUrls}
 ${bizUrls}
 </urlset>`;
 
-      res.writeHead(200, { "Content-Type": "application/xml" });
+      res.writeHead(200, { "Content-Type": "application/xml; charset=utf-8" });
       res.end(xml);
     } catch (e) {
       console.error("Sitemap error:", e);
