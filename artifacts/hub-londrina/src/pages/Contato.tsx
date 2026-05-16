@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useLegalConfig } from "@/lib/legal-config";
 import { submitContactMessage } from "@/lib/public-api";
-import { Mail, Phone, MapPin, Clock, MessageCircle, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, MessageCircle, Send, CheckCircle2, AlertCircle, Store, ArrowRight } from "lucide-react";
 
 export default function Contato() {
   const cfg = useLegalConfig();
@@ -25,7 +26,7 @@ export default function Contato() {
     e.preventDefault();
     setError(null);
     if (form.name.trim().length < 2) return setError("Informe seu nome.");
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) return setError("Email inválido.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) return setError("Email inválido.");
     if (form.subject.trim().length < 3) return setError("Informe o assunto.");
     if (form.message.trim().length < 10) return setError("Mensagem muito curta (mínimo 10 caracteres).");
     setSubmitting(true);
@@ -249,6 +250,28 @@ export default function Contato() {
               title="Mapa Hub Londrina"
             />
           </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 md:px-8 pb-16" data-testid="banner-anuncie-cta">
+        <div className="rounded-2xl bg-gradient-to-br from-[#6F4E37] via-[#a04d06] to-[#d97706] text-white p-6 md:p-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+              <Store className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-xl md:text-2xl leading-tight">Você é dono de negócio?</h3>
+              <p className="text-white/80 text-sm md:text-base mt-1">Anuncie no Hub Londrina e seja encontrado por quem é da cidade.</p>
+            </div>
+          </div>
+          <Link
+            href="/anuncie"
+            className="inline-flex items-center gap-2 bg-white text-[#a04d06] hover:bg-amber-50 font-bold text-sm md:text-base px-5 md:px-6 py-3 rounded-xl transition-colors flex-shrink-0"
+            data-testid="link-anuncie-cta"
+          >
+            Anuncie aqui
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
     </Layout>

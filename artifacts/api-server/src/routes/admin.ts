@@ -6,7 +6,7 @@ import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable, partnersTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable, partnersTable, contactMessagesTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 import { csrfProtection } from "../middleware/csrf";
@@ -263,7 +263,14 @@ router.get("/admin/stats", async (_req: Request, res: Response) => {
     Math.round(((byPlan.destaque || 0) * 59.9 + (byPlan.premium || 0) * 89.9) * 100) / 100;
   const realRevenue = Math.round((mrrFromSubs + boostsRevenueMonth) * 100) / 100;
 
+  const [newContactMessagesRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(contactMessagesTable)
+    .where(eq(contactMessagesTable.status, "new"));
+  const newContactMessages = newContactMessagesRow?.count ?? 0;
+
   res.json({
+    newContactMessages,
     totalBusinesses: totalResult[0]?.count ?? 0,
     totalLojistas: lojistasResult[0]?.count ?? 0,
     activeLojistas: activeLojistasResult[0]?.count ?? 0,

@@ -1,13 +1,20 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare, Award, Scale, Mail, HelpCircle } from "lucide-react";
-import { clearToken } from "@/lib/admin-api";
-import { useState } from "react";
+import { clearToken, getStats } from "@/lib/admin-api";
+import { useEffect, useState } from "react";
 
-const links = [
+type BadgeKey = "pendingCadastros" | "newContactMessages";
+
+const links: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  badgeKey?: BadgeKey;
+}> = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/negocios", label: "Negócios", icon: Store },
   { href: "/admin/lojistas", label: "Lojistas", icon: Users },
-  { href: "/admin/cadastros", label: "Cadastros Pendentes", icon: ClipboardList, hasBadge: true },
+  { href: "/admin/cadastros", label: "Cadastros Pendentes", icon: ClipboardList, badgeKey: "pendingCadastros" },
   { href: "/admin/documentacao", label: "Documentação", icon: FileText },
   { href: "/admin/assinaturas", label: "Assinaturas", icon: CreditCard },
   { href: "/admin/impulsionamento", label: "Impulsionamento", icon: Zap },
@@ -17,7 +24,7 @@ const links = [
   { href: "/admin/categorias", label: "Categorias", icon: Tag },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/suporte", label: "Suporte", icon: MessageSquare },
-  { href: "/admin/contato", label: "Contato", icon: Mail },
+  { href: "/admin/contato", label: "Contato", icon: Mail, badgeKey: "newContactMessages" },
   { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/admin/legal", label: "Config Legal", icon: Scale },
@@ -26,11 +33,34 @@ const links = [
 interface AdminLayoutProps {
   children: React.ReactNode;
   pendingCadastros?: number;
+  newContactMessages?: number;
 }
 
-export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
+export function AdminLayout({ children, pendingCadastros, newContactMessages }: AdminLayoutProps) {
   const [location, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [autoNewContact, setAutoNewContact] = useState<number | undefined>(undefined);
+
+  // Fetch new-message count once on mount when not provided by parent.
+  useEffect(() => {
+    if (newContactMessages !== undefined) return;
+    let cancelled = false;
+    getStats()
+      .then((s: any) => {
+        if (!cancelled && typeof s?.newContactMessages === "number") {
+          setAutoNewContact(s.newContactMessages);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [newContactMessages]);
+
+  const badges: Record<BadgeKey, number | undefined> = {
+    pendingCadastros,
+    newContactMessages: newContactMessages ?? autoNewContact,
+  };
 
   function handleLogout() {
     clearToken();
@@ -53,6 +83,7 @@ export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
           {links.map((link) => {
             const Icon = link.icon;
             const active = location === link.href || (link.href !== "/admin" && location.startsWith(link.href));
+            const badgeValue = link.badgeKey ? badges[link.badgeKey] : undefined;
             return (
               <Link
                 key={link.href}
@@ -61,12 +92,13 @@ export function AdminLayout({ children, pendingCadastros }: AdminLayoutProps) {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                   active ? "bg-[#d97706] text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
                 }`}
+                data-testid={`admin-nav-${link.href.replace(/\//g, "-")}`}
               >
                 <Icon className="w-5 h-5" />
                 {link.label}
-                {link.hasBadge && pendingCadastros !== undefined && pendingCadastros > 0 && (
+                {badgeValue !== undefined && badgeValue > 0 && (
                   <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                    {pendingCadastros}
+                    {badgeValue}
                   </span>
                 )}
               </Link>

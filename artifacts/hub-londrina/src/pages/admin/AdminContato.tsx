@@ -268,9 +268,13 @@ function ConfigPanel() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 function MensagensPanel() {
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [items, setItems] = useState<AdminContactMessage[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<AdminContactMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -279,12 +283,19 @@ function MensagensPanel() {
   const [draftStatus, setDraftStatus] = useState("read");
   const [draftNotes, setDraftNotes] = useState("");
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const j = await listContactMessages({ status: statusFilter || undefined, limit: 100 });
+      const j = await listContactMessages({
+        status: statusFilter || undefined,
+        page,
+        limit: PAGE_SIZE,
+      });
       setItems(j.data);
+      setTotal(j.total);
       setNewCount(j.newCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar");
@@ -296,6 +307,11 @@ function MensagensPanel() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, page]);
+
+  // Reset to first page when changing filter.
+  useEffect(() => {
+    setPage(1);
   }, [statusFilter]);
 
   function open(m: AdminContactMessage) {
@@ -338,7 +354,7 @@ function MensagensPanel() {
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-3 text-sm text-gray-500">
-          <span>Total: <strong className="text-gray-800">{items.length}</strong></span>
+          <span>Total: <strong className="text-gray-800">{total}</strong></span>
           {newCount > 0 && (
             <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
               {newCount} nova{newCount > 1 ? "s" : ""}
@@ -430,6 +446,31 @@ function MensagensPanel() {
               })}
             </tbody>
           </table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-xs text-gray-500">
+                Página <strong>{page}</strong> de <strong>{totalPages}</strong> · {total} mensagem{total === 1 ? "" : "s"}
+              </span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                  data-testid="button-prev-page"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                  data-testid="button-next-page"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

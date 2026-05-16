@@ -198,6 +198,7 @@ export function Layout({ children }: LayoutProps) {
                 <ul className="space-y-2">
                   <li><Link href="/termos" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-termos">Termos de Uso</Link></li>
                   <li><Link href="/privacidade" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-privacidade">Política de Privacidade</Link></li>
+                  <li><Link href="/contato" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-legal-contato">Contato</Link></li>
                   <li>
                     <a href={`mailto:${LEGAL_CONFIG.DPO_EMAIL}`} className="text-white/70 hover:text-white transition-colors break-all" data-testid="link-footer-dpo">
                       Encarregado de Dados (DPO)
