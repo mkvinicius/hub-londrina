@@ -315,4 +315,16 @@
       height: 295px;
     }
   }
+
+  /* Stats bar glassmorphism — fallback sólido para navegadores sem backdrop-filter (Firefox antigo) */
+  .stats-bar-glass {
+    background: rgba(58, 37, 18, 0.98);
+  }
+  @supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+    .stats-bar-glass {
+      background: linear-gradient(135deg, rgba(111, 78, 55, 0.85) 0%, rgba(58, 37, 18, 0.92) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+  }
 }

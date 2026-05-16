@@ -601,15 +601,12 @@ export default function Landing() {
         {/* Stats card — glassmorphism flutuante, dentro da seção para não vazar branco */}
         <div className="relative z-10 flex justify-center px-4 mb-10" style={{ marginTop: "-36px" }}>
           <div
-            className="grid grid-cols-4 text-white"
+            className="stats-bar-glass grid grid-cols-4 text-white"
             style={{
               width: "800px",
               maxWidth: "calc(100% - 32px)",
               minHeight: "72px",
               borderRadius: "20px",
-              background: "linear-gradient(135deg, rgba(111,78,55,0.85) 0%, rgba(58,37,18,0.92) 100%)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
               border: "1px solid rgba(255,255,255,0.12)",
               boxShadow: "0 24px 64px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10)",
             }}
