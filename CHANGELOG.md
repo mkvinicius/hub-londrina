@@ -4,6 +4,22 @@
 
 ---
 
+## 2026-05-16
+
+### Task #35 — Páginas /contato e /faq + admin
+- Menu público: link `/anuncie` renomeado de "Contato" → "Anuncie" (path mantido). Footer ganha coluna **Ajuda** (/contato, /faq, suporte lojista).
+- Novas tabelas `contact_messages` e `faqs` (Drizzle, aplicadas via `pnpm --filter @workspace/db run push`).
+- Backend (`artifacts/api-server/src/routes/contact.ts`):
+  - Público: `GET /api/faqs[?category=]` (apenas ativos), `POST /api/contact-messages` com `csrfProtection` + `contactMessageLimiter` (5/h/IP).
+  - Admin (JWT): `GET/PATCH/DELETE /api/admin/contact-messages` (paginado, filtro por status, counts) e `GET/POST/PATCH/DELETE /api/admin/faqs`. Mutações sob `csrfProtection` + audit (`logAdminAction`).
+- Frontend:
+  - `/contato`: WhatsApp + e-mails (comercial/DPO) + endereço + horário + iframe Google Maps + formulário (Zod no servidor: nome, email, telefone opcional, assunto, mensagem). Lê `WHATSAPP_CONTATO`, `ATENDIMENTO_HORARIO`, `MAP_EMBED_URL` de `legal_config` (defaults se ausentes).
+  - `/faq`: 3 abas (consumidor/lojista/lgpd) com Accordion + CTA para `/contato`. Seed inicial de 12 perguntas via `scripts/src/seed-faqs.ts`.
+  - `/admin/contato`: 2 abas — Mensagens (lista + drawer com status, notas internas, link mailto e exclusão; auto-marca "nova" como "lida" ao abrir) e Configurações (CRUD das 3 chaves `WHATSAPP_CONTATO`, `ATENDIMENTO_HORARIO`, `MAP_EMBED_URL` em `legal_config`).
+  - `/admin/faq`: CRUD por categoria com ordenação, ativo/inativo, modal de edição.
+- Helpers: `lib/public-api.ts` (fetch FAQs, submit contato com `csrfFetch`) e novos métodos em `lib/admin-api.ts` (mutações usam `csrfFetch` + Bearer).
+- Sidebar admin: novos itens **Contato** (Mail) e **FAQ** (HelpCircle).
+
 ## 2026-05-15
 
 ### Task #33 — Aba admin Config Legal (DB-backed)

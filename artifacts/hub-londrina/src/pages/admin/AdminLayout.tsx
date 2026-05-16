@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare, Award, Scale } from "lucide-react";
+import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare, Award, Scale, Mail, HelpCircle } from "lucide-react";
 import { clearToken } from "@/lib/admin-api";
 import { useState } from "react";
 
@@ -17,6 +17,8 @@ const links = [
   { href: "/admin/categorias", label: "Categorias", icon: Tag },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/suporte", label: "Suporte", icon: MessageSquare },
+  { href: "/admin/contato", label: "Contato", icon: Mail },
+  { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/admin/legal", label: "Config Legal", icon: Scale },
 ];

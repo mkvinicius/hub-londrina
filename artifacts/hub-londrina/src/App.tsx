@@ -11,6 +11,8 @@ import Anuncie from "@/pages/anuncie";
 import Cadastro from "@/pages/Cadastro";
 import Termos from "@/pages/Termos";
 import Privacidade from "@/pages/Privacidade";
+import Contato from "@/pages/Contato";
+import FaqPage from "@/pages/Faq";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminNegocios from "@/pages/admin/AdminNegocios";
@@ -26,6 +28,8 @@ import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 import AdminReviews from "@/pages/admin/AdminReviews";
 import AdminSuporte from "@/pages/admin/AdminSuporte";
 import AdminLegalConfig from "@/pages/admin/AdminLegalConfig";
+import AdminContato from "@/pages/admin/AdminContato";
+import AdminFaqPage from "@/pages/admin/AdminFaq";
 import LojistaLogin from "@/pages/lojista/LojistaLogin";
 import EsqueciSenha from "@/pages/lojista/EsqueciSenha";
 import NovaSenha from "@/pages/lojista/NovaSenha";
@@ -73,6 +77,8 @@ function Router() {
       <Route path="/cadastro" component={Cadastro} />
       <Route path="/termos" component={Termos} />
       <Route path="/privacidade" component={Privacidade} />
+      <Route path="/contato" component={Contato} />
+      <Route path="/faq" component={FaqPage} />
       <Route path="/norte">{() => <ZonePage zone="norte" />}</Route>
       <Route path="/sul">{() => <ZonePage zone="sul" />}</Route>
       <Route path="/leste">{() => <ZonePage zone="leste" />}</Route>
@@ -93,6 +99,8 @@ function Router() {
       <Route path="/admin/audit-log">{() => <PrivateRoute component={AdminAuditLog} />}</Route>
       <Route path="/admin/suporte">{() => <PrivateRoute component={AdminSuporte} />}</Route>
       <Route path="/admin/legal">{() => <PrivateRoute component={AdminLegalConfig} />}</Route>
+      <Route path="/admin/contato">{() => <PrivateRoute component={AdminContato} />}</Route>
+      <Route path="/admin/faq">{() => <PrivateRoute component={AdminFaqPage} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>
       <Route path="/lojista/login" component={LojistaLogin} />
       <Route path="/lojista/esqueci-senha" component={EsqueciSenha} />

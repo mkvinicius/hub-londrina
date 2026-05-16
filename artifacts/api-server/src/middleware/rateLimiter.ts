@@ -58,6 +58,17 @@ export const businessViewLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+export const contactMessageLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: {
+    error: "Muitas mensagens enviadas. Tente novamente em 1 hora.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const cnpjLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,

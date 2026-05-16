@@ -36,7 +36,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/", label: "Início" },
     { href: "/categorias", label: "Categorias" },
     { href: "/busca", label: "Busca" },
-    { href: "/anuncie", label: "Contato" },
+    { href: "/anuncie", label: "Anuncie" },
   ];
 
   return (
@@ -159,7 +159,7 @@ export function Layout({ children }: LayoutProps) {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-8 text-sm">
               <div>
                 <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Descobrir</h4>
                 <ul className="space-y-2">
@@ -173,6 +173,14 @@ export function Layout({ children }: LayoutProps) {
                   <li><Link href="/anuncie" className="text-white/70 hover:text-white transition-colors">Anunciar</Link></li>
                   <li><Link href="/anuncie#planos" className="text-white/70 hover:text-white transition-colors">Planos</Link></li>
                   <li><Link href="/lojista/login" className="text-white/70 hover:text-white transition-colors">Área do Lojista</Link></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-bold uppercase tracking-wider text-xs mb-3 text-white/50">Ajuda</h4>
+                <ul className="space-y-2">
+                  <li><Link href="/contato" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-contato">Contato</Link></li>
+                  <li><Link href="/faq" className="text-white/70 hover:text-white transition-colors" data-testid="link-footer-faq">FAQ</Link></li>
+                  <li><Link href="/lojista/suporte" className="text-white/70 hover:text-white transition-colors">Suporte ao Lojista</Link></li>
                 </ul>
               </div>
               <div>

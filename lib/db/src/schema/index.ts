@@ -15,3 +15,5 @@ export * from "./support-tickets";
 export * from "./vitrine-boosts";
 export * from "./partners";
 export * from "./legal-config";
+export * from "./contact-messages";
+export * from "./faqs";

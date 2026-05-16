@@ -276,3 +276,144 @@ export async function uploadPartnerLogo(file: File): Promise<{ logoUrl: string }
   }
   return res.json();
 }
+
+// ===== Task #35 — Contato (mensagens) =====
+export interface AdminContactMessage {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  subject: string;
+  message: string;
+  status: string;
+  adminNotes: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminContactMessagesList {
+  data: AdminContactMessage[];
+  total: number;
+  page: number;
+  limit: number;
+  newCount: number;
+  grandTotal: number;
+}
+
+export async function listContactMessages(
+  params: { status?: string; page?: number; limit?: number } = {},
+): Promise<AdminContactMessagesList> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.limit) qs.set("limit", String(params.limit));
+  return adminFetch(`/api/admin/contact-messages${qs.toString() ? `?${qs}` : ""}`);
+}
+
+export async function updateContactMessage(
+  id: number,
+  patch: { status?: string; adminNotes?: string },
+): Promise<{ data: AdminContactMessage }> {
+  const { csrfFetch } = await import("./csrf");
+  const token = getAdminToken();
+  const res = await csrfFetch(`${API_BASE}/api/admin/contact-messages/${id}`, {
+    method: "PATCH",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteContactMessage(id: number): Promise<{ success: true }> {
+  const { csrfFetch } = await import("./csrf");
+  const token = getAdminToken();
+  const res = await csrfFetch(`${API_BASE}/api/admin/contact-messages/${id}`, {
+    method: "DELETE",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+// ===== Task #35 — FAQs =====
+export interface AdminFaq {
+  id: number;
+  category: "consumidor" | "lojista" | "lgpd";
+  question: string;
+  answer: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listAdminFaqs(): Promise<{ data: AdminFaq[] }> {
+  return adminFetch("/api/admin/faqs");
+}
+
+export async function createAdminFaq(input: {
+  category: "consumidor" | "lojista" | "lgpd";
+  question: string;
+  answer: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}): Promise<{ data: AdminFaq }> {
+  const { csrfFetch } = await import("./csrf");
+  const token = getAdminToken();
+  const res = await csrfFetch(`${API_BASE}/api/admin/faqs`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateAdminFaq(
+  id: number,
+  patch: Partial<{
+    category: "consumidor" | "lojista" | "lgpd";
+    question: string;
+    answer: string;
+    sortOrder: number;
+    isActive: boolean;
+  }>,
+): Promise<{ data: AdminFaq }> {
+  const { csrfFetch } = await import("./csrf");
+  const token = getAdminToken();
+  const res = await csrfFetch(`${API_BASE}/api/admin/faqs/${id}`, {
+    method: "PATCH",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteAdminFaq(id: number): Promise<{ success: true }> {
+  const { csrfFetch } = await import("./csrf");
+  const token = getAdminToken();
+  const res = await csrfFetch(`${API_BASE}/api/admin/faqs/${id}`, {
+    method: "DELETE",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
