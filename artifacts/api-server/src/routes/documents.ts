@@ -12,6 +12,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "../lib/logger";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
+import { validateMagicBytes } from "../lib/validateUpload";
 
 const router: IRouter = Router();
 
@@ -175,6 +176,13 @@ router.post(
     }
     if (!req.file) {
       res.status(400).json({ error: "Arquivo não enviado" });
+      return;
+    }
+
+    // Validar magic bytes para prevenir uploads maliciosos
+    const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+    if (!isValid) {
+      res.status(400).json({ error: "Arquivo inválido ou corrompido" });
       return;
     }
 

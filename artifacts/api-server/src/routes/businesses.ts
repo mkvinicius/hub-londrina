@@ -7,6 +7,8 @@ import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, searchBoostsTable, businessUsersTable, productsTable, zonesTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte, inArray } from "drizzle-orm";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
+import { sanitizeBusiness } from "../lib/sanitize";
+import { z } from "zod";
 import {
   ListBusinessesQueryParams,
   GetBusinessByIdParams,
@@ -336,6 +338,18 @@ router.get("/businesses/:id/reviews", validateId, async (req: Request, res: Resp
 
 router.post("/businesses/:id/review", reviewLimiter, csrfProtection, validateId, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
+
+  // Validação Zod para o corpo da requisição
+  const reviewSchema = z.object({
+    rating: z.number().int().min(1).max(5),
+    comment: z.string().min(10).max(500).optional(),
+  });
+
+  const parsed = reviewSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Dados inválidos", details: parsed.error.issues });
+    return;
+  }
 
   const { author, rating, text } = req.body;
   if (!author || !rating || rating < 1 || rating > 5) {

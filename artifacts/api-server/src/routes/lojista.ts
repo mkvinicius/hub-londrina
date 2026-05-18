@@ -17,6 +17,8 @@ import { csrfProtection } from "../middleware/csrf";
 import Stripe from "stripe";
 import { businessDocumentsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { sanitizeBusiness, sanitizeText } from "../lib/sanitize";
+import { validateMagicBytes } from "../lib/validateUpload";
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripeClient: Stripe | null = STRIPE_SECRET_KEY
@@ -231,6 +233,12 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
     }
   }
 
+  // Apply sanitization to prevent XSS
+  updates.name = sanitizeText(updates.name as string || '');
+  updates.description = sanitizeText(updates.description as string || '');
+  updates.ownerName = sanitizeText(updates.ownerName as string || '');
+  updates.tags = Array.isArray(updates.tags) ? updates.tags.map(tag => sanitizeText(tag as string)) : sanitizeText(updates.tags as string || '');
+
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "Nenhum campo para atualizar" });
     return;
@@ -297,6 +305,14 @@ router.post("/lojista/upload/logo", memoryUpload.single("file"), async (req: Req
     res.status(400).json({ error: "Nenhum arquivo enviado" });
     return;
   }
+
+  // Validar magic bytes para prevenir uploads maliciosos
+  const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+  if (!isValid) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido" });
+    return;
+  }
+
   const ext = path.extname(req.file.originalname) || ".jpg";
   const filename = `logo-${Date.now()}${ext}`;
   const logoUrl = await uploadBufferToGCS(req.file.buffer, "logos", filename, req.file.mimetype);
@@ -310,6 +326,14 @@ router.post("/lojista/upload/banner", memoryUpload.single("file"), async (req: R
     res.status(400).json({ error: "Nenhum arquivo enviado" });
     return;
   }
+
+  // Validar magic bytes para prevenir uploads maliciosos
+  const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+  if (!isValid) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido" });
+    return;
+  }
+
   const ext = path.extname(req.file.originalname) || ".jpg";
   const filename = `banner-${Date.now()}${ext}`;
   const bannerUrl = await uploadBufferToGCS(req.file.buffer, "banners", filename, req.file.mimetype);
@@ -321,6 +345,13 @@ router.post("/lojista/upload/photo", memoryUpload.single("file"), async (req: Re
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+
+  // Validar magic bytes para prevenir uploads maliciosos
+  const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+  if (!isValid) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido" });
     return;
   }
 
@@ -1017,6 +1048,13 @@ router.post("/lojista/upload/product-media", memoryProductUpload.single("file"),
 
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
+    return;
+  }
+
+  // Validar magic bytes para prevenir uploads maliciosos
+  const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+  if (!isValid) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido" });
     return;
   }
 
@@ -1771,6 +1809,19 @@ router.post("/lojista/vitrine-boost/sync", async (req: Request, res: Response) =
 
 router.post("/lojista/support", lojistaAuth, async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista as LojistaPayload;
+  // Adiciona validação Zod para o corpo da requisição
+  const supportSchema = z.object({
+    subject: z.string().min(5).max(100),
+    message: z.string().min(20).max(2000),
+    priority: z.enum(['low', 'normal', 'high', 'urgent']).optional().default('normal'),
+  });
+
+  const parsed = supportSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Dados inválidos", details: parsed.error.issues });
+    return;
+  }
+
   const subject = String(req.body?.subject ?? "").trim();
   const message = String(req.body?.message ?? "").trim();
   const priorityRaw = String(req.body?.priority ?? "normal").trim();

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\Documents\\\\CLAUDE\\\\hub-londrina\\\\artifacts\\\\hub-londrina\" -Force | Where-Object {$_.Name -match \"^\\\\w\" -or $_.Name -match \"^\\\\.\"})",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\Documents\\\\CLAUDE\\\\hub-londrina\\\\artifacts\\\\api-server\" -Force | Where-Object {$_.Name -match \"^\\\\w\" -or $_.Name -match \"^\\\\.\"})",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
