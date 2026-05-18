@@ -19,6 +19,7 @@ import {
 import { legalConfigTable } from "@workspace/db/schema";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
 import { z } from "zod/v4";
+import { validateMagicBytes } from "../lib/validateUpload";
 
 const router: IRouter = Router();
 
@@ -1857,6 +1858,14 @@ router.delete("/admin/partners/:id", validateId, async (req: Request, res: Respo
 
 router.post("/admin/upload/partner-logo", partnerUpload.single("file"), async (req: Request, res: Response) => {
   if (!req.file) { res.status(400).json({ error: "Nenhum arquivo enviado" }); return; }
+
+  // Validar magic bytes para prevenir uploads maliciosos
+  const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+  if (!isValid) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido" });
+    return;
+  }
+
   const ext = path.extname(req.file.originalname) || ".png";
   const filename = `partner-${Date.now()}${ext}`;
   const logoUrl = await uploadBufferToGCS(req.file.buffer, "partners", filename, req.file.mimetype);

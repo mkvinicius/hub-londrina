@@ -11,6 +11,8 @@ import { sendEmail, emails } from "../services/email";
 import { generateCsrfToken, csrfProtection } from "../middleware/csrf";
 import { getLegalValue } from "../lib/legal-config-store";
 import { LEGAL_CONFIG_DEFAULTS } from "../lib/legal-config";
+import { sanitizeBusiness } from "../lib/sanitize";
+import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required for auth routes");
@@ -92,13 +94,31 @@ router.get("/auth/validate-cnpj", cnpjLimiter, async (req: Request, res: Respons
   }
 });
 
-router.post("/auth/register", registerLimiter, csrfProtection, async (req: Request, res: Response) => {
-  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep, razaoSocial, nomeFantasia, acceptedTermsVersion } = req.body;
+const registerSchema = z.object({
+  name: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8),
+  businessName: z.string().min(2).max(100),
+  cnpj: z.string().min(14).max(18),
+  phone: z.string().min(10).max(15),
+  categorySlug: z.string().min(1),
+  zone: z.string().min(1),
+  cep: z.string().min(8).max(9),
+  razaoSocial: z.string().optional(),
+  nomeFantasia: z.string().optional(),
+  acceptedTermsVersion: z.string().optional(),
+});
 
-  if (!name || !email || !password || !businessName || !cnpj || !phone || !categorySlug || !zone || !cep) {
-    res.status(400).json({ error: "Todos os campos são obrigatórios" });
+router.post("/auth/register", registerLimiter, csrfProtection, async (req: Request, res: Response) => {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Dados inválidos", details: parsed.error.issues });
     return;
   }
+
+  const { name, email, password, businessName, cnpj, phone, categorySlug, zone, cep, razaoSocial, nomeFantasia, acceptedTermsVersion } = parsed.data;
+
+  // ... restante do código permanece igual
 
   // LGPD — consentimento explícito é obrigatório (Lei 13.709/2018, art. 8º).
   // O front envia a versão dos Termos que o usuário viu. Se versão não bate
@@ -216,7 +236,8 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
   } catch {
   }
 
-  const [business] = await db.insert(businessesTable).values({
+  // Sanitize business data to prevent XSS
+  const sanitizedBusinessData = sanitizeBusiness({
     name: businessName.trim(),
     categorySlug,
     zone: selectedZone,
@@ -237,7 +258,9 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
     address: street ? `${street}, ${neighborhood}` : "",
     razaoSocial: razaoSocial ? razaoSocial.trim() : null,
     nomeFantasia: nomeFantasia ? nomeFantasia.trim() : null,
-  }).returning();
+  });
+
+  const [business] = await db.insert(businessesTable).values(sanitizedBusinessData).returning();
 
   const passwordHash = await bcrypt.hash(password, 10);
   const verifyToken = randomBytes(32).toString("hex");
