@@ -147,7 +147,27 @@ export default function Busca() {
     );
   }
 
-  const categoriesZone = zone && zone !== "todas" ? zone : undefined;
+  // Mapeia o display name da Região (ex.: "Zona Norte") para o slug da zona
+  // canônica (centro|norte|sul|leste|oeste). A UI de /busca filtra por
+  // "Região" (display name), então sem esse mapeamento o ?zone= nunca era
+  // enviado e os contadores das categorias mostravam sempre o total geral.
+  const REGION_TO_ZONE: Record<string, string> = {
+    "centro": "centro",
+    "zona centro": "centro",
+    "zona norte": "norte",
+    "zona sul": "sul",
+    "zona leste": "leste",
+    "zona oeste": "oeste",
+    "norte": "norte",
+    "sul": "sul",
+    "leste": "leste",
+    "oeste": "oeste",
+  };
+  const zoneFromRegion = region && region !== "todas"
+    ? REGION_TO_ZONE[region.trim().toLowerCase()]
+    : undefined;
+  const categoriesZone =
+    (zone && zone !== "todas" ? zone : undefined) ?? zoneFromRegion;
   const { data: categoriesData } = useListCategories(
     categoriesZone ? { zone: categoriesZone } : undefined,
   );
