@@ -4,9 +4,11 @@ import { PartnersSection } from "@/components/PartnersSection";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, ArrowRight, ArrowLeft,
-  CheckCircle2, ChevronDown, Zap, MessageCircle, ExternalLink
+  CheckCircle2, ChevronDown, Zap, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandButton } from "@/components/BrandButton";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Layout } from "@/components/Layout";
 import { useListCategories, useListBusinesses } from "@workspace/api-client-react";
@@ -42,13 +44,6 @@ interface VitrineCardData {
   fixed: boolean;
 }
 
-function buildVitrineWaUrl(p: VitrineCardData): string | null {
-  const waNumber = (p.whatsapp || "").replace(/\D/g, "");
-  if (!waNumber) return null;
-  const normalized = waNumber.startsWith("55") ? waNumber : `55${waNumber}`;
-  return `https://wa.me/${normalized}?text=${encodeURIComponent(`Olá! Vi o *${p.name}* da *${p.businessName}* no Hub Londrina e tenho interesse!`)}`;
-}
-
 // R11/T9 — Modal aberto quando o produto da Vitrine tem múltiplas fotos.
 // Mostra carrossel + WhatsApp + link para o perfil do negócio. Quando o produto
 // tem só 1 foto, o card mantém o comportamento antigo (navegar para o perfil).
@@ -65,7 +60,6 @@ function VitrineDetailModal({
   useEffect(() => { setPhotoIdx(0); }, [card?.productId]);
 
   const photos = card?.images ?? [];
-  const waUrl = card ? buildVitrineWaUrl(card) : null;
 
   return (
     <Dialog open={!!card} onOpenChange={(o) => !o && onClose()}>
@@ -140,21 +134,19 @@ function VitrineDetailModal({
                 <p className="text-[#d97706] font-black text-2xl mt-2">R$ {card.price}</p>
               )}
               <div className="mt-5 flex flex-col gap-2">
-                {waUrl && (
-                  <a
-                    href={waUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white font-black px-4 py-3 rounded-xl shadow-[0_6px_16px_-4px_rgba(34,197,94,0.55)] hover:brightness-110 transition-all"
+                {card.whatsapp && (
+                  <WhatsAppButton
+                    phoneNumber={card.whatsapp}
+                    message={`Olá! Vi o *${card.name}* da *${card.businessName}* no Hub Londrina e tenho interesse!`}
+                    className="w-full px-4 py-3 rounded-xl text-base"
                   >
-                    <MessageCircle className="h-5 w-5" />
                     Pedir no WhatsApp
-                  </a>
+                  </WhatsAppButton>
                 )}
                 <button
                   type="button"
                   onClick={() => { onClose(); onOpenBusiness(card.businessId); }}
-                  className="w-full flex items-center justify-center gap-2 border border-[#d97706] text-[#d97706] hover:bg-[#fff5ea] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border border-[#d97706] text-[#d97706] hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Ver perfil do negócio
@@ -196,10 +188,6 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
   }, []);
 
   const priceLabel = p.price ? `R$ ${p.price}` : "";
-  const waNumber = (p.whatsapp || "").replace(/\D/g, "");
-  const waUrl = waNumber
-    ? `https://wa.me/${waNumber.startsWith("55") ? waNumber : "55" + waNumber}?text=${encodeURIComponent(`Olá! Vi o *${p.name}* da *${p.businessName}* no Hub Londrina e tenho interesse!`)}`
-    : null;
 
   return (
     <div
@@ -207,7 +195,7 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
       className="flex-shrink-0 md:flex-shrink relative rounded-2xl overflow-hidden cursor-pointer group w-[82vw] md:w-full vitrine-card"
       style={{
         scrollSnapAlign: "start",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12)",
+        boxShadow: "var(--shadow-card)",
       }}
     >
       {p.photoUrl && (
@@ -234,19 +222,15 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
           <p className="text-white font-black text-sm leading-tight mb-0.5">{p.name}</p>
           {priceLabel && <p className="text-white font-bold text-base leading-tight">{priceLabel}</p>}
         </div>
-        {waUrl && (
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative overflow-hidden flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] ring-1 ring-inset ring-white/25 shadow-[0_8px_20px_-4px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_12px_26px_-6px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)]"
-            onClick={e => e.stopPropagation()}
+        <div onClick={e => e.stopPropagation()}>
+          <WhatsAppButton
+            phoneNumber={p.whatsapp || ""}
+            message={`Olá! Vi o *${p.name}* da *${p.businessName}* no Hub Londrina e tenho interesse!`}
+            className="py-2.5 rounded-xl text-xs gap-1.5"
           >
-            <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
-            <svg className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)] relative" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">Pedir no WhatsApp</span>
-          </a>
-        )}
+            Pedir no WhatsApp
+          </WhatsAppButton>
+        </div>
       </div>
     </div>
   );
@@ -425,14 +409,13 @@ export default function Landing() {
           {/* Search bar */}
           <div className="w-full max-w-3xl" ref={acRef}>
             <div
-              className="flex flex-col sm:flex-row overflow-visible relative z-40 rounded-2xl p-1.5 gap-1.5"
+              className="flex flex-col sm:flex-row overflow-visible relative z-40 rounded-2xl p-1.5 gap-1.5 bg-white/97 dark:bg-gray-800"
               style={{
-                background: "rgba(255,255,255,0.97)",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2)",
+                boxShadow: "var(--shadow-dropdown)",
               }}
             >
               {/* Text input */}
-              <div className="relative flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
+              <div className="relative flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80 dark:bg-gray-700/50">
                 <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
                 <input
                   type="text"
@@ -448,8 +431,8 @@ export default function Landing() {
               {/* Autocomplete dropdown — Patrocinados primeiro, depois sugestões */}
               {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
                 <div
-                  className="absolute left-1.5 right-1.5 top-full mt-2 bg-white rounded-2xl border border-gray-100 overflow-hidden text-left"
-                  style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08)", zIndex: 50 }}
+                  className="absolute left-1.5 right-1.5 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden text-left"
+                  style={{ boxShadow: "var(--shadow-dropdown)", zIndex: 50 }}
                 >
                   {acSponsored.length > 0 && (
                     <>
@@ -461,17 +444,17 @@ export default function Landing() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sp-${item.id}`} type="button" onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors text-left">
                             <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-1">{item.name}</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
                           </button>
                         );
                       })}
                     </>
                   )}
                   {acSponsored.length > 0 && acSuggestions.length > 0 && (
-                    <div className="mx-4 border-t border-gray-100" />
+                    <div className="mx-4 border-t border-gray-100 dark:border-gray-700" />
                   )}
                   {acSuggestions.length > 0 && (
                     <>
@@ -484,10 +467,10 @@ export default function Landing() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sg-${item.id}`} type="button" onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
                             <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
-                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{item.name}</span>
+                            <Icon className="h-4 w-4 text-gray-300 dark:text-gray-500 flex-shrink-0" />
                           </button>
                         );
                       })}
@@ -502,19 +485,19 @@ export default function Landing() {
                 <button
                   type="button"
                   onClick={() => setRegionOpen(!regionOpen)}
-                  className="flex items-center gap-3 px-5 py-3 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full"
+                  className="flex items-center gap-3 px-5 py-3 text-base font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 dark:bg-gray-700/50 hover:bg-gray-100/80 dark:hover:bg-gray-600/50 transition-colors h-full"
                 >
                   <span className="text-sm">{region || "Selecione a Região"}</span>
                   <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${regionOpen ? "rotate-180" : ""}`} />
                 </button>
                 {regionOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl min-w-[220px] py-2 overflow-hidden overflow-y-auto max-h-80"
-                    style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)", zIndex: 9999 }}>
+                  <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl min-w-[220px] py-2 overflow-hidden overflow-y-auto max-h-80"
+                    style={{ boxShadow: "var(--shadow-dropdown)", zIndex: 9999 }}>
                     {/* Opção todas */}
                     <button
                       type="button"
                       onClick={() => { setRegion(""); setRegionOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-[#FFF3E0] transition-colors ${!region ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-700"}`}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-[#FFF3E0] dark:hover:bg-amber-900/30 transition-colors ${!region ? "text-[#d97706] bg-[#FFF3E0] dark:bg-amber-900/30" : "text-gray-700 dark:text-gray-200"}`}
                     >
                       Todas as regiões
                     </button>
@@ -527,7 +510,7 @@ export default function Landing() {
                         key={z.path}
                         type="button"
                         onClick={() => { setRegionOpen(false); navigate(z.path); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#FFF3E0] transition-colors flex items-center gap-2 ${region === z.label ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-800"}`}
+                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#FFF3E0] dark:hover:bg-amber-900/30 transition-colors flex items-center gap-2 ${region === z.label ? "text-[#d97706] bg-[#FFF3E0] dark:bg-amber-900/30" : "text-gray-800 dark:text-gray-200"}`}
                       >
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor:
                           z.path === "/centro" ? "#dc2626" :
@@ -549,7 +532,7 @@ export default function Landing() {
                         key={r}
                         type="button"
                         onClick={() => { setRegion(r); setRegionOpen(false); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-[#FFF3E0] transition-colors ${region === r ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-700"}`}
+                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-[#FFF3E0] dark:hover:bg-amber-900/30 transition-colors ${region === r ? "text-[#d97706] bg-[#FFF3E0] dark:bg-amber-900/30" : "text-gray-700 dark:text-gray-200"}`}
                       >
                         {r}
                       </button>
@@ -558,34 +541,11 @@ export default function Landing() {
                 )}
               </div>
 
-              {/* Buscar button — floating card */}
-              <button
-                type="button"
-                onClick={handleSearch}
-                className="flex items-center justify-center gap-2 text-white font-bold text-base px-7 py-3 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5 flex-shrink-0"
-                style={{
-                  borderRadius: "999px",
-                  background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
-                  boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  transform: "translateY(-1px)",
-                }}
-                onMouseEnter={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.style.background = "linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%)";
-                  btn.style.boxShadow = "0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2)";
-                  btn.style.transform = "translateY(-3px)";
-                }}
-                onMouseLeave={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.style.background = "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)";
-                  btn.style.boxShadow = "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)";
-                  btn.style.transform = "translateY(-1px)";
-                }}
-              >
+              {/* Buscar button */}
+              <BrandButton onClick={handleSearch} size="lg" className="flex-shrink-0 gap-2 w-full sm:w-auto">
                 <Search className="h-4 w-4" />
                 Buscar
-              </button>
+              </BrandButton>
             </div>
           </div>
         </div>
@@ -593,8 +553,8 @@ export default function Landing() {
 
       {/* ===== CATEGORIES SECTION ===== */}
       <section
+        className="bg-amber-50 dark:bg-gray-900"
         style={{
-          background: "linear-gradient(145deg, #fef3c7 0%, #fff7ed 40%, #fef0d0 70%, #fde8b8 100%)",
           paddingBottom: "64px",
         }}
       >
@@ -770,7 +730,7 @@ export default function Landing() {
 
       {/* ===== VITRINE DE PRODUTOS — R11 ===== */}
       {vitrineCards.length > 0 && (
-        <section className="py-16" style={{ background: "#fdf6ec" }}>
+        <section className="py-16 bg-amber-50/50 dark:bg-gray-900">
           <div className="max-w-7xl mx-auto px-4 md:px-8">
             <div className="flex items-end justify-between mb-10 gap-4">
               <div>
@@ -780,7 +740,7 @@ export default function Landing() {
             </div>
 
             <div
-              className={`flex gap-4 overflow-x-auto pb-4 md:mx-0 md:px-0 md:grid md:overflow-visible scrollbar-hide justify-start pl-[9vw] md:pl-0 ${vitrineCards.length >= 6 ? "md:grid-cols-6" : "md:grid-cols-4"}`}
+              className={`flex gap-4 overflow-x-auto pb-4 md:mx-0 md:px-0 md:grid md:overflow-visible scrollbar-hide justify-start pl-[9vw] md:pl-0 ${vitrineCards.length >= 6 ? "md:grid-cols-3 lg:grid-cols-6" : "md:grid-cols-2 lg:grid-cols-4"}`}
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
               {vitrineCards.slice(0, 12).map((p) => (
@@ -809,7 +769,7 @@ export default function Landing() {
       )}
 
       {/* ===== FEATURED BUSINESSES ===== */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
@@ -833,7 +793,7 @@ export default function Landing() {
       </section>
 
       {/* ===== FOR BUSINESS — PRICING CTA ===== */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="bg-[#4a2c0e] rounded-3xl overflow-hidden">
             <div className="flex flex-col lg:flex-row">
@@ -927,10 +887,10 @@ export default function Landing() {
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-3">Como funciona</h2>
+            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100 mb-3">Como funciona</h2>
             <p className="text-gray-500 text-base">Simples, rápido e totalmente gratuito para começar.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative">

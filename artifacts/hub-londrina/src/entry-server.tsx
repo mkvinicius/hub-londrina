@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router as WouterRouter, Switch, Route } from "wouter";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/lib/theme";
 import Landing from "@/pages/landing";
 import Categorias from "@/pages/categorias";
 import Busca from "@/pages/busca";
@@ -55,12 +56,14 @@ export function render(url: string, prefetchedData?: Record<string, unknown>, ex
   }
 
   return renderToString(
-    <QueryClientProvider client={qc}>
-      <WouterRouter hook={hook}>
-        <TooltipProvider>
-          <Routes />
-        </TooltipProvider>
-      </WouterRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={qc}>
+        <WouterRouter hook={hook}>
+          <TooltipProvider>
+            <Routes />
+          </TooltipProvider>
+        </WouterRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

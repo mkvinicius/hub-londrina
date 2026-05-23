@@ -47,3 +47,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Agent skills (local tooling)
+.agents/
+.claude/skills/
+.extract-design-system/
+skills-lock.json

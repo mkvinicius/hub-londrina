@@ -121,6 +121,30 @@
   --accent: 36 100% 50%;
   --accent-foreground: 0 0% 100%;
 
+  /* Brand tokens — fonte única para cores recorrentes (evita fragmentação em hex) */
+  --color-brand-orange: 36 100% 50%;
+  --color-brand-deep-orange: 25 80% 42%;
+  --color-brand-amber: 40 92% 54%;
+  --color-brand-deep: 22 66% 20%;
+  --color-whatsapp: 142 71% 45%;
+  --color-success: 122 39% 49%;
+  --color-brand-green: 95 55% 36%;
+
+  /* Gradientes canônicos */
+  --gradient-cta: linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%);
+  --gradient-cta-hover: linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%);
+  --gradient-whatsapp: linear-gradient(to bottom, #25D366 0%, #1ebe57 50%, #159a45 100%);
+  --gradient-section-amber: linear-gradient(145deg, #fef3c7 0%, #fff7ed 40%, #fef0d0 70%, #fde8b8 100%);
+  --gradient-card-overlay: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.08) 100%);
+
+  /* Sombras canônicas para padrões recorrentes */
+  --shadow-dropdown: 0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12);
+  --shadow-cta: 0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2);
+  --shadow-cta-hover: 0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2);
+  --shadow-whatsapp: 0 10px 24px -6px rgba(34,197,94,0.55), inset 0 1px 0 rgba(255,255,255,0.35);
+  --shadow-whatsapp-hover: 0 16px 32px -8px rgba(34,197,94,0.7), inset 0 1px 0 rgba(255,255,255,0.4);
+
   /* Destructive */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
@@ -217,6 +241,15 @@
   --shadow-lg: 0px 8px 16px 0px rgba(0,0,0, 0.45), 0px 4px 6px -1px rgba(0,0,0, 0.35);
   --shadow-xl: 0px 16px 24px 0px rgba(0,0,0, 0.50), 0px 8px 10px -1px rgba(0,0,0, 0.40);
   --shadow-2xl: 0px 24px 48px 0px rgba(0,0,0, 0.55);
+
+  /* Custom shadow overrides for dark mode — deeper, higher-opacity black shadows
+     remain visible against dark backgrounds */
+  --shadow-dropdown: 0 16px 48px rgba(0,0,0,0.50), 0 4px 12px rgba(0,0,0,0.35);
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.30);
+  --shadow-cta: 0 6px 20px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,220,120,0.15), inset 0 -2px 0 rgba(0,0,0,0.30);
+  --shadow-cta-hover: 0 10px 28px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,220,120,0.20), inset 0 -2px 0 rgba(0,0,0,0.30);
+  --shadow-whatsapp: 0 10px 24px -6px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.10);
+  --shadow-whatsapp-hover: 0 16px 32px -8px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
 @layer base {

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layout } from "@/components/Layout";
+import { BrandButton } from "@/components/BrandButton";
 import { useSearch, useListCategories } from "@workspace/api-client-react";
 import type { Business, Category } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
@@ -235,14 +236,12 @@ export default function Busca() {
             {/* Search bar with autocomplete */}
             <div ref={acRef} className="relative">
               <div
-                className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5"
+                className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5 bg-white/97 dark:bg-gray-800 border border-black/6 dark:border-white/10"
                 style={{
-                  background: "rgba(255,255,255,0.97)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
-                  border: "1px solid rgba(0,0,0,0.06)",
+                  boxShadow: "var(--shadow-dropdown)",
                 }}
               >
-                <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
+                <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80 dark:bg-gray-700/50">
                   <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
                   <input
                     type="text"
@@ -264,11 +263,11 @@ export default function Busca() {
 
                 <div className="relative flex-shrink-0">
                   <Select value={region} onValueChange={setRegion}>
-                    <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-100 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full border-0 shadow-none focus:ring-0">
+                    <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-100 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 dark:bg-gray-700/50 hover:bg-gray-100/80 dark:hover:bg-gray-600/50 transition-colors h-full border-0 shadow-none focus:ring-0">
                       <SelectValue placeholder="Selecione a Região" />
                       <ChevronDown className="h-4 w-4 text-gray-500" />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-0 shadow-xl" style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
+                    <SelectContent className="rounded-xl border-0 shadow-xl" style={{ boxShadow: "var(--shadow-dropdown)" }}>
                       <SelectItem value="todas">Todas as regiões</SelectItem>
                       {dynamicRegions.map(r => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -277,27 +276,16 @@ export default function Busca() {
                   </Select>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleSearch}
-                  className="flex items-center justify-center gap-2 text-white font-bold text-base px-7 py-3 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5 flex-shrink-0"
-                  style={{
-                    borderRadius: "999px",
-                    background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
-                    boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
-                    textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                    transform: "translateY(-1px)",
-                  }}
-                >
+                <BrandButton onClick={handleSearch} size="lg" className="flex-shrink-0 gap-2 w-full sm:w-auto">
                   <Search className="h-4 w-4" />
                   Buscar
-                </button>
+                </BrandButton>
               </div>
 
               {/* Autocomplete dropdown */}
               {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
-                <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
-                  style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}>
+                <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+                  style={{ boxShadow: "var(--shadow-dropdown)" }}>
                   {acSponsored.length > 0 && (
                     <>
                       <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
@@ -308,17 +296,17 @@ export default function Busca() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sp-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors text-left">
                             <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-1">{item.name}</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
                           </button>
                         );
                       })}
                     </>
                   )}
                   {acSponsored.length > 0 && acSuggestions.length > 0 && (
-                    <div className="mx-4 border-t border-gray-100" />
+                    <div className="mx-4 border-t border-gray-100 dark:border-gray-700" />
                   )}
                   {acSuggestions.length > 0 && (
                     <>
@@ -331,10 +319,10 @@ export default function Busca() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sg-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
                             <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
-                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{item.name}</span>
+                            <Icon className="h-4 w-4 text-gray-300 dark:text-gray-500 flex-shrink-0" />
                           </button>
                         );
                       })}

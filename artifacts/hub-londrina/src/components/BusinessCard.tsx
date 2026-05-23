@@ -4,7 +4,6 @@ import {
   Star,
   Heart,
   Crown,
-  MessageCircle,
   ArrowRight,
   CheckCircle2,
   Zap,
@@ -14,6 +13,7 @@ import { imgSrc } from "@/lib/utils";
 import type { Business } from "@workspace/api-client-react";
 import type { LucideIcon } from "lucide-react";
 import { getAutoBadges } from "@/lib/badges";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 interface BusinessCardProps {
   business: Business;
@@ -25,12 +25,12 @@ interface BusinessCardProps {
 type PillTone = "orange" | "gold" | "green" | "blue" | "purple" | "teal";
 
 const PILL_TONE: Record<PillTone, string> = {
-  orange: "text-orange-700 bg-orange-50 ring-1 ring-orange-100",
-  gold: "text-amber-700 bg-amber-50 ring-1 ring-amber-100",
-  green: "text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100",
-  blue: "text-blue-700 bg-blue-50 ring-1 ring-blue-100",
-  purple: "text-violet-700 bg-violet-50 ring-1 ring-violet-100",
-  teal: "text-teal-700 bg-teal-50 ring-1 ring-teal-100",
+  orange: "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 ring-1 ring-orange-100 dark:ring-orange-800",
+  gold: "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 ring-1 ring-amber-100 dark:ring-amber-800",
+  green: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 ring-1 ring-emerald-100 dark:ring-emerald-800",
+  blue: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-100 dark:ring-blue-800",
+  purple: "text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/30 ring-1 ring-violet-100 dark:ring-violet-800",
+  teal: "text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 ring-1 ring-teal-100 dark:ring-teal-800",
 };
 
 function Pill({
@@ -176,7 +176,7 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
         {/* Linha única de badges: categoria + até 3 selos prioritários
             (Premium → Verificado → 1 selo automático). Mantém altura fixa. */}
         <div className="flex items-center justify-center gap-1.5 flex-wrap mt-2 min-h-[22px]">
-          <span className="inline-block text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+          <span className="inline-block text-[10px] font-bold text-[#4CAF50] dark:text-green-400 bg-[#4CAF50]/10 dark:bg-green-900/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
             {biz.categorySlug}
           </span>
           {isPremium && (
@@ -224,19 +224,12 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
         </div>
 
         {biz.whatsapp ? (
-          <a
-            href={`https://wa.me/55${biz.whatsapp.replace(/\D/g, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="mt-auto"
-          >
-            <Button className="group relative w-full overflow-hidden bg-gradient-to-b from-[#25D366] via-[#1ebe57] to-[#159a45] text-white rounded-2xl text-sm font-bold h-11 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/25 shadow-[0_10px_24px_-6px_rgba(34,197,94,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-8px_rgba(34,197,94,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:brightness-110 active:translate-y-0 active:shadow-[0_4px_12px_-2px_rgba(34,197,94,0.5),inset_0_1px_0_rgba(255,255,255,0.3)]">
-              <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
-              <MessageCircle className="h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)] relative" />
-              <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">WhatsApp</span>
-            </Button>
-          </a>
+          <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
+            <WhatsAppButton
+              phoneNumber={biz.whatsapp}
+              className="w-full h-11"
+            />
+          </div>
         ) : (
           // Mesmo glamour do WhatsApp (gradiente vertical, sheen no hover, ring inset, glow)
           // mas em laranja-marca pra não confundir o usuário com a CTA verde de WhatsApp.

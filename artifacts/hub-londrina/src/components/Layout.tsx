@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLegalConfig } from "@/lib/legal-config";
+import { useTheme } from "@/lib/theme";
+import { BrandButton } from "@/components/BrandButton";
 
 function Logo() {
   return (
@@ -14,8 +16,8 @@ function Logo() {
       />
       <div className="flex flex-col leading-none" style={{ marginLeft: "-6px" }}>
         <div className="flex items-baseline" style={{ gap: "0.18em" }}>
-          <span className="font-extrabold text-2xl text-[#3d7a28]" style={{ letterSpacing: "-0.01em" }}>Hub</span>
-          <span className="font-extrabold text-2xl text-[#6F4E37]" style={{ letterSpacing: "-0.01em" }}>Londrina</span>
+          <span className="font-extrabold text-2xl text-[#3d7a28] dark:text-[#5ab533]" style={{ letterSpacing: "-0.01em" }}>Hub</span>
+          <span className="font-extrabold text-2xl text-[#6F4E37] dark:text-gray-200" style={{ letterSpacing: "-0.01em" }}>Londrina</span>
         </div>
         <span className="font-semibold text-[11px] tracking-[0.18em] text-[#d97706] uppercase">Negócio Local</span>
       </div>
@@ -29,8 +31,9 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const LEGAL_CONFIG = useLegalConfig();
+  const { theme, toggleTheme } = useTheme();
 
   const navLinks = [
     { href: "/", label: "Início" },
@@ -40,9 +43,9 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#3a2512]">
+    <div className="min-h-screen bg-background font-sans text-foreground">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <header className="bg-background border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-8">
           <Logo />
 
@@ -54,7 +57,7 @@ export function Layout({ children }: LayoutProps) {
                 className={`text-sm font-semibold transition-colors ${
                   location === link.href
                     ? "text-[#d97706]"
-                    : "text-[#4a3020] hover:text-[#d97706]"
+                    : "text-[#4a3020] dark:text-gray-300 hover:text-[#d97706]"
                 }`}
               >
                 {link.label}
@@ -64,36 +67,22 @@ export function Layout({ children }: LayoutProps) {
 
           <div className="flex items-center gap-2">
             <Link href="/lojista/login" className="hidden md:flex">
-              <button className="text-sm font-semibold text-[#6F4E37] hover:text-[#d97706] transition-colors px-3 py-2">
+              <button className="text-sm font-semibold text-[#6F4E37] dark:text-gray-300 hover:text-[#d97706] transition-colors px-3 py-2">
                 Área do Lojista
               </button>
             </Link>
-            <Link href="/anuncie" className="hidden md:flex">
-              <button
-                className="flex items-center justify-center text-white font-bold text-sm px-6 py-2.5 transition-all duration-200 active:scale-[0.97] active:translate-y-0.5"
-                style={{
-                  borderRadius: "999px",
-                  background: "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)",
-                  boxShadow: "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  transform: "translateY(-1px)",
-                }}
-                onMouseEnter={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.style.background = "linear-gradient(170deg, #f7bc45 0%, #e8940a 45%, #b45309 100%)";
-                  btn.style.boxShadow = "0 10px 28px rgba(160,77,6,0.6), 0 4px 10px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.4), inset 0 -2px 0 rgba(0,0,0,0.2)";
-                  btn.style.transform = "translateY(-3px)";
-                }}
-                onMouseLeave={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.style.background = "linear-gradient(170deg, #f5a623 0%, #d97706 45%, #a04d06 100%)";
-                  btn.style.boxShadow = "0 6px 20px rgba(160,77,6,0.55), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,220,120,0.35), inset 0 -2px 0 rgba(0,0,0,0.2)";
-                  btn.style.transform = "translateY(-1px)";
-                }}
-              >
-                Anuncie Aqui
-              </button>
-            </Link>
+            <BrandButton onClick={() => navigate("/anuncie")} className="hidden md:flex">
+              Anuncie Aqui
+            </BrandButton>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-[#6F4E37] dark:text-gray-300"
+              onClick={toggleTheme}
+              aria-label="Alternar tema"
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -107,29 +96,28 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 flex flex-col gap-4">
+          <div className="md:hidden bg-background border-t border-border px-4 py-4 flex flex-col gap-4">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={`text-sm font-semibold py-2 transition-colors ${
-                  location === link.href ? "text-[#d97706]" : "text-[#4a3020]"
+                  location === link.href ? "text-[#d97706]" : "text-[#4a3020] dark:text-gray-300 hover:text-[#d97706]"
                 }`}
                 onClick={() => setMenuOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
-            <Link href="/lojista/login" onClick={() => setMenuOpen(false)}>
-              <button className="w-full text-left text-sm font-semibold py-2 text-[#6F4E37] hover:text-[#d97706] transition-colors">
-                Área do Lojista
-              </button>
-            </Link>
-            <Link href="/anuncie" onClick={() => setMenuOpen(false)}>
-              <Button className="w-full bg-[#d97706] hover:bg-[#b45309] text-white rounded-full font-bold text-sm">
-                Anuncie Aqui
-              </Button>
-            </Link>
+            <button
+              onClick={() => { navigate("/lojista/login"); setMenuOpen(false); }}
+              className="w-full text-left text-sm font-semibold py-2 text-[#6F4E37] dark:text-gray-300 hover:text-[#d97706] transition-colors"
+            >
+              Área do Lojista
+            </button>
+            <BrandButton onClick={() => { navigate("/anuncie"); setMenuOpen(false); }} className="w-full">
+              Anuncie Aqui
+            </BrandButton>
           </div>
         )}
       </header>
