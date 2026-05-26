@@ -127,9 +127,9 @@ function BusinessProdutos({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Produtos</h2>
+        <h2 className="font-black text-2xl text-[#3a2512]">Produtos</h2>
         {products.length > 0 && (
           <span className="text-xs text-gray-400 font-medium">Toque para ver detalhes</span>
         )}
@@ -138,7 +138,7 @@ function BusinessProdutos({
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" style={{ height: 200 }} />
+            <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ height: 200 }} />
           ))}
         </div>
       ) : products.length === 0 ? (
@@ -152,9 +152,9 @@ function BusinessProdutos({
               key={p.id}
               type="button"
               onClick={() => setSelected(p)}
-              className="text-left rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              className="text-left rounded-xl overflow-hidden bg-gray-100 border border-gray-200 hover:shadow-lg hover:-translate-y-0.5 transition-all"
             >
-              <div className="aspect-square w-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div className="aspect-square w-full bg-gray-200 overflow-hidden">
                 {p.mediaUrl ? (
                   <img
                     src={imgSrc(p.mediaUrl)}
@@ -167,7 +167,7 @@ function BusinessProdutos({
                 )}
               </div>
               <div className="p-3">
-                <p className="font-bold text-sm text-[#3a2512] dark:text-gray-100 line-clamp-2 leading-tight">{p.name}</p>
+                <p className="font-bold text-sm text-[#3a2512] line-clamp-2 leading-tight">{p.name}</p>
                 {p.price && (
                   <p className="text-[#d97706] font-black text-sm mt-1">R$ {p.price}</p>
                 )}
@@ -181,7 +181,7 @@ function BusinessProdutos({
         <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-0 overflow-hidden">
           {selected && (
             <>
-              <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+              <div className="relative aspect-square w-full bg-gray-100">
                 {selectedPhotos.length > 0 ? (
                   <img
                     src={imgSrc(selectedPhotos[Math.min(photoIdx, selectedPhotos.length - 1)])}
@@ -249,18 +249,18 @@ function BusinessProdutos({
               )}
               <div className="p-6">
                 <DialogHeader>
-                  <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{selected.name}</DialogTitle>
+                  <DialogTitle className="text-xl font-black text-[#3a2512]">{selected.name}</DialogTitle>
                   <DialogDescription className="sr-only">Detalhes do produto {selected.name}</DialogDescription>
                 </DialogHeader>
                 {selected.price && (
                   <p className="text-[#d97706] font-black text-2xl mt-2">R$ {selected.price}</p>
                 )}
-                <p className="text-gray-600 dark:text-gray-300 text-sm mt-3 leading-relaxed whitespace-pre-line">
+                <p className="text-gray-600 text-sm mt-3 leading-relaxed whitespace-pre-line">
                   {selected.description?.trim() || "Sem descrição"}
                 </p>
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mt-4">
+                <p className="text-sm font-bold text-gray-700 mt-4">
                   Quantidade disponível:{" "}
-                  <span className="font-black text-[#3a2512] dark:text-white">
+                  <span className="font-black text-[#3a2512]">
                     {selected.quantity != null ? selected.quantity : "Sob consulta"}
                   </span>
                 </p>
@@ -335,9 +335,9 @@ function BusinessVitrine({
   })();
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100">Vitrine de Produtos</h2>
+        <h2 className="font-black text-2xl text-[#3a2512]">Vitrine de Produtos</h2>
         {products.length > 0 && (
           <span className="text-xs text-gray-400 font-medium">Peça pelo WhatsApp</span>
         )}
@@ -346,7 +346,7 @@ function BusinessVitrine({
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" style={{ height: 240 }} />
+            <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ height: 240 }} />
           ))}
         </div>
       ) : products.length === 0 ? (
@@ -391,7 +391,7 @@ function BusinessVitrine({
             return (
               <div
                 key={item.id}
-                className={`relative rounded-xl overflow-hidden group bg-gray-200 dark:bg-gray-700 ${openModal ? "cursor-pointer" : ""}`}
+                className={`relative rounded-xl overflow-hidden group bg-gray-200 ${openModal ? "cursor-pointer" : ""}`}
                 style={{ height: 240, boxShadow: "0 4px 16px rgba(0,0,0,0.14)" }}
                 onClick={openModal}
                 onKeyDown={openModal ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(); } } : undefined}
@@ -463,7 +463,7 @@ function BusinessVitrine({
         <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-0 overflow-hidden">
           {selected && (
             <>
-              <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+              <div className="relative aspect-square w-full bg-gray-100">
                 {selectedPhotos.length > 0 ? (
                   <img
                     src={imgSrc(selectedPhotos[Math.min(photoIdx, selectedPhotos.length - 1)])}
@@ -521,14 +521,14 @@ function BusinessVitrine({
               )}
               <div className="p-6">
                 <DialogHeader>
-                  <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{selected.name}</DialogTitle>
+                  <DialogTitle className="text-xl font-black text-[#3a2512]">{selected.name}</DialogTitle>
                   <DialogDescription className="sr-only">Detalhes do produto {selected.name}</DialogDescription>
                 </DialogHeader>
                 {selected.price && (
                   <p className="text-[#d97706] font-black text-2xl mt-2">R$ {selected.price}</p>
                 )}
                 {selected.description?.trim() && (
-                  <p className="text-gray-600 dark:text-gray-300 text-sm mt-3 leading-relaxed whitespace-pre-line">
+                  <p className="text-gray-600 text-sm mt-3 leading-relaxed whitespace-pre-line">
                     {selected.description}
                   </p>
                 )}
@@ -640,8 +640,8 @@ function ReviewForm({ businessId, onSuccess }: { businessId: number; onSuccess: 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 mt-6">
-      <h3 className="font-bold text-[#3a2512] dark:text-gray-100 mb-4">Deixar avaliação</h3>
+    <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 mt-6">
+      <h3 className="font-bold text-[#3a2512] mb-4">Deixar avaliação</h3>
       <div className="mb-4">
         <p className="text-sm text-gray-500 mb-2">Sua nota</p>
         <div className="flex gap-1">
@@ -665,7 +665,7 @@ function ReviewForm({ businessId, onSuccess }: { businessId: number; onSuccess: 
           value={author}
           onChange={e => setAuthor(e.target.value)}
           placeholder="Seu nome"
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706]"
           required
         />
       </div>
@@ -675,7 +675,7 @@ function ReviewForm({ businessId, onSuccess }: { businessId: number; onSuccess: 
           onChange={e => setText(e.target.value)}
           placeholder="Comentário (opcional)"
           rows={3}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] resize-none dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] resize-none"
         />
       </div>
       {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
@@ -793,10 +793,10 @@ export default function Negocio() {
 
   return (
     <Layout>
-      <div className="pb-20 bg-[#FBF7F2] dark:bg-gray-900 min-h-screen transition-colors">
+      <div className="pb-20 bg-[#FBF7F2] min-h-screen transition-colors">
         {/* Hero — banner full-bleed com Voltar/Favoritar flutuando sobre a foto.
             Removido strip marrom redundante (nome do negócio já aparece logo abaixo). */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm">
+        <div className="bg-white shadow-sm">
           {/* Banner com badges flutuantes — FULL-BLEED (sem max-w-7xl) pra
               cobrir a tela inteira. Badges/logo ancoram nas bordas da foto. */}
           <div className="relative w-full">
@@ -887,7 +887,7 @@ export default function Negocio() {
                   {business.category.name}
                 </span>
               )}
-              <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 font-medium">
+              <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-medium">
                 <MapPin className="w-3.5 h-3.5 text-[#FF9800]" />
                 {business.region}, Londrina - PR
               </span>
@@ -926,7 +926,7 @@ export default function Negocio() {
 
             {/* Nome + mini stats de reputação em linha */}
             <div className="flex flex-wrap items-end gap-4 mb-6">
-              <h1 className="font-['Playfair_Display'] font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100 leading-tight">
+              <h1 className="font-['Playfair_Display'] font-black text-3xl md:text-4xl text-[#3a2512] leading-tight">
                 {business.name}
               </h1>
               {business.reviewsCount > 0 && (
@@ -938,10 +938,10 @@ export default function Negocio() {
                         className={`w-4 h-4 ${s <= Math.round(Number(business.rating)) ? "fill-amber-400 text-amber-400" : "fill-gray-200 text-gray-200"}`}
                       />
                     ))}
-                    <span className="ml-1 text-sm font-black text-[#3a2512] dark:text-gray-200">{business.rating}</span>
+                    <span className="ml-1 text-sm font-black text-[#3a2512]">{business.rating}</span>
                   </div>
                   <span className="text-xs text-gray-400">·</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  <span className="text-xs text-gray-500 font-medium">
                     {business.reviewsCount} {business.reviewsCount === 1 ? "avaliação" : "avaliações"}
                   </span>
                 </div>
@@ -954,12 +954,12 @@ export default function Negocio() {
                 {/* Aspas decorativas */}
                 <span
                   aria-hidden
-                  className="absolute -top-3 -left-1 font-['Playfair_Display'] text-6xl leading-none text-[#d97706]/20 dark:text-[#d97706]/15 select-none pointer-events-none"
+                  className="absolute -top-3 -left-1 font-['Playfair_Display'] text-6xl leading-none text-[#d97706]/20 select-none pointer-events-none"
                 >
                   "
                 </span>
-                <div className="pl-5 border-l-4 border-[#d97706]/40 dark:border-[#d97706]/30">
-                  <p className="text-[15px] md:text-[16px] text-[#4a3020] dark:text-gray-300 leading-relaxed font-medium italic">
+                <div className="pl-5 border-l-4 border-[#d97706]/40">
+                  <p className="text-[15px] md:text-[16px] text-[#4a3020] leading-relaxed font-medium italic">
                     {business.description}
                   </p>
                 </div>
@@ -969,7 +969,7 @@ export default function Negocio() {
         </div>
 
         {/* Quick Actions Bar — wrap natural em todas as larguras pra evitar overflow horizontal */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm sticky top-16 z-40 transition-colors">
+        <div className="bg-white border-b border-gray-100 shadow-sm sticky top-16 z-40 transition-colors">
           <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-between gap-y-2 gap-x-3">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               {business.whatsapp && (
@@ -1053,7 +1053,7 @@ export default function Negocio() {
               {(() => {
                 return (
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
+                <TabsList className="bg-white border border-gray-100 p-1 rounded-xl w-full justify-start h-auto flex-wrap shadow-sm mb-6">
                   <TabsTrigger value="produtos" className="rounded-lg px-5 py-2 font-bold text-sm data-[state=active]:bg-[#d97706] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all">
                     Produtos
                   </TabsTrigger>
@@ -1069,9 +1069,9 @@ export default function Negocio() {
                 </TabsList>
 
                 <TabsContent value="sobre" className="focus-visible:outline-none">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                    <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-4">Sobre o Negócio</h2>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-base">{business.description}</p>
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <h2 className="font-black text-2xl text-[#3a2512] mb-4">Sobre o Negócio</h2>
+                    <p className="text-gray-600 leading-relaxed text-base">{business.description}</p>
                   </div>
                 </TabsContent>
 
@@ -1084,13 +1084,13 @@ export default function Negocio() {
                 </TabsContent>
 
                 <TabsContent value="avaliacoes" className="focus-visible:outline-none">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                    <h2 className="font-black text-2xl text-[#3a2512] dark:text-gray-100 mb-6">Avaliações</h2>
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <h2 className="font-black text-2xl text-[#3a2512] mb-6">Avaliações</h2>
 
                     {reviews.length > 0 && (
-                      <div className="flex flex-col md:flex-row items-center gap-6 mb-8 p-5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700">
+                      <div className="flex flex-col md:flex-row items-center gap-6 mb-8 p-5 bg-gray-50 rounded-xl border border-gray-100">
                         <div className="flex flex-col items-center flex-shrink-0">
-                          <span className="text-5xl font-black text-[#3a2512] dark:text-gray-100">{business.rating}</span>
+                          <span className="text-5xl font-black text-[#3a2512]">{business.rating}</span>
                           <div className="my-2"><StarRating rating={business.rating} /></div>
                           <span className="text-xs text-gray-500 font-medium">{reviews.length} avaliações</span>
                         </div>
@@ -1116,14 +1116,14 @@ export default function Negocio() {
                           const colors = ["bg-pink-100 text-pink-700", "bg-blue-100 text-blue-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700"];
                           const color = colors[review.id % colors.length];
                           return (
-                            <div key={review.id} className="border-b border-gray-100 dark:border-gray-700 last:border-0 pb-5 last:pb-0">
+                            <div key={review.id} className="border-b border-gray-100 last:border-0 pb-5 last:pb-0">
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex items-center gap-3">
-                                  <Avatar className="h-10 w-10 border border-gray-100 dark:border-gray-700">
+                                  <Avatar className="h-10 w-10 border border-gray-100">
                                     <AvatarFallback className={`font-bold text-sm ${color}`}>{initials}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <div className="font-bold text-[#3a2512] dark:text-gray-100 text-sm flex items-center gap-2">
+                                    <div className="font-bold text-[#3a2512] text-sm flex items-center gap-2">
                                       {review.author}
                                       {review.verified && (
                                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -1138,12 +1138,12 @@ export default function Negocio() {
                                 <StarRating rating={review.rating} />
                               </div>
                               {review.text && (
-                                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{review.text}</p>
+                                <p className="text-gray-600 text-sm leading-relaxed">{review.text}</p>
                               )}
                               {review.ownerResponse && (
-                                <div className="mt-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl p-3">
-                                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">Resposta do estabelecimento:</p>
-                                  <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">{review.ownerResponse}</p>
+                                <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                                  <p className="text-xs font-bold text-amber-700 mb-1">Resposta do estabelecimento:</p>
+                                  <p className="text-sm text-amber-800 leading-relaxed">{review.ownerResponse}</p>
                                 </div>
                               )}
                             </div>
@@ -1168,16 +1168,16 @@ export default function Negocio() {
             {/* Right Sidebar */}
             <div className="space-y-5">
               {/* Contact Info */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-black text-lg text-[#3a2512] dark:text-gray-100 mb-4">Informações</h3>
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h3 className="font-black text-lg text-[#3a2512] mb-4">Informações</h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 rounded-lg bg-[#d97706]/10 flex items-center justify-center flex-shrink-0">
                       <MapPin className="h-4.5 w-4.5 text-[#d97706]" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-[#3a2512] dark:text-gray-200 text-xs uppercase tracking-wider mb-1">Endereço</h4>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{business.address}, {business.region}<br />Londrina - PR</p>
+                      <h4 className="font-bold text-[#3a2512] text-xs uppercase tracking-wider mb-1">Endereço</h4>
+                      <p className="text-gray-600 text-sm leading-relaxed">{business.address}, {business.region}<br />Londrina - PR</p>
                     </div>
                   </div>
 
@@ -1187,18 +1187,18 @@ export default function Negocio() {
                         <Clock className="h-4.5 w-4.5 text-[#4CAF50]" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-[#3a2512] dark:text-gray-200 text-xs uppercase tracking-wider mb-1">Horário</h4>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{business.hours}</p>
+                        <h4 className="font-bold text-[#3a2512] text-xs uppercase tracking-wider mb-1">Horário</h4>
+                        <p className="text-gray-600 text-sm leading-relaxed">{business.hours}</p>
                       </div>
                     </div>
                   )}
 
                   {business.phone && (
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                         <Phone className="h-4.5 w-4.5 text-blue-600" />
                       </div>
-                      <a href={`tel:${business.phone}`} className="text-sm font-medium text-[#3a2512] dark:text-gray-200 hover:text-[#d97706] transition-colors">
+                      <a href={`tel:${business.phone}`} className="text-sm font-medium text-[#3a2512] hover:text-[#d97706] transition-colors">
                         {business.phone}
                       </a>
                     </div>
@@ -1207,7 +1207,7 @@ export default function Negocio() {
               </div>
 
               {/* Map Placeholder */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
                 <div
                   className="relative h-44 bg-gradient-to-br from-[#e8f5e9] to-[#dcedc8] flex flex-col items-center justify-center gap-3 cursor-pointer group"
                   onClick={() =>
