@@ -178,7 +178,7 @@ function BusinessProdutos({
       )}
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-0 overflow-hidden">
           {selected && (
             <>
               <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
@@ -460,7 +460,7 @@ function BusinessVitrine({
 
       {/* T9 — Modal/carrossel da galeria de fotos do produto da Vitrine. */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-0 overflow-hidden">
           {selected && (
             <>
               <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
