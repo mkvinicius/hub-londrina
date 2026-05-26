@@ -1,9 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLegalConfig } from "@/lib/legal-config";
-import { useTheme } from "@/lib/theme";
 import { BrandButton } from "@/components/BrandButton";
 
 function Logo() {
@@ -16,8 +15,8 @@ function Logo() {
       />
       <div className="flex flex-col leading-none" style={{ marginLeft: "-6px" }}>
         <div className="flex items-baseline" style={{ gap: "0.18em" }}>
-          <span className="font-extrabold text-2xl text-[#3d7a28] dark:text-[#5ab533]" style={{ letterSpacing: "-0.01em" }}>Hub</span>
-          <span className="font-extrabold text-2xl text-[#6F4E37] dark:text-gray-200" style={{ letterSpacing: "-0.01em" }}>Londrina</span>
+          <span className="font-extrabold text-2xl text-[#3d7a28]" style={{ letterSpacing: "-0.01em" }}>Hub</span>
+          <span className="font-extrabold text-2xl text-[#6F4E37]" style={{ letterSpacing: "-0.01em" }}>Londrina</span>
         </div>
         <span className="font-semibold text-[11px] tracking-[0.18em] text-[#d97706] uppercase">Negócio Local</span>
       </div>
@@ -33,7 +32,6 @@ export function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location, navigate] = useLocation();
   const LEGAL_CONFIG = useLegalConfig();
-  const { theme, toggleTheme } = useTheme();
 
   const navLinks = [
     { href: "/", label: "Início" },
@@ -57,7 +55,7 @@ export function Layout({ children }: LayoutProps) {
                 className={`text-sm font-semibold transition-colors ${
                   location === link.href
                     ? "text-[#d97706]"
-                    : "text-[#4a3020] dark:text-gray-300 hover:text-[#d97706]"
+                    : "text-[#4a3020] hover:text-[#d97706]"
                 }`}
               >
                 {link.label}
@@ -67,22 +65,13 @@ export function Layout({ children }: LayoutProps) {
 
           <div className="flex items-center gap-2">
             <Link href="/lojista/login" className="hidden md:flex">
-              <button className="text-sm font-semibold text-[#6F4E37] dark:text-gray-300 hover:text-[#d97706] transition-colors px-3 py-2">
+              <button className="text-sm font-semibold text-[#6F4E37] hover:text-[#d97706] transition-colors px-3 py-2">
                 Área do Lojista
               </button>
             </Link>
             <BrandButton onClick={() => navigate("/anuncie")} className="hidden md:flex">
               Anuncie Aqui
             </BrandButton>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-[#6F4E37] dark:text-gray-300"
-              onClick={toggleTheme}
-              aria-label="Alternar tema"
-            >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -102,7 +91,7 @@ export function Layout({ children }: LayoutProps) {
                 key={link.href}
                 href={link.href}
                 className={`text-sm font-semibold py-2 transition-colors ${
-                  location === link.href ? "text-[#d97706]" : "text-[#4a3020] dark:text-gray-300 hover:text-[#d97706]"
+                  location === link.href ? "text-[#d97706]" : "text-[#4a3020] hover:text-[#d97706]"
                 }`}
                 onClick={() => setMenuOpen(false)}
               >
@@ -111,7 +100,7 @@ export function Layout({ children }: LayoutProps) {
             ))}
             <button
               onClick={() => { navigate("/lojista/login"); setMenuOpen(false); }}
-              className="w-full text-left text-sm font-semibold py-2 text-[#6F4E37] dark:text-gray-300 hover:text-[#d97706] transition-colors"
+              className="w-full text-left text-sm font-semibold py-2 text-[#6F4E37] hover:text-[#d97706] transition-colors"
             >
               Área do Lojista
             </button>

@@ -147,21 +147,11 @@ export default function Busca() {
     );
   }
 
-  // Mapeia o display name da Região (ex.: "Zona Norte") para o slug da zona
-  // canônica (centro|norte|sul|leste|oeste). A UI de /busca filtra por
-  // "Região" (display name), então sem esse mapeamento o ?zone= nunca era
-  // enviado e os contadores das categorias mostravam sempre o total geral.
   const REGION_TO_ZONE: Record<string, string> = {
-    "centro": "centro",
-    "zona centro": "centro",
-    "zona norte": "norte",
-    "zona sul": "sul",
-    "zona leste": "leste",
-    "zona oeste": "oeste",
-    "norte": "norte",
-    "sul": "sul",
-    "leste": "leste",
-    "oeste": "oeste",
+    "centro": "centro", "zona centro": "centro",
+    "zona norte": "norte", "zona sul": "sul",
+    "zona leste": "leste", "zona oeste": "oeste",
+    "norte": "norte", "sul": "sul", "leste": "leste", "oeste": "oeste",
   };
   const zoneFromRegion = region && region !== "todas"
     ? REGION_TO_ZONE[region.trim().toLowerCase()]
@@ -250,18 +240,18 @@ export default function Busca() {
 
   return (
     <Layout>
-      <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors">
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-5 px-4 transition-colors">
+      <div className="min-h-screen pb-20 bg-gray-50 transition-colors">
+        <div className="bg-white border-b border-gray-100 py-5 px-4 transition-colors">
           <div className="max-w-3xl mx-auto">
             {/* Search bar with autocomplete */}
             <div ref={acRef} className="relative">
               <div
-                className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5 bg-white/97 dark:bg-gray-800 border border-black/6 dark:border-white/10"
+                className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5 bg-white/97 border border-black/6"
                 style={{
                   boxShadow: "var(--shadow-dropdown)",
                 }}
               >
-                <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80 dark:bg-gray-700/50">
+                <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
                   <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
                   <input
                     type="text"
@@ -270,7 +260,7 @@ export default function Busca() {
                     onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); if (e.key === "Escape") setAcOpen(false); }}
                     onFocus={() => { if (localQuery.length >= 2 && (acSponsored.length || acSuggestions.length)) setAcOpen(true); }}
                     placeholder="Restaurante, salão, mecânica..."
-                    className="flex-1 text-base text-gray-700 dark:text-gray-100 placeholder:text-gray-400 outline-none bg-transparent font-medium"
+                    className="flex-1 text-base text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
                     autoComplete="off"
                   />
                   {acLoading && <Loader2 className="h-4 w-4 text-gray-400 animate-spin flex-shrink-0" />}
@@ -283,7 +273,7 @@ export default function Busca() {
 
                 <div className="relative flex-shrink-0">
                   <Select value={region} onValueChange={setRegion}>
-                    <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-100 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 dark:bg-gray-700/50 hover:bg-gray-100/80 dark:hover:bg-gray-600/50 transition-colors h-full border-0 shadow-none focus:ring-0">
+                    <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full border-0 shadow-none focus:ring-0">
                       <SelectValue placeholder="Selecione a Região" />
                       <ChevronDown className="h-4 w-4 text-gray-500" />
                     </SelectTrigger>
@@ -304,7 +294,7 @@ export default function Busca() {
 
               {/* Autocomplete dropdown */}
               {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
-                <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+                <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-2xl border border-gray-100 overflow-hidden"
                   style={{ boxShadow: "var(--shadow-dropdown)" }}>
                   {acSponsored.length > 0 && (
                     <>
@@ -316,17 +306,17 @@ export default function Busca() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sp-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
                             <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-1">{item.name}</span>
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
+                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
                           </button>
                         );
                       })}
                     </>
                   )}
                   {acSponsored.length > 0 && acSuggestions.length > 0 && (
-                    <div className="mx-4 border-t border-gray-100 dark:border-gray-700" />
+                    <div className="mx-4 border-t border-gray-100" />
                   )}
                   {acSuggestions.length > 0 && (
                     <>
@@ -339,10 +329,10 @@ export default function Busca() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sg-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
                             <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{item.name}</span>
-                            <Icon className="h-4 w-4 text-gray-300 dark:text-gray-500 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
+                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
                           </button>
                         );
                       })}
@@ -414,7 +404,7 @@ export default function Busca() {
 
           {/* Results header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-            <h1 className="font-bold text-xl text-[#3a2512] dark:text-gray-100">
+            <h1 className="font-bold text-xl text-[#3a2512]">
               {isLoading ? (
                 <span className="text-gray-400">Buscando...</span>
               ) : (
@@ -432,13 +422,13 @@ export default function Busca() {
               <button
                 onClick={handleNearby}
                 disabled={nearbyLoading}
-                className={`flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl border ${BTN_ELEVATION} ${nearbyMode ? "bg-[#4CAF50] text-white border-[#4CAF50] shadow-md" : "bg-white dark:bg-gray-800 text-[#3a2512] dark:text-gray-100 border-gray-200 dark:border-gray-700 hover:border-[#4CAF50] hover:text-[#4CAF50]"}`}
+                className={`flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl border ${BTN_ELEVATION} ${nearbyMode ? "bg-[#4CAF50] text-white border-[#4CAF50] shadow-md" : "bg-white text-[#3a2512] border-gray-200 hover:border-[#4CAF50] hover:text-[#4CAF50]"}`}
               >
                 {nearbyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
                 {nearbyMode ? "Ver todos" : "Perto de mim"}
               </button>
               <button
-                className={`md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 bg-white dark:bg-gray-800 ${BTN_ELEVATION}`}
+                className={`md:hidden flex items-center gap-2 text-sm font-bold text-[#3a2512] border border-gray-200 rounded-xl px-4 py-2.5 bg-white ${BTN_ELEVATION}`}
                 onClick={() => setMobileFiltersOpen(true)}
               >
                 <SlidersHorizontal className="h-4 w-4" />
@@ -448,10 +438,10 @@ export default function Busca() {
                 )}
               </button>
 
-              <div className="flex items-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-3 h-10 gap-2">
-                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">Ordenar:</span>
+              <div className="flex items-center bg-white rounded-xl border border-gray-200 px-3 h-10 gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap font-medium">Ordenar:</span>
                 <Select value={sort} onValueChange={setSort}>
-                  <SelectTrigger className="border-0 shadow-none h-8 px-0 focus:ring-0 text-sm font-bold text-[#3a2512] dark:text-gray-100 w-[110px]">
+                  <SelectTrigger className="border-0 shadow-none h-8 px-0 focus:ring-0 text-sm font-bold text-[#3a2512] w-[110px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-0 shadow-xl">
@@ -480,22 +470,22 @@ export default function Busca() {
 
           <div className="flex gap-6 items-start">
             <aside className={`
-              w-[240px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors
+              w-[240px] flex-shrink-0 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 transition-colors
               ${mobileFiltersOpen
                 ? "fixed inset-0 z-[60] overflow-auto rounded-none w-full shadow-none"
                 : "hidden md:block sticky top-24"}
             `}>
               {mobileFiltersOpen ? (
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-                  <h2 className="font-black text-xl text-[#3a2512] dark:text-gray-100">Filtros</h2>
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                  <h2 className="font-black text-xl text-[#3a2512]">Filtros</h2>
                   <button onClick={() => setMobileFiltersOpen(false)}>
                     <X className="h-6 w-6 text-gray-500" />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
                   <SlidersHorizontal className="h-4 w-4 text-[#d97706]" />
-                  <h2 className="font-black text-base text-[#3a2512] dark:text-gray-100">Filtros</h2>
+                  <h2 className="font-black text-base text-[#3a2512]">Filtros</h2>
                 </div>
               )}
 
@@ -504,7 +494,7 @@ export default function Busca() {
                   <button
                     type="button"
                     onClick={() => setCatOpen(!catOpen)}
-                    className="w-full font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between cursor-pointer hover:text-[#d97706] transition-colors"
+                    className="w-full font-bold text-sm text-[#3a2512] mb-3 flex items-center justify-between cursor-pointer hover:text-[#d97706] transition-colors"
                   >
                     Categoria
                     {catOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
@@ -514,7 +504,7 @@ export default function Busca() {
                       <button
                         onClick={() => setCategoria("")}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${BTN_ELEVATION} ${
-                          !categoria ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                          !categoria ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5" : "text-gray-600 hover:bg-gray-50"
                         }`}
                       >
                         Todas
@@ -529,7 +519,7 @@ export default function Busca() {
                             key={cat.id}
                             onClick={() => setCategoria(cat.slug === categoria ? "" : cat.slug)}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${BTN_ELEVATION} flex items-center justify-between ${
-                              isSelected ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              isSelected ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5" : "text-gray-600 hover:bg-gray-50"
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -552,7 +542,7 @@ export default function Busca() {
                   <button
                     type="button"
                     onClick={() => setRegOpen(!regOpen)}
-                    className="w-full font-bold text-sm text-[#3a2512] dark:text-gray-200 mb-3 flex items-center justify-between cursor-pointer hover:text-[#d97706] transition-colors"
+                    className="w-full font-bold text-sm text-[#3a2512] mb-3 flex items-center justify-between cursor-pointer hover:text-[#d97706] transition-colors"
                   >
                     Região
                     {regOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
@@ -568,7 +558,7 @@ export default function Busca() {
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${BTN_ELEVATION} ${
                               isSelected
                                 ? "bg-[#d97706] text-white font-bold shadow-md -translate-y-0.5"
-                                : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                : "text-gray-600 hover:bg-gray-50"
                             }`}
                           >
                             {reg === "todas" ? "Todas" : reg}

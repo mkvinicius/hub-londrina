@@ -66,7 +66,7 @@ function VitrineDetailModal({
       <DialogContent className="max-w-lg p-0 overflow-hidden">
         {card && (
           <>
-            <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+            <div className="relative aspect-square w-full bg-gray-100">
               {photos.length > 0 ? (
                 <img
                   src={imgSrc(photos[Math.min(photoIdx, photos.length - 1)])}
@@ -127,7 +127,7 @@ function VitrineDetailModal({
             <div className="p-6">
               <DialogHeader>
                 <span className="text-[10px] font-bold text-[#d97706] uppercase tracking-wider mb-1 block">{card.businessName}</span>
-                <DialogTitle className="text-xl font-black text-[#3a2512] dark:text-gray-100">{card.name}</DialogTitle>
+                <DialogTitle className="text-xl font-black text-[#3a2512]">{card.name}</DialogTitle>
                 <DialogDescription className="sr-only">Detalhes do produto {card.name}</DialogDescription>
               </DialogHeader>
               {card.price && (
@@ -146,7 +146,7 @@ function VitrineDetailModal({
                 <button
                   type="button"
                   onClick={() => { onClose(); onOpenBusiness(card.businessId); }}
-                  className="w-full flex items-center justify-center gap-2 border border-[#d97706] text-[#d97706] hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Ver perfil do negócio
@@ -409,13 +409,13 @@ export default function Landing() {
           {/* Search bar */}
           <div className="w-full max-w-3xl" ref={acRef}>
             <div
-              className="flex flex-col sm:flex-row overflow-visible relative z-40 rounded-2xl p-1.5 gap-1.5 bg-white/97 dark:bg-gray-800"
+              className="flex flex-col sm:flex-row overflow-visible relative z-40 rounded-2xl p-1.5 gap-1.5 bg-white/97"
               style={{
                 boxShadow: "var(--shadow-dropdown)",
               }}
             >
               {/* Text input */}
-              <div className="relative flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80 dark:bg-gray-700/50">
+              <div className="relative flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
                 <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
                 <input
                   type="text"
@@ -431,7 +431,7 @@ export default function Landing() {
               {/* Autocomplete dropdown — Patrocinados primeiro, depois sugestões */}
               {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
                 <div
-                  className="absolute left-1.5 right-1.5 top-full mt-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden text-left"
+                  className="absolute left-1.5 right-1.5 top-full mt-2 bg-white rounded-2xl border border-gray-100 overflow-hidden text-left"
                   style={{ boxShadow: "var(--shadow-dropdown)", zIndex: 50 }}
                 >
                   {acSponsored.length > 0 && (
@@ -444,17 +444,17 @@ export default function Landing() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sp-${item.id}`} type="button" onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
                             <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-1">{item.name}</span>
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
+                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
                           </button>
                         );
                       })}
                     </>
                   )}
                   {acSponsored.length > 0 && acSuggestions.length > 0 && (
-                    <div className="mx-4 border-t border-gray-100 dark:border-gray-700" />
+                    <div className="mx-4 border-t border-gray-100" />
                   )}
                   {acSuggestions.length > 0 && (
                     <>
@@ -467,10 +467,10 @@ export default function Landing() {
                         const Icon = getCategoryIcon(item.categorySlug);
                         return (
                           <button key={`sg-${item.id}`} type="button" onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
                             <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{item.name}</span>
-                            <Icon className="h-4 w-4 text-gray-300 dark:text-gray-500 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
+                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
                           </button>
                         );
                       })}
@@ -485,19 +485,19 @@ export default function Landing() {
                 <button
                   type="button"
                   onClick={() => setRegionOpen(!regionOpen)}
-                  className="flex items-center gap-3 px-5 py-3 text-base font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 dark:bg-gray-700/50 hover:bg-gray-100/80 dark:hover:bg-gray-600/50 transition-colors h-full"
+                  className="flex items-center gap-3 px-5 py-3 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full"
                 >
                   <span className="text-sm">{region || "Selecione a Região"}</span>
                   <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${regionOpen ? "rotate-180" : ""}`} />
                 </button>
                 {regionOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl min-w-[220px] py-2 overflow-hidden overflow-y-auto max-h-80"
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl min-w-[220px] py-2 overflow-hidden overflow-y-auto max-h-80"
                     style={{ boxShadow: "var(--shadow-dropdown)", zIndex: 9999 }}>
                     {/* Opção todas */}
                     <button
                       type="button"
                       onClick={() => { setRegion(""); setRegionOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-[#FFF3E0] dark:hover:bg-amber-900/30 transition-colors ${!region ? "text-[#d97706] bg-[#FFF3E0] dark:bg-amber-900/30" : "text-gray-700 dark:text-gray-200"}`}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-[#FFF3E0] transition-colors ${!region ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-700"}`}
                     >
                       Todas as regiões
                     </button>
@@ -510,7 +510,7 @@ export default function Landing() {
                         key={z.path}
                         type="button"
                         onClick={() => { setRegionOpen(false); navigate(z.path); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#FFF3E0] dark:hover:bg-amber-900/30 transition-colors flex items-center gap-2 ${region === z.label ? "text-[#d97706] bg-[#FFF3E0] dark:bg-amber-900/30" : "text-gray-800 dark:text-gray-200"}`}
+                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#FFF3E0] transition-colors flex items-center gap-2 ${region === z.label ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-800"}`}
                       >
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor:
                           z.path === "/centro" ? "#dc2626" :
@@ -532,7 +532,7 @@ export default function Landing() {
                         key={r}
                         type="button"
                         onClick={() => { setRegion(r); setRegionOpen(false); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-[#FFF3E0] dark:hover:bg-amber-900/30 transition-colors ${region === r ? "text-[#d97706] bg-[#FFF3E0] dark:bg-amber-900/30" : "text-gray-700 dark:text-gray-200"}`}
+                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-[#FFF3E0] transition-colors ${region === r ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-700"}`}
                       >
                         {r}
                       </button>
@@ -553,7 +553,7 @@ export default function Landing() {
 
       {/* ===== CATEGORIES SECTION ===== */}
       <section
-        className="bg-amber-50 dark:bg-gray-900"
+        className="bg-amber-50"
         style={{
           paddingBottom: "64px",
         }}
@@ -730,7 +730,7 @@ export default function Landing() {
 
       {/* ===== VITRINE DE PRODUTOS — R11 ===== */}
       {vitrineCards.length > 0 && (
-        <section className="py-16 bg-amber-50/50 dark:bg-gray-900">
+        <section className="py-16 bg-amber-50/50">
           <div className="max-w-7xl mx-auto px-4 md:px-8">
             <div className="flex items-end justify-between mb-10 gap-4">
               <div>
@@ -769,7 +769,7 @@ export default function Landing() {
       )}
 
       {/* ===== FEATURED BUSINESSES ===== */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-900">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
@@ -793,7 +793,7 @@ export default function Landing() {
       </section>
 
       {/* ===== FOR BUSINESS — PRICING CTA ===== */}
-      <section className="py-16 bg-white dark:bg-gray-900">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="bg-[#4a2c0e] rounded-3xl overflow-hidden">
             <div className="flex flex-col lg:flex-row">
@@ -887,10 +887,10 @@ export default function Landing() {
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-900">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] dark:text-gray-100 mb-3">Como funciona</h2>
+            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-3">Como funciona</h2>
             <p className="text-gray-500 text-base">Simples, rápido e totalmente gratuito para começar.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative">

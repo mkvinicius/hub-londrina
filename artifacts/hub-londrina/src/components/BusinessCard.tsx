@@ -25,12 +25,12 @@ interface BusinessCardProps {
 type PillTone = "orange" | "gold" | "green" | "blue" | "purple" | "teal";
 
 const PILL_TONE: Record<PillTone, string> = {
-  orange: "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 ring-1 ring-orange-100 dark:ring-orange-800",
-  gold: "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 ring-1 ring-amber-100 dark:ring-amber-800",
-  green: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 ring-1 ring-emerald-100 dark:ring-emerald-800",
-  blue: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-100 dark:ring-blue-800",
-  purple: "text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/30 ring-1 ring-violet-100 dark:ring-violet-800",
-  teal: "text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 ring-1 ring-teal-100 dark:ring-teal-800",
+  orange: "text-orange-700 bg-orange-50 ring-1 ring-orange-100",
+  gold: "text-amber-700 bg-amber-50 ring-1 ring-amber-100",
+  green: "text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100",
+  blue: "text-blue-700 bg-blue-50 ring-1 ring-blue-100",
+  purple: "text-violet-700 bg-violet-50 ring-1 ring-violet-100",
+  teal: "text-teal-700 bg-teal-50 ring-1 ring-teal-100",
 };
 
 function Pill({
@@ -101,7 +101,7 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
 
   return (
     <div
-      className={`group bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg dark:hover:shadow-gray-900/50 transition-all duration-300 cursor-pointer flex flex-col ${cardMinH}`}
+      className={`group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col ${cardMinH}`}
       onClick={() => navigate(`/negocio/${biz.id}`)}
     >
       {/* Banner com rating + favorito */}
@@ -127,14 +127,14 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
         )}
-        <div className="absolute top-3 left-3 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] dark:text-gray-100 shadow-sm">
+        <div className="absolute top-3 left-3 z-10 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] shadow-sm">
           <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
           {biz.rating > 0 ? biz.rating : "Novo"}
         </div>
         <button
           aria-label="Favoritar"
           onClick={(e) => e.stopPropagation()}
-          className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/95 dark:bg-gray-900/95 backdrop-blur flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors shadow-sm"
+          className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/95 backdrop-blur flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors shadow-sm"
         >
           <Heart className="w-4 h-4" />
         </button>
@@ -169,14 +169,14 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
       {/* Conteúdo centralizado — ordem: nome → badges (máx 3) → descrição → região → botão.
           pt grande pra dar espaço pra logo (104px) descida -top-9 = ~68px invadindo a área branca. */}
       <div className={`px-5 pb-5 flex flex-col flex-grow text-center ${size === "sm" ? "pt-16" : "pt-20"}`}>
-        <h3 className="font-black text-lg text-[#1a1a1a] dark:text-gray-100 group-hover:text-[#d97706] dark:group-hover:text-[#d97706] transition-colors leading-tight tracking-tight line-clamp-1">
+        <h3 className="font-black text-lg text-[#1a1a1a] group-hover:text-[#d97706] transition-colors leading-tight tracking-tight line-clamp-1">
           {biz.name}
         </h3>
 
         {/* Linha única de badges: categoria + até 3 selos prioritários
             (Premium → Verificado → 1 selo automático). Mantém altura fixa. */}
         <div className="flex items-center justify-center gap-1.5 flex-wrap mt-2 min-h-[22px]">
-          <span className="inline-block text-[10px] font-bold text-[#4CAF50] dark:text-green-400 bg-[#4CAF50]/10 dark:bg-green-900/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+          <span className="inline-block text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
             {biz.categorySlug}
           </span>
           {isPremium && (
@@ -207,12 +207,12 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
 
         {/* Descrição com altura reservada (2 linhas) — padroniza altura
             entre cards mesmo quando o lojista não escreveu nada. */}
-        <p className="text-gray-500 dark:text-gray-400 text-xs mt-3 line-clamp-2 leading-snug min-h-[2.25rem]">
+        <p className="text-gray-500 text-xs mt-3 line-clamp-2 leading-snug min-h-[2.25rem]">
           {biz.description ?? ""}
         </p>
 
         {/* Região fixada perto do botão via mt-auto + pequeno espaço (mb-2) */}
-        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-medium mt-auto mb-2">
+        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 font-medium mt-auto mb-2">
           <MapPin className="h-3.5 w-3.5 text-[#d97706] flex-shrink-0" />
           {biz.region}
           {showDistance && (biz as any).distanceKm !== undefined && (
