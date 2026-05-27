@@ -843,7 +843,8 @@ export default function Landing() {
                       Popular
                     </div>
                     <h3 className="font-bold text-white mb-1">Destaque</h3>
-                    <div className="text-3xl font-black text-white mb-4">R$59,90<span className="text-sm font-normal text-white/70">/mês</span></div>
+                    <div className="text-3xl font-black text-white mb-1">R$49<span className="text-sm font-normal text-white/70">/mês</span></div>
+                    <div className="text-xs text-white/50 mb-4">no plano anual · ou R$59,90/mês</div>
                     <ul className="space-y-2 flex-grow mb-6">
                       {["Perfil verificado", "10 fotos", "Prioridade busca", "Avaliações"].map((f) => (
                         <li key={f} className="flex items-center gap-2 text-sm text-white/90">

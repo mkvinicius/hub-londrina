@@ -76,7 +76,7 @@ export default function Anuncie() {
   }, []);
 
   const destaque = {
-    mensal: { price: "R$59,90", sub: "/mês" },
+    mensal: { price: "R$49,90", sub: "/mês" },
     anual:  { price: "R$49,90", sub: "/mês", total: "cobrado R$598,80/ano", economia: "Economize R$120/ano" },
   };
   const premium = {

@@ -67,7 +67,7 @@ const PLAN_LABELS: Record<string, Record<string, { label: string; color: string;
     anual:  { label: "Gratuito", color: "bg-gray-100 text-gray-700 border-gray-200", icon: "🆓" },
   },
   destaque: {
-    mensal: { label: "Destaque — R$59,90/mês", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
+    mensal: { label: "Destaque — R$49/mês", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
     anual:  { label: "Destaque Anual — R$49,90/mês (cobrado R$598,80/ano)", color: "bg-orange-50 text-orange-700 border-orange-200", icon: "⭐" },
   },
   premium: {

@@ -440,7 +440,7 @@ const FALLBACK_PLANS: Record<string, PlanInfo> = {
   },
   destaque: {
     key: "destaque", label: "Base",
-    monthlyDisplay: "R$59,90", annualDisplay: "R$49,90",
+    monthlyDisplay: "R$49,90", annualDisplay: "R$49,90",
     annualTotalDisplay: "R$598,80/ano", annualSavings: "Economize R$120/ano",
     features: [
       { label: "Tudo do Gratuito", included: true },
