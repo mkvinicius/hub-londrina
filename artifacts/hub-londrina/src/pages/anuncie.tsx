@@ -59,26 +59,6 @@ const steps = [
   { title: "Seja encontrado", desc: "Pronto! Comece a receber novos clientes.", icon: BarChart3 },
 ];
 
-const depoimentos = [
-  {
-    name: "Julio Fonseca",
-    biz: "Sabor da Terra",
-    text: "Desde que começamos a anunciar, o movimento no almoço aumentou 30%. Vale cada centavo.",
-    color: "bg-red-100 text-red-600",
-  },
-  {
-    name: "Amanda Silva",
-    biz: "Studio Elegance",
-    text: "As clientes dizem que nos acharam no Hub Londrina. A plataforma é linda e fácil de usar.",
-    color: "bg-pink-100 text-pink-600",
-  },
-  {
-    name: "Marcos T.",
-    biz: "Mercadinho São José",
-    text: "Até quem mora perto não sabia de todas as nossas ofertas. O Hub conectou a gente com o bairro.",
-    color: "bg-green-100 text-green-600",
-  },
-];
 
 export default function Anuncie() {
   const [, navigate] = useLocation();
@@ -376,34 +356,7 @@ export default function Anuncie() {
         </div>
       </section>
 
-      {/* Depoimentos */}
-      <section id="depoimentos" className="py-24 bg-white transition-colors">
-        <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="font-serif text-4xl font-black text-[#6F4E37] mb-4">Quem usa, recomenda</h2>
-            <p className="text-gray-500">Resultados reais de negócios locais de Londrina.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {depoimentos.map((dep, i) => (
-              <div key={i} className="bg-[#F5F5DC]/50 p-8 rounded-3xl border border-gray-100 hover:shadow-lg transition-all">
-                <div className="flex gap-1 mb-4 text-[#FF9800]">
-                  {[1, 2, 3, 4, 5].map((s) => <Star key={s} className="w-4 h-4 fill-current" />)}
-                </div>
-                <p className="text-gray-700 italic mb-6 leading-relaxed">"{dep.text}"</p>
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${dep.color}`}>
-                    {dep.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-bold text-[#6F4E37]">{dep.name}</div>
-                    <div className="text-sm text-gray-500">{dep.biz}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+{/* TODO: seção de depoimentos reais — implementar quando houver avaliações no banco */}
 
       {/* FAQ rápido */}
       <section className="py-20 bg-[#F5F5DC] transition-colors border-t border-[#6F4E37]/10">
