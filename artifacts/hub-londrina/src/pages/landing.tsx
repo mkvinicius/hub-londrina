@@ -262,10 +262,11 @@ export default function Landing() {
 
   const BASE = import.meta.env.VITE_API_URL || "";
 
-  const { data: platformStats } = useQuery<{ businesses: number; categories: number; regions: number; totalClicks: number; totalUsers: number }>({
-    queryKey: ["/api/stats"],
-    queryFn: () => fetch(`${BASE}/api/stats`).then(r => r.json()),
+  const { data: platformStats } = useQuery<{ totalBusinesses: number; totalUsers: number; totalCategories: number; totalRegions: number }>({
+    queryKey: ["/api/stats/public"],
+    queryFn: () => fetch(`${BASE}/api/stats/public`).then(r => r.json()),
     staleTime: 60_000,
+    placeholderData: (prev) => prev,
   });
 
   // R11 — Vitrine de Produtos. Servidor já aplica regra "<6 esconde" (cards=[]).
@@ -572,10 +573,10 @@ export default function Landing() {
             }}
           >
             {[
-              { value: platformStats ? `+${platformStats.businesses}` : "…", label: "Negócios" },
+              { value: platformStats ? `+${platformStats.totalBusinesses}` : "…", label: "Negócios" },
               { value: platformStats ? `+${platformStats.totalUsers}` : "…", label: "Lojistas" },
-              { value: platformStats ? String(platformStats.categories) : "…", label: "Categorias" },
-              { value: platformStats ? String((platformStats as any).totalZones ?? 5) : "5", label: "Regiões" },
+              { value: platformStats ? String(platformStats.totalCategories) : "…", label: "Categorias" },
+              { value: platformStats ? String(platformStats.totalRegions) : "…", label: "Regiões" },
             ].map((stat, i, arr) => (
               <div key={stat.label} className="flex items-center justify-center">
                 <div className="flex flex-col items-center gap-0.5 py-4 px-2">

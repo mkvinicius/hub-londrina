@@ -516,6 +516,41 @@ router.get("/stats", async (_req: Request, res: Response) => {
   }
 });
 
+// Stats públicas para o frontend (SSR + React Query).
+// Retorna apenas os 3 contadores usados pela landing page.
+router.get("/stats/public", async (_req: Request, res: Response) => {
+  try {
+    const visibleActive = and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active"));
+
+    const [businessCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(businessesTable)
+      .where(visibleActive);
+
+    const [categoryCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(categoriesTable);
+
+    const [zonesCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(zonesTable)
+      .where(eq(zonesTable.active, true));
+
+    const [usersCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(businessUsersTable);
+
+    res.json({
+      totalBusinesses: businessCount?.count ?? 0,
+      totalUsers: usersCount?.count ?? 0,
+      totalCategories: categoryCount?.count ?? 0,
+      totalRegions: zonesCount?.count ?? 5,
+    });
+  } catch {
+    res.status(500).json({ error: "Erro ao buscar estatísticas públicas" });
+  }
+});
+
 // ─── AUTOCOMPLETE ────────────────────────────────────────────────────────────
 router.get("/autocomplete", async (req: Request, res: Response) => {
   const q = ((req.query.q as string) || "").trim();
