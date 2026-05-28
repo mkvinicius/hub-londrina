@@ -310,6 +310,14 @@ ${bizUrls}
           `content="Feito por londrinense, para londrinense. Encontre restaurantes, salões, clínicas e serviços locais em Londrina, PR."`,
           `content="Encontre os melhores negócios da ${zoneLabel} de Londrina. Restaurantes, salões, academias e muito mais perto de você."`
         )
+        .replace(
+          `<link rel="canonical" href="https://www.hublondrina.com.br/" />`,
+          `<link rel="canonical" href="https://www.hublondrina.com.br/${zoneMatch}" />`
+        )
+        .replace(
+          `<meta property="og:url" content="https://www.hublondrina.com.br/" />`,
+          `<meta property="og:url" content="https://www.hublondrina.com.br/${zoneMatch}" />`
+        )
         .replace("</head>", `${hydrationScript}\n</head>`);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
