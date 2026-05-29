@@ -124,22 +124,6 @@ export default function Anuncie() {
                   </div>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-8 text-white/90">
-                <div className="flex flex-col items-center lg:items-start">
-                  <span className="text-3xl font-black text-white mb-1">500+</span>
-                  <span className="text-xs uppercase tracking-wider opacity-80 font-bold">Negócios</span>
-                </div>
-                <div className="w-px h-10 bg-white/20" />
-                <div className="flex flex-col items-center lg:items-start">
-                  <span className="text-3xl font-black text-white mb-1">12.000+</span>
-                  <span className="text-xs uppercase tracking-wider opacity-80 font-bold">Usuários/mês</span>
-                </div>
-                <div className="w-px h-10 bg-white/20" />
-                <div className="flex flex-col items-center lg:items-start">
-                  <span className="text-3xl font-black text-white mb-1">98%</span>
-                  <span className="text-xs uppercase tracking-wider opacity-80 font-bold">Satisfação</span>
-                </div>
-              </div>
             </div>
             <div className="lg:w-1/2 relative">
               <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border-8 border-white/10 transform rotate-2 hover:rotate-0 transition-transform duration-700">
@@ -386,7 +370,7 @@ export default function Anuncie() {
             Pronto para crescer?
           </h2>
           <p className="text-white/80 text-lg mb-10 max-w-xl mx-auto">
-            Mais de 500 negócios locais já estão no Hub Londrina. Cadastre o seu agora — é grátis para começar.
+            Cadastre o seu agora — é grátis para começar.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button onClick={() => navigate("/cadastro?plano=gratuito")} className="bg-white hover:bg-gray-100 text-[#FF9800] text-lg py-8 px-12 rounded-full font-black shadow-xl hover:shadow-2xl transition-all">
