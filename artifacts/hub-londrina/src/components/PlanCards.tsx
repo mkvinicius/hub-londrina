@@ -162,6 +162,9 @@ const COMPACT_CTA: Record<PlanId, string> = {
   premium: "Assinar Premium",
 };
 
+/** Home mostra só um resumo dos benefícios (a lista completa fica na página Anuncie). */
+const COMPACT_FEATURE_LIMIT = 4;
+
 function CompactCards({ anual, setAnual, onSelect }: VariantProps) {
   const gratuito = getPlan("gratuito");
   const base = getPlan("base");
@@ -193,7 +196,7 @@ function CompactCards({ anual, setAnual, onSelect }: VariantProps) {
             {gratuito.mensal.price}<span className="text-sm font-normal text-white/50">{gratuito.mensal.sub}</span>
           </div>
           <ul className="space-y-2 flex-grow mb-6">
-            {gratuito.features.map((f) => (
+            {gratuito.features.slice(0, COMPACT_FEATURE_LIMIT).map((f) => (
               <li key={f} className="flex items-center gap-2 text-sm text-white/70">
                 <CheckCircle2 className="h-4 w-4 text-white/40 flex-shrink-0" />
                 {f}
@@ -221,7 +224,7 @@ function CompactCards({ anual, setAnual, onSelect }: VariantProps) {
             {anual ? base.anual.total : `ou ${base.anual.price}/mês no anual`}
           </div>
           <ul className="space-y-2 flex-grow mb-6">
-            {base.features.map((f) => (
+            {base.features.slice(0, COMPACT_FEATURE_LIMIT).map((f) => (
               <li key={f} className="flex items-center gap-2 text-sm text-white/90">
                 <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
                 {f}
@@ -246,7 +249,7 @@ function CompactCards({ anual, setAnual, onSelect }: VariantProps) {
             {anual ? premium.anual.total : `ou ${premium.anual.price}/mês no anual`}
           </div>
           <ul className="space-y-2 flex-grow mb-6">
-            {premium.features.map((f) => (
+            {premium.features.slice(0, COMPACT_FEATURE_LIMIT).map((f) => (
               <li key={f} className="flex items-center gap-2 text-sm text-white/70">
                 <CheckCircle2 className="h-4 w-4 text-[#4CAF50] flex-shrink-0" />
                 {f}
