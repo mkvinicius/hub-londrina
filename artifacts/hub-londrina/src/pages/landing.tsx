@@ -4,13 +4,14 @@ import { PartnersSection } from "@/components/PartnersSection";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, ArrowRight, ArrowLeft,
-  CheckCircle2, ChevronDown, Zap, ExternalLink
+  ChevronDown, Zap, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandButton } from "@/components/BrandButton";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Layout } from "@/components/Layout";
+import { PlanCards } from "@/components/PlanCards";
 import { useListCategories, useListBusinesses } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
 import { BusinessCard } from "@/components/BusinessCard";
@@ -817,71 +818,12 @@ export default function Landing() {
 
               {/* Right — pricing cards */}
               <div className="lg:w-7/12 bg-[#3a1f0d] p-10 lg:p-14">
-                <div className="grid md:grid-cols-3 gap-4 h-full">
-                  {/* Gratuito */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col">
-                    <h3 className="font-bold text-white mb-1">Gratuito</h3>
-                    <div className="text-3xl font-black text-white mb-4">R$0<span className="text-sm font-normal text-white/50">/mês</span></div>
-                    <ul className="space-y-2 flex-grow mb-6">
-                      {["Perfil básico", "1 foto", "Link WhatsApp"].map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-white/70">
-                          <CheckCircle2 className="h-4 w-4 text-white/40 flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      onClick={() => navigate("/cadastro")}
-                      className="w-full border border-white/20 text-white/80 hover:bg-white/10 rounded-xl py-2 text-sm font-bold transition-colors"
-                    >
-                      Começar
-                    </button>
-                  </div>
-
-                  {/* Destaque */}
-                  <div className="bg-[#d97706] rounded-2xl p-6 flex flex-col relative">
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-[#d97706] px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
-                      Popular
-                    </div>
-                    <h3 className="font-bold text-white mb-1">Destaque</h3>
-                    <div className="text-3xl font-black text-white mb-1">R$49<span className="text-sm font-normal text-white/70">/mês</span></div>
-                    <div className="text-xs text-white/50 mb-4">no plano anual · ou R$59,90/mês</div>
-                    <ul className="space-y-2 flex-grow mb-6">
-                      {["Perfil verificado", "10 fotos", "Prioridade busca", "Avaliações"].map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-white/90">
-                          <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      onClick={() => navigate("/anuncie#planos")}
-                      className="w-full bg-white text-[#d97706] hover:bg-gray-100 rounded-xl py-2 text-sm font-black transition-colors"
-                    >
-                      Assinar
-                    </button>
-                  </div>
-
-                  {/* Premium */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col">
-                    <h3 className="font-bold text-white mb-1">Premium</h3>
-                    <div className="text-3xl font-black text-white mb-4">R$89,90<span className="text-sm font-normal text-white/50">/mês</span></div>
-                    <ul className="space-y-2 flex-grow mb-6">
-                      {["Tudo do Destaque", "Fotos ilimitadas", "Banner inicial", "Suporte VIP"].map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-white/70">
-                          <CheckCircle2 className="h-4 w-4 text-[#4CAF50] flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      onClick={() => navigate("/anuncie#planos")}
-                      className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-xl py-2 text-sm font-bold transition-colors"
-                    >
-                      Assinar Premium
-                    </button>
-                  </div>
-                </div>
+                <PlanCards
+                  variant="compacta"
+                  onSelect={(plan) =>
+                    navigate(plan.id === "gratuito" ? "/cadastro" : "/anuncie#planos")
+                  }
+                />
               </div>
             </div>
           </div>

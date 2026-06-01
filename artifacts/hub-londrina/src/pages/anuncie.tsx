@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import {
-  CheckCircle2, TrendingUp, Users, Smartphone, MessageSquare,
+  TrendingUp, Users, Smartphone, MessageSquare,
   HeadphonesIcon, Award, Check, Star, Zap, Shield, BarChart3, ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
+import { PlanCards } from "@/components/PlanCards";
+import type { PlanDef } from "@/lib/plans";
 
 const beneficios = [
   {
@@ -62,7 +64,6 @@ const steps = [
 
 export default function Anuncie() {
   const [, navigate] = useLocation();
-  const [anual, setAnual] = useState(false);
 
   // Wouter ignora hash; rolagem manual quando a URL contém #planos (ou outra âncora).
   useEffect(() => {
@@ -75,17 +76,10 @@ export default function Anuncie() {
     return () => window.clearTimeout(id);
   }, []);
 
-  const destaque = {
-    mensal: { price: "R$59,90", sub: "/mês" },
-    anual:  { price: "R$49,90", sub: "/mês", total: "cobrado R$598,80/ano", economia: "Economize R$120/ano" },
+  const handleSelectPlan = (plan: PlanDef, anual: boolean) => {
+    const ciclo = anual && plan.id !== "gratuito" ? "&ciclo=anual" : "";
+    navigate(`/cadastro?plano=${plan.cadastroParam}${ciclo}`);
   };
-  const premium = {
-    mensal: { price: "R$89,90", sub: "/mês" },
-    anual:  { price: "R$79,90", sub: "/mês", total: "cobrado R$958,80/ano", economia: "Economize R$120/ano" },
-  };
-
-  const dPlan = anual ? destaque.anual : destaque.mensal;
-  const pPlan = anual ? premium.anual  : premium.mensal;
 
   return (
     <Layout>
@@ -208,135 +202,7 @@ export default function Anuncie() {
             <p className="text-lg text-gray-600">Sem taxas escondidas. Cancele quando quiser.</p>
           </div>
 
-          {/* Toggle Mensal / Anual */}
-          <div className="flex items-center justify-center gap-4 mb-14">
-            <span className={`text-sm font-bold transition-colors ${!anual ? "text-[#6F4E37]" : "text-gray-400"}`}>Mensal</span>
-            <button
-              onClick={() => setAnual(v => !v)}
-              className={`relative w-14 h-7 rounded-full transition-colors focus:outline-none ${anual ? "bg-[#FF9800]" : "bg-gray-300"}`}
-              aria-label="Alternar cobrança anual"
-            >
-              <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-300 ${anual ? "translate-x-7" : "translate-x-0"}`} />
-            </button>
-            <span className={`text-sm font-bold transition-colors ${anual ? "text-[#6F4E37]" : "text-gray-400"}`}>
-              Anual
-              <span className="ml-2 bg-[#4CAF50] text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full">economize R$120</span>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-center">
-            {/* Gratuito */}
-            <div className="bg-white rounded-[2rem] p-10 shadow-lg border border-gray-200">
-              <h3 className="font-serif text-2xl font-black text-[#6F4E37] mb-1">Gratuito</h3>
-              <p className="text-gray-400 text-sm mb-6">Para começar a ser encontrado</p>
-              <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-black text-[#6F4E37]">R$0</span>
-                <span className="text-gray-500 font-medium">/mês</span>
-              </div>
-              <ul className="space-y-4 mb-10 min-h-[220px]">
-                {["Perfil básico do negócio", "1 foto na galeria", "Link para WhatsApp", "Aparece nas buscas locais"].map((f, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-600">
-                    <Check className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button onClick={() => navigate("/cadastro?plano=gratuito")} variant="outline" className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 rounded-2xl py-6 font-bold text-lg">
-                Começar com este plano
-              </Button>
-            </div>
-
-            {/* Destaque */}
-            <div className="bg-white rounded-[2.5rem] p-12 shadow-2xl border-2 border-[#FF9800] relative lg:scale-105 z-10">
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#FF9800] text-white px-5 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider whitespace-nowrap">
-                Mais Popular
-              </div>
-              <h3 className="font-serif text-2xl font-black text-[#6F4E37] mb-1">Base</h3>
-              <p className="text-gray-400 text-sm mb-6">Para quem quer crescer de verdade</p>
-              <div className="mb-2">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-5xl font-black text-[#6F4E37]">{dPlan.price}</span>
-                  <span className="text-gray-500 font-medium">{dPlan.sub}</span>
-                </div>
-                {anual && "total" in dPlan && (
-                  <div className="mt-1 space-y-0.5">
-                    <p className="text-sm text-gray-400">{dPlan.total}</p>
-                    <p className="text-sm font-bold text-[#4CAF50]">{dPlan.economia}</p>
-                  </div>
-                )}
-              </div>
-              <div className="mb-8 mt-4 h-px bg-gray-100" />
-              <ul className="space-y-3.5 mb-10 min-h-[220px]">
-                {[
-                  "Perfil completo e verificado",
-                  "Até 10 fotos na galeria",
-                  "Link para WhatsApp e Redes",
-                  "Prioridade nas buscas locais",
-                  "Recebe e responde avaliações",
-                  "Estatísticas de visitas e cliques",
-                  "Selo de destaque no perfil",
-                  "Suporte por email",
-                ].map((f, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="h-5 w-5 text-[#FF9800] flex-shrink-0 mt-0.5" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button onClick={() => navigate(`/cadastro?plano=destaque${anual ? "&ciclo=anual" : ""}`)} className="w-full bg-[#FF9800] hover:bg-[#e68a00] text-white rounded-2xl py-6 font-bold text-lg shadow-lg flex items-center justify-center gap-2">
-                Começar com este plano <ArrowRight className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Premium */}
-            <div className="bg-[#6F4E37] rounded-[2rem] p-10 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <h3 className="font-serif text-2xl font-black text-white mb-1">Premium</h3>
-              <p className="text-white/50 text-sm mb-6">Para máxima visibilidade em Londrina</p>
-              <div className="mb-2">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-5xl font-black text-white">{pPlan.price}</span>
-                  <span className="text-white/70 font-medium">{pPlan.sub}</span>
-                </div>
-                {anual && "total" in pPlan && (
-                  <div className="mt-1 space-y-0.5">
-                    <p className="text-sm text-white/40">{pPlan.total}</p>
-                    <p className="text-sm font-bold text-[#4CAF50]">{pPlan.economia}</p>
-                  </div>
-                )}
-              </div>
-              <div className="mb-8 mt-4 h-px bg-white/10" />
-              <ul className="space-y-3.5 mb-10 min-h-[220px]">
-                {[
-                  "Tudo do plano Destaque",
-                  "Fotos ilimitadas na galeria",
-                  "Vídeo de apresentação",
-                  "Banner rotativo na página inicial",
-                  "1º lugar absoluto nas buscas",
-                  "Postagem em destaque no blog",
-                  "Suporte prioritário via WhatsApp",
-                ].map((f, i) => (
-                  <li key={i} className="flex items-start gap-3 text-white/90">
-                    <CheckCircle2 className="h-5 w-5 text-[#4CAF50] flex-shrink-0 mt-0.5" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button onClick={() => navigate(`/cadastro?plano=premium${anual ? "&ciclo=anual" : ""}`)} className="w-full bg-[#4CAF50] hover:bg-[#3d8c40] text-white rounded-2xl py-6 font-bold text-lg border-0 flex items-center justify-center gap-2">
-                Começar com este plano <ArrowRight className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Nota de comparação */}
-          <div className="text-center mt-10 space-y-1">
-            <p className="text-gray-500 text-sm">
-              {anual
-                ? "Planos anuais cobrados à vista — Destaque R$598,80/ano · Premium R$958,80/ano"
-                : "Planos mensais sem fidelidade — mude para anual e economize R$120/ano em qualquer plano"}
-            </p>
-            <p className="text-gray-400 text-xs">Sem taxas escondidas · Cancele quando quiser</p>
-          </div>
+          <PlanCards variant="completa" onSelect={handleSelectPlan} />
         </div>
       </section>
 
