@@ -42,14 +42,22 @@ export interface DocumentationSyncResult {
  *  estado (pending/submitted/rejected/expired) força `verified = false`. Não há
  *  selo manual/legado: o heal de reconciliação corrige divergências históricas.
  *
- * Visibilidade: aprovação completa RE-PUBLICA a loja (isVisible=true,
- * status=active, planFrozen=false). Estados não-aprovados NÃO mexem em
- * `isVisible` aqui — a passagem para offline na expiração é responsabilidade
- * do cron (`documentation-job.ts`), no momento exato em que o prazo estoura.
+ * Visibilidade: a RE-PUBLICAÇÃO da loja (isVisible=true, status=active,
+ * planFrozen=false) na aprovação completa é OPT-IN via `reopenOnApproval` e só
+ * deve ser usada no caminho de aprovação final do admin. Por padrão
+ * (`reopenOnApproval=false`) a sincronização é puramente uma RECONCILIAÇÃO de
+ * estado documental: deriva `documentationStatus`, `documentationTimerPaused` e
+ * o selo `verified`, mas NÃO mexe em `isVisible`/`status`/`planFrozen`. Isso é
+ * essencial para o heal de startup e o cron, que rodam para todos os negócios e
+ * não podem desfazer uma ocultação manual feita pelo admin nem republicar lojas
+ * por engano. A passagem para offline na expiração é responsabilidade do cron
+ * (`documentation-job.ts`), no momento exato em que o prazo estoura.
  */
 export async function syncDocumentationState(
   businessId: number,
+  options: { reopenOnApproval?: boolean } = {},
 ): Promise<DocumentationSyncResult> {
+  const { reopenOnApproval = false } = options;
   const docs = await db
     .select({
       documentType: businessDocumentsTable.documentType,
@@ -106,15 +114,26 @@ export async function syncDocumentationState(
   let cameOnline = false;
 
   if (allApproved) {
-    const [biz] = await db
-      .select({ isVisible: businessesTable.isVisible })
-      .from(businessesTable)
-      .where(eq(businessesTable.id, businessId));
-    await db
-      .update(businessesTable)
-      .set({ verified: true, isVisible: true, status: "active", planFrozen: false })
-      .where(eq(businessesTable.id, businessId));
-    cameOnline = biz ? !biz.isVisible : false;
+    if (reopenOnApproval) {
+      // Caminho de APROVAÇÃO FINAL do admin: além do selo, re-publica a loja.
+      const [biz] = await db
+        .select({ isVisible: businessesTable.isVisible })
+        .from(businessesTable)
+        .where(eq(businessesTable.id, businessId));
+      await db
+        .update(businessesTable)
+        .set({ verified: true, isVisible: true, status: "active", planFrozen: false })
+        .where(eq(businessesTable.id, businessId));
+      cameOnline = biz ? !biz.isVisible : false;
+    } else {
+      // RECONCILIAÇÃO (heal/cron/upload): deriva só o selo. NÃO mexe em
+      // `isVisible`/`status`/`planFrozen` para não desfazer ocultação manual
+      // do admin nem republicar lojas por engano no boot.
+      await db
+        .update(businessesTable)
+        .set({ verified: true })
+        .where(eq(businessesTable.id, businessId));
+    }
   } else {
     // `verified` é ESTRITAMENTE derivado: qualquer estado não-aprovado
     // (pending/submitted/rejected/expired) remove o selo. Não toca isVisible —

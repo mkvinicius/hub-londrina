@@ -157,10 +157,14 @@ export async function healZoneRegionDisplayNames() {
  *
  * Corrige divergências históricas onde o banner do lojista dizia "aprovado"
  * mas os docs estavam só "submitted" (selo mentiroso), ou onde os 3 docs
- * estavam aprovados mas o selo público não aparecia. NÃO altera `isVisible` de
- * lojas não-aprovadas (não tira ninguém do ar retroativamente — a passagem
- * para offline acontece só no momento da expiração, no cron). Aprovações
- * completas restauram visibilidade + selo. Roda uma vez no startup.
+ * estavam aprovados mas o selo público não aparecia. É puramente RECONCILIAÇÃO:
+ * `syncDocumentationState` é chamado SEM `reopenOnApproval`, então só deriva
+ * `documentationStatus`/`documentationTimerPaused`/`verified` e NUNCA mexe em
+ * `isVisible`/`status`/`planFrozen`. Assim o boot não tira ninguém do ar
+ * retroativamente NEM republica loja oculta manualmente pelo admin (mesmo com
+ * docs aprovados). Re-publicação só acontece na aprovação final do admin
+ * (`routes/documents.ts`) e a passagem para offline só na expiração (cron).
+ * Roda uma vez no startup.
  */
 export async function healDocumentationConsistency() {
   try {

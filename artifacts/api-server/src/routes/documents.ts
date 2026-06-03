@@ -321,8 +321,11 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
       .where(eq(businessDocumentsTable.id, id));
 
     // Task #63 — fonte única de verdade: deriva status/verified/visibilidade.
-    // Quando os 3 ficam aprovados, a loja volta ao ar e ganha o selo.
-    const { allApproved } = await syncDocumentationState(doc.businessId);
+    // Este é o ÚNICO caminho que RE-PUBLICA a loja na aprovação completa
+    // (`reopenOnApproval: true`). Heal/cron/upload apenas reconciliam o estado.
+    const { allApproved } = await syncDocumentationState(doc.businessId, {
+      reopenOnApproval: true,
+    });
 
     if (allApproved) {
       const [biz] = await db
