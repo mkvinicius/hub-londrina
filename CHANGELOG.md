@@ -6,6 +6,21 @@
 
 ## 2026-06-03
 
+### Task #59 — Selo "Verificado" aparece automaticamente após aprovação de documentação
+
+**Problema**: o badge "Verificado" (pill verde ✓) estava implementado no frontend (`BusinessCard.tsx` e `negocio.tsx`) mas **nunca aparecia** para nenhum lojista — mesmo após o admin aprovar toda a documentação. O campo `businesses.verified` permanecia `false` indefinidamente.
+
+**Causa raiz**: em `documents.ts`, quando todos os docs são aprovados (`allApproved`), o código setava `isVisible=true` e `planFrozen=false` mas **esquecia `verified=true`**. Eram duas ações separadas sem elo.
+
+**Correção em `artifacts/api-server/src/routes/documents.ts`**:
+- Branch `allApproved`: adicionado `verified: true` ao UPDATE existente em `businessesTable`
+- Path de rejeição: adicionado UPDATE separado em `businessesTable` com `verified: false` (garante reset se um doc for re-aberto/rejeitado após aprovação completa)
+
+Nenhuma mudança no frontend necessária — badges já estavam implementados corretamente.
+**RULES.md**: nova regra documentada em R2 (aprovação total → `verified=true`; rejeição → `verified=false`).
+
+---
+
 ### Task #56 — Banner Home: upload automático com Sharp (sem aprovação manual)
 
 **Problema**: o fluxo anterior criava o banner com `status="pending_review"` e imageUrl copiado do logo do negócio. O admin precisava aprovar manualmente antes de o banner ir ao ar, gerando fricção operacional e delay de horas ou dias.

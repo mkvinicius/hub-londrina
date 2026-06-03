@@ -376,7 +376,7 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
 
       await db
         .update(businessesTable)
-        .set({ isVisible: true, planFrozen: false })
+        .set({ isVisible: true, planFrozen: false, verified: true })
         .where(eq(businessesTable.id, doc.businessId));
 
       const [biz] = await db
@@ -420,6 +420,12 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
       documentationTimerPaused: false,
     })
     .where(eq(businessUsersTable.businessId, doc.businessId));
+
+  // Remove selo Verificado — documentação deixou de estar completamente aprovada
+  await db
+    .update(businessesTable)
+    .set({ verified: false })
+    .where(eq(businessesTable.id, doc.businessId));
 
   const [biz] = await db
     .select({ ownerName: businessesTable.ownerName, ownerEmail: businessesTable.ownerEmail })

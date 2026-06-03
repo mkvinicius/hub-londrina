@@ -49,6 +49,8 @@ Pagar o plano publica a loja imediatamente, mas **NÃO aprova nenhum documento**
 
 **Trilha B — Documentação** (admin + cron):
 - Status (`pending → submitted → approved | rejected | expired`) só muda em: `POST /api/lojista/documents`, `PATCH /api/admin/documents/:id`, e `documentation-job.ts` (cron). Pagamento NÃO aciona nenhum desses.
+- Quando **todos** os documentos são aprovados (`allApproved`): `businesses.verified = true` é setado automaticamente (junto com `isVisible=true`, `planFrozen=false`). Badge "Verificado" aparece nos cards e na página do negócio.
+- Quando um documento é **rejeitado**: `businesses.verified = false` é setado automaticamente. Admin ainda pode setar `verified` manualmente via `PATCH /api/admin/businesses/:id`.
 - Quando os 10 dias estouram em `documentation-job.ts` SEM os 3 docs aprovados, status vai para `expired`. **Não** auto-aprova nem mexe em `isVisible` (loja paga continua visível por R2-A; loja free fica offline porque nasce com `isVisible=false`).
 - Email de rejeição lista TODOS os docs atualmente rejeitados no negócio (não só o último), via `emails.documentacaoRejeitada(nome, Array<{tipo, motivo}>)`.
 
