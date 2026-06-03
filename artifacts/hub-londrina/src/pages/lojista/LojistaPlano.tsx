@@ -4,7 +4,7 @@ import { LojistaLayout } from "./LojistaLayout";
 import {
   getProfile, getStripeConfig, getSubscription, getSubscriptions,
   createCheckoutSession, createPortalSession, changePlan, getInvoices,
-  getProducts,
+  getProducts, lojistaFetch,
   type StripeInvoice,
 } from "@/lib/lojista-api";
 import {
@@ -489,6 +489,7 @@ export default function LojistaPlano() {
 
   const isSuccess = location.includes("success=1");
   const isCancelled = location.includes("cancelled=1");
+  const isPortalReturn = location.includes("portal_return=1");
 
   async function reloadData() {
     const [p, s, subs] = await Promise.all([
@@ -517,6 +518,59 @@ export default function LojistaPlano() {
       setTab(planType === "free" ? "change" : "overview");
     }).finally(() => setLoading(false));
   }, []);
+
+  // Retorno do Portal Stripe (upgrade/downgrade de assinatura existente).
+  // Portal não emite session_id — chamamos o sync sem ele; o endpoint faz fallback por customer.
+  useEffect(() => {
+    if (!isPortalReturn) return;
+
+    let cancelled = false;
+    window.history.replaceState({}, "", "/lojista/plano");
+
+    setPolling(true);
+
+    async function syncAndReload() {
+      // Capturar o planType alvo retornado pelo sync (ex: "premium").
+      // Se o sync falhar, usamos null e o polling verifica apenas "tem assinatura ativa".
+      let targetPlanType: string | null = null;
+      try {
+        const r = await lojistaFetch("/lojista/stripe/sync", { method: "POST", body: JSON.stringify({}) });
+        if (r?.ok && r?.planType) targetPlanType = r.planType;
+      } catch {}
+
+      if (cancelled) return;
+
+      const MAX_ATTEMPTS = 8;
+      const INTERVAL_MS = 2500;
+
+      async function poll(attempt: number) {
+        if (cancelled) return;
+        try {
+          const { p, s } = await reloadData();
+          // Se o sync confirmou o plano alvo, esperar até o profile refletir exatamente esse plano.
+          // Sem alvo (sync falhou), aceitar qualquer assinatura paga (não-free ou ativa).
+          const planOk = targetPlanType
+            ? p?.planType === targetPlanType
+            : (p?.planType && p.planType !== "free") || !!(s && (s.status === "active" || s.status === "trialing"));
+          if (planOk) {
+            setPolling(false);
+            setTab("overview");
+            return;
+          }
+        } catch {}
+        if (attempt < MAX_ATTEMPTS && !cancelled) {
+          setTimeout(() => poll(attempt + 1), INTERVAL_MS);
+        } else {
+          setPolling(false);
+        }
+      }
+
+      setTimeout(() => poll(1), 1500);
+    }
+
+    syncAndReload();
+    return () => { cancelled = true; };
+  }, [isPortalReturn]);
 
   // When Stripe redirects back with ?success=1, poll until the webhook updates the plan
   useEffect(() => {

@@ -687,7 +687,7 @@ router.post("/stripe/portal", async (req: Request, res: Response) => {
 
   const portal = await stripe.billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
-    return_url: `${FRONTEND_URL}/lojista/plano`,
+    return_url: `${FRONTEND_URL}/lojista/plano?portal_return=1`,
   });
 
   res.json({ url: portal.url });

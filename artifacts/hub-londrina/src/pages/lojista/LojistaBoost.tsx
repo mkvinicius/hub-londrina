@@ -84,6 +84,25 @@ export default function LojistaBoost() {
   const [catCheckoutLoading, setCatCheckoutLoading] = useState<number | null>(null);
   const [hsPositions, setHsPositions] = useState<HomeSearchPositionsResponse | null>(null);
   const [hsCheckoutLoading, setHsCheckoutLoading] = useState<number | null>(null);
+  const [syncingPlan, setSyncingPlan] = useState(false);
+
+  async function syncPlan() {
+    setSyncingPlan(true);
+    try {
+      const r = await lojistaFetch("/lojista/stripe/sync", { method: "POST", body: JSON.stringify({}) });
+      if (r?.ok && r?.planType && r.planType !== "free") {
+        setPlanType(r.planType);
+        setBanner({ type: "success", msg: `Plano atualizado para ${r.planType === "premium" ? "Premium" : "Base/Destaque"} com sucesso!` });
+        await loadAll();
+      } else {
+        setBanner({ type: "info", msg: "Nenhuma assinatura ativa encontrada. Se você acabou de pagar, aguarde alguns instantes e tente novamente." });
+      }
+    } catch {
+      setBanner({ type: "error", msg: "Erro ao sincronizar plano. Tente novamente." });
+    } finally {
+      setSyncingPlan(false);
+    }
+  }
 
   async function loadAll() {
     try {
@@ -555,6 +574,17 @@ export default function LojistaBoost() {
                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
                   Exclusivo para o plano <strong>Premium</strong>.{" "}
                   <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+                </p>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Acabou de fazer o upgrade?{" "}
+                  <button
+                    type="button"
+                    onClick={syncPlan}
+                    disabled={syncingPlan}
+                    className="font-semibold underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {syncingPlan ? "Sincronizando..." : "Sincronizar plano agora"}
+                  </button>
                 </p>
               </div>
             ) : (
