@@ -794,11 +794,11 @@ export default function Negocio() {
   return (
     <Layout>
       <div className="pb-20 bg-[#FBF7F2] min-h-screen transition-colors">
-        {/* Hero — banner full-bleed com Voltar/Favoritar flutuando sobre a foto.
-            Removido strip marrom redundante (nome do negócio já aparece logo abaixo). */}
+        {/* Hero — banner full-bleed com só o botão Voltar + logo flutuante sobre a foto.
+            Premium/nota/favoritar foram movidos pra linha de meta-info abaixo da capa. */}
         <div className="bg-white shadow-sm">
-          {/* Banner com badges flutuantes — FULL-BLEED (sem max-w-7xl) pra
-              cobrir a tela inteira. Badges/logo ancoram nas bordas da foto. */}
+          {/* Banner FULL-BLEED (sem max-w-7xl) pra cobrir a tela inteira.
+              Capa limpa: só Voltar (topo-esq) e logo ancorada na borda inferior esq. */}
           <div className="relative w-full">
             {/* Voltar — botão flutuante com fundo escuro e backdrop-blur pra contraste em qualquer foto */}
             <button
@@ -809,20 +809,6 @@ export default function Negocio() {
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </button>
-
-            {/* Favoritar — flutuante no canto superior direito */}
-            <button
-              onClick={() => setIsFavorite(!isFavorite)}
-              aria-label="Favoritar"
-              className={`absolute top-3 right-3 md:top-5 md:right-5 z-20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md ring-1 shadow-lg transition-colors ${
-                isFavorite
-                  ? "bg-rose-500 text-white ring-white/30"
-                  : "bg-black/55 hover:bg-black/70 text-white ring-white/20"
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${isFavorite ? "fill-white" : ""}`} />
-            </button>
-
 
             {(() => {
               // Capa: lojista sobe banner em "Fotos" (bannerUrl). Fallback para photoUrl (capa antiga).
@@ -837,13 +823,6 @@ export default function Negocio() {
                 </div>
               );
             })()}
-
-            {/* Rating — canto inferior direito do banner pra liberar o topo direito pro favoritar */}
-            <div className="absolute bottom-3 right-3 md:bottom-5 md:right-5 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-black text-[#3a2512] shadow-sm">
-              <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-              {business.rating}
-              <span className="font-medium opacity-60 text-[10px]">({business.reviewsCount})</span>
-            </div>
 
             {/* Logo flutuante na borda inferior esquerda — alinhado com o
                 container max-w-7xl do conteúdo abaixo via inner wrapper. */}
@@ -865,41 +844,29 @@ export default function Negocio() {
               </div>
             </div>
 
-            {/* Premium badge — sobre a divisa banner/conteúdo, ancorado à
-                direita do banner (full-bleed) com offset pra não colidir com
-                o rating no canto inferior. */}
-            {business.planType === "premium" && (
-              <div className="absolute -bottom-3 right-4 md:right-8 lg:right-[max(2rem,calc((100vw-80rem)/2+2rem))]">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full ring-1 ring-amber-100 shadow-sm">
-                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Premium
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Identificação + descrição destacada */}
           <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-8">
 
-            {/* Linha de meta-tags: categoria · localização · selos */}
-            <div className="flex items-center gap-2 flex-wrap mb-4">
+            {/* Linha única de meta-informações, na ordem:
+                local → categoria → selos automáticos → Verificado → Premium → nota/curtidas.
+                Tudo alinhado verticalmente (items-center) e com mesma altura de pílula. */}
+            <div className="flex items-center gap-2 flex-wrap mb-6">
+              {/* 1. Local + cidade */}
+              <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-medium">
+                <MapPin className="w-3.5 h-3.5 text-[#FF9800]" />
+                {business.region}, Londrina - PR
+              </span>
+
+              {/* 2. Categoria */}
               {business.category && (
                 <span className="text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2.5 py-1 rounded-full uppercase tracking-wider">
                   {business.category.name}
                 </span>
               )}
-              <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-medium">
-                <MapPin className="w-3.5 h-3.5 text-[#FF9800]" />
-                {business.region}, Londrina - PR
-              </span>
-              {business.verified && (
-                <span
-                  title="Selo manual: documentação aprovada pela equipe Hub Londrina."
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 cursor-help"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Verificado
-                </span>
-              )}
+
+              {/* 3. Selos automáticos (Novo / Confiável / etc) */}
               {getAutoBadges({
                 rating: business.rating,
                 reviewsCount: business.reviewsCount,
@@ -915,37 +882,62 @@ export default function Negocio() {
                   <span
                     key={b.key}
                     title={b.tooltip}
-                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ring-1 cursor-help ${tone}`}
+                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ring-1 cursor-help ${tone}`}
                   >
                     <Icon className="w-3 h-3" />
                     {b.label}
                   </span>
                 );
               })}
+
+              {/* 4. Verificado (selo manual) */}
+              {business.verified && (
+                <span
+                  title="Selo manual: documentação aprovada pela equipe Hub Londrina."
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full ring-1 ring-emerald-100 cursor-help"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  Verificado
+                </span>
+              )}
+
+              {/* 5. Premium */}
+              {business.planType === "premium" && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full ring-1 ring-amber-100">
+                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                  Premium
+                </span>
+              )}
+
+              {/* 6. Nota (estrelas) + curtidas — ao final da linha */}
+              <span className="inline-flex items-center gap-1">
+                {[1,2,3,4,5].map((s) => (
+                  <Star
+                    key={s}
+                    className={`w-3.5 h-3.5 ${s <= Math.round(Number(business.rating)) ? "fill-amber-400 text-amber-400" : "fill-gray-200 text-gray-200"}`}
+                  />
+                ))}
+                <span className="ml-0.5 text-xs font-black text-[#3a2512]">{business.rating}</span>
+                <span className="text-[10px] text-gray-400 font-medium">({business.reviewsCount})</span>
+              </span>
+              <button
+                onClick={() => setIsFavorite(!isFavorite)}
+                aria-label="Favoritar"
+                className={`inline-flex items-center justify-center w-7 h-7 rounded-full ring-1 transition-colors ${
+                  isFavorite
+                    ? "bg-rose-500 text-white ring-rose-200"
+                    : "bg-gray-50 text-gray-400 hover:text-rose-500 ring-gray-200"
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${isFavorite ? "fill-white" : ""}`} />
+              </button>
             </div>
 
-            {/* Nome + mini stats de reputação em linha */}
-            <div className="flex flex-wrap items-end gap-4 mb-6">
+            {/* Nome do negócio */}
+            <div className="mb-6">
               <h1 className="font-['Playfair_Display'] font-black text-3xl md:text-4xl text-[#3a2512] leading-tight">
                 {business.name}
               </h1>
-              {business.reviewsCount > 0 && (
-                <div className="flex items-center gap-3 mb-1 pb-0.5">
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`w-4 h-4 ${s <= Math.round(Number(business.rating)) ? "fill-amber-400 text-amber-400" : "fill-gray-200 text-gray-200"}`}
-                      />
-                    ))}
-                    <span className="ml-1 text-sm font-black text-[#3a2512]">{business.rating}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">·</span>
-                  <span className="text-xs text-gray-500 font-medium">
-                    {business.reviewsCount} {business.reviewsCount === 1 ? "avaliação" : "avaliações"}
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* Descrição redesenhada — borda esquerda com acento + aspas decorativas */}

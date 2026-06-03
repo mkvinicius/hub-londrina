@@ -6,6 +6,20 @@
 
 ## 2026-06-03
 
+### UI — Perfil do negócio: capa limpa + linha única de meta-informações reordenada
+
+**Problema**: na página `/negocio/:id`, os badges **Premium** e de **nota ("0 (0)")** flutuavam sobre a borda inferior da foto de capa em posições desencontradas, com aspecto bagunçado. A linha de meta-tags abaixo também tinha ordem pouco intuitiva (categoria antes do local).
+
+**Correção** (`artifacts/hub-londrina/src/pages/negocio.tsx`):
+- Removidos da capa os badges flutuantes de **Premium** e de **nota**, além do botão **Favoritar** do canto superior direito. A capa agora tem só o botão **Voltar** + a logo flutuante.
+- Consolidada uma **linha única** de meta-informações, alinhada (`items-center`), na ordem: **local + cidade** → **categoria** → **selos automáticos** (Novo/Confiável/etc) → **Verificado** → **Premium** → **estrelas (nota) + favoritar (coração)**.
+- A nota que antes vivia na linha do nome foi consolidada nessa linha; a linha do nome ficou só com o `<h1>`.
+
+**Escopo**: mudança puramente visual. Nenhuma alteração em lógica de `getAutoBadges` (`lib/badges.ts`), `BusinessCard.tsx`, gates, Stripe, auth ou DB.
+**Prova**: `validate-lojista-rules.mjs` → 10/10 ✓; screenshot do perfil (negócio premium verificado) confere a ordem e o alinhamento.
+
+---
+
 ### Bugfix — home-banner/checkout retornava BUSINESS_INACTIVE em vez de PLAN_REQUIRED para lojista free
 
 **Sintoma**: o teste `R1 home-banner/checkout bloqueia free` em `validate-lojista-rules.mjs` falhava — esperava 403 `PLAN_REQUIRED` mas recebia 400 `BUSINESS_INACTIVE`.

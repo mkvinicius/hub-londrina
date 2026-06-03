@@ -685,6 +685,8 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 /categorias     Lista de categorias com contagem
 /busca          Busca + filtros (drawer mobile) + perto de mim (Haversine)
 /negocio/:id    Perfil completo + avaliações + resposta do dono
+                (capa só com botão Voltar + logo; meta-info em linha única:
+                 local → categoria → selos auto → Verificado → Premium → nota+favoritar)
 /anuncie        Página de planos e preços
 /cadastro       Formulário de cadastro de lojista (com busca de CEP ViaCEP)
 /norte          Zona Norte (SSR)
