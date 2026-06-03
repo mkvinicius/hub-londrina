@@ -575,17 +575,19 @@ export default function LojistaBoost() {
                   Exclusivo para o plano <strong>Premium</strong>.{" "}
                   <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
                 </p>
-                <p className="text-xs text-gray-500 mt-1.5">
-                  Acabou de fazer o upgrade?{" "}
-                  <button
-                    type="button"
-                    onClick={syncPlan}
-                    disabled={syncingPlan}
-                    className="font-semibold underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {syncingPlan ? "Sincronizando..." : "Sincronizar plano agora"}
-                  </button>
-                </p>
+                {planType === "destaque" && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Acabou de fazer o upgrade para Premium?{" "}
+                    <button
+                      type="button"
+                      onClick={syncPlan}
+                      disabled={syncingPlan}
+                      className="font-semibold underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {syncingPlan ? "Sincronizando..." : "Sincronizar plano agora"}
+                    </button>
+                  </p>
+                )}
               </div>
             ) : (
               <button

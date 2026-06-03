@@ -824,6 +824,21 @@ export default function LojistaPlano() {
         </button>
       </div>
 
+      {isPortalReturn && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
+          {polling
+            ? <RefreshCw className="w-5 h-5 text-blue-600 flex-shrink-0 animate-spin" />
+            : <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0" />}
+          <div>
+            <p className="font-bold text-blue-800">Plano atualizado!</p>
+            <p className="text-sm text-blue-700">
+              {polling
+                ? "Sincronizando seu plano com o Stripe... isso pode levar alguns segundos."
+                : "Seu plano foi atualizado com sucesso."}
+            </p>
+          </div>
+        </div>
+      )}
       {isSuccess && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5 flex items-center gap-3">
           {polling

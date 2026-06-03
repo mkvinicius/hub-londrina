@@ -162,19 +162,31 @@ router.post("/lojista/stripe/sync", async (req: Request, res: Response) => {
       }
     }
 
-    // Fallback: buscar a subscription mais recente do customer (caso sessionId ausente ou sem sub)
+    // Fallback: buscar a subscription ativa do customer (caso sessionId ausente ou sem sub).
+    // Usado no fluxo de retorno do Portal Stripe, onde não há session_id.
+    // Prefere status="active" (upgrade via portal entra imediatamente ativo);
+    // cai para status="all" se não encontrar ativa (ex: trialing, past_due).
     if (!stripeSubId) {
       const [existingSub] = await db
         .select()
         .from(subscriptionsTable)
         .where(eq(subscriptionsTable.businessId, lojista.businessId));
       if (existingSub?.stripeCustomerId) {
-        const subs = await stripe.subscriptions.list({
+        const activeSubs = await stripe.subscriptions.list({
           customer: existingSub.stripeCustomerId,
           limit: 1,
-          status: "all",
+          status: "active",
         });
-        if (subs.data[0]) stripeSubId = subs.data[0].id;
+        if (activeSubs.data[0]) {
+          stripeSubId = activeSubs.data[0].id;
+        } else {
+          const allSubs = await stripe.subscriptions.list({
+            customer: existingSub.stripeCustomerId,
+            limit: 1,
+            status: "all",
+          });
+          if (allSubs.data[0]) stripeSubId = allSubs.data[0].id;
+        }
       }
     }
 
