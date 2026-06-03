@@ -388,11 +388,17 @@ router.patch("/admin/businesses/:id", validateId, async (req: Request, res: Resp
     }
     updates.isVisible = req.body.isVisible;
   }
+  // Task #63 — `businesses.verified` é ESTRITAMENTE derivado dos documentos
+  // (=true sse os 3 docs aprovados). Não existe mais selo manual: qualquer
+  // tentativa de setá-lo à mão é rejeitada. O selo só muda via
+  // `syncDocumentationState` (upload/approve/reject/heal). Ver RULES.md R2.
   if (req.body.verified !== undefined) {
-    if (typeof req.body.verified !== "boolean") {
-      res.status(400).json({ error: "verified deve ser boolean" }); return;
-    }
-    updates.verified = req.body.verified;
+    res.status(400).json({
+      error:
+        "verified é derivado automaticamente dos documentos (3 aprovados = verificado). Aprove/rejeite os documentos do negócio em vez de setar o selo manualmente.",
+      code: "VERIFIED_IS_DERIVED",
+    });
+    return;
   }
   if (req.body.name !== undefined) updates.name = req.body.name;
   if (req.body.description !== undefined) updates.description = req.body.description;
