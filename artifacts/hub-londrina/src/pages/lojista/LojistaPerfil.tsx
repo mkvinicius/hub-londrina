@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken } from "@/lib/lojista-api";
-import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2 } from "lucide-react";
+import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken, uploadLogo, uploadBanner } from "@/lib/lojista-api";
+import { imgSrc } from "@/lib/utils";
+import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2, Upload } from "lucide-react";
 import { useLegalConfig } from "@/lib/legal-config";
 import { csrfFetch } from "@/lib/csrf";
 
@@ -25,6 +26,13 @@ export default function LojistaPerfil() {
   const [cepLoading, setCepLoading] = useState(false);
   const [locSaving, setLocSaving] = useState(false);
   const [locMsg, setLocMsg] = useState("");
+
+  // Upload de logo e capa
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState("");
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "";
@@ -166,6 +174,50 @@ export default function LojistaPerfil() {
     }
   }
 
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (logoFileRef.current) logoFileRef.current.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoMsg("Erro: logo deve ter até 2 MB.");
+      return;
+    }
+    setLogoUploading(true);
+    setPhotoMsg("");
+    try {
+      const data: { logoUrl: string } = await uploadLogo(file);
+      setProfile((prev: any) => prev ? { ...prev, logoUrl: data.logoUrl } : prev);
+      setPhotoMsg("Logo atualizada!");
+      setTimeout(() => setPhotoMsg(""), 4000);
+    } catch (err: any) {
+      setPhotoMsg(`Erro: ${err.message}`);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (bannerFileRef.current) bannerFileRef.current.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoMsg("Erro: foto de capa deve ter até 5 MB.");
+      return;
+    }
+    setBannerUploading(true);
+    setPhotoMsg("");
+    try {
+      const data: { bannerUrl: string } = await uploadBanner(file);
+      setProfile((prev: any) => prev ? { ...prev, bannerUrl: data.bannerUrl } : prev);
+      setPhotoMsg("Foto de capa atualizada!");
+      setTimeout(() => setPhotoMsg(""), 4000);
+    } catch (err: any) {
+      setPhotoMsg(`Erro: ${err.message}`);
+    } finally {
+      setBannerUploading(false);
+    }
+  }
+
   const inputCls = "w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent";
   const lockedInputCls = `${inputCls} bg-gray-100 opacity-60 cursor-not-allowed`;
 
@@ -184,6 +236,104 @@ export default function LojistaPerfil() {
           {msg}
         </div>
       )}
+
+      {/* ── Identidade Visual (logo + capa) ── */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+          <Upload className="w-4 h-4 text-[#d97706]" />
+          <h2 className="text-base font-bold text-gray-800">Identidade Visual</h2>
+        </div>
+
+        {photoMsg && (
+          <div className={`mx-6 mt-4 p-3 rounded-xl text-sm font-medium ${photoMsg.startsWith("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+            {photoMsg}
+          </div>
+        )}
+
+        <div className="p-6 space-y-6">
+          {/* Logo */}
+          <div>
+            <div className="flex items-center gap-4 mb-3">
+              {profile?.logoUrl ? (
+                <img
+                  src={imgSrc(profile.logoUrl)}
+                  alt="Logo"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center flex-shrink-0">
+                  <Upload className="w-6 h-6 text-gray-400" />
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-bold text-gray-700">Logo do negócio</p>
+                <p className="text-xs text-gray-500">400×400px (1:1) · JPG, PNG, WebP · máx 2 MB</p>
+                <p className="text-xs text-gray-400 mt-0.5">Exibida no card de busca e no topo do perfil público</p>
+              </div>
+            </div>
+            <input
+              type="file"
+              ref={logoFileRef}
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => logoFileRef.current?.click()}
+              disabled={logoUploading}
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+            >
+              {logoUploading
+                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <Upload className="w-4 h-4" />}
+              {logoUploading ? "Enviando..." : profile?.logoUrl ? "Trocar logo" : "Enviar logo"}
+            </button>
+          </div>
+
+          {/* Foto de capa */}
+          <div className="border-t border-gray-100 pt-5">
+            {profile?.bannerUrl ? (
+              <div className="mb-3 rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style={{ aspectRatio: "3 / 1" }}>
+                <img src={imgSrc(profile.bannerUrl)} alt="Capa" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="mb-3 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center" style={{ aspectRatio: "3 / 1" }}>
+                <div className="text-center text-gray-400 py-6">
+                  <Upload className="w-7 h-7 mx-auto mb-1 opacity-50" />
+                  <p className="text-xs">Sem foto de capa</p>
+                </div>
+              </div>
+            )}
+            <p className="text-sm font-bold text-gray-700 mb-0.5">Foto de capa (banner)</p>
+            <p className="text-xs text-gray-500 mb-3">
+              1200×400px (proporção 3:1) · JPG, PNG, WebP · máx 5 MB · Aparece no topo do perfil público do negócio
+            </p>
+            <input
+              type="file"
+              ref={bannerFileRef}
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleBannerUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => bannerFileRef.current?.click()}
+              disabled={bannerUploading}
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+            >
+              {bannerUploading
+                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <Upload className="w-4 h-4" />}
+              {bannerUploading ? "Enviando..." : profile?.bannerUrl ? "Trocar capa" : "Enviar foto de capa"}
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-400 border-t border-gray-100 pt-4">
+            Para gerenciar a galeria de fotos do negócio, acesse a aba <a href="/lojista/produtos" className="text-[#d97706] font-bold hover:underline">Produtos</a> → seção "Fotos do Negócio".
+          </p>
+        </div>
+      </section>
 
       <div className="space-y-6">
         <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">

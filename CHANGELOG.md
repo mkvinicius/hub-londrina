@@ -6,6 +6,22 @@
 
 ## 2026-06-03
 
+### Task #53 — Identidade Visual (logo + capa) na página "Perfil do Negócio"
+
+**Problema**: o lojista abria `/lojista/perfil` esperando encontrar onde alterar a foto do negócio, mas a página só exibia campos de texto. Os uploads de logo/capa (Task #49) haviam ficado em `/lojista/produtos`, o que é contra-intuitivo.
+
+**Correção em `LojistaPerfil.tsx`:**
+- Novo card **"Identidade Visual"** adicionado no topo da página (antes dos "Dados Jurídicos"), com:
+  - **Logo**: preview circular 80×80px, hint `400×400px (1:1) · máx 2 MB`, chama `uploadLogo()`.
+  - **Foto de capa**: preview retangular `3:1` (ou placeholder tracejado), hint `1200×400px · máx 5 MB`, chama `uploadBanner()`.
+- Preview atualiza imediatamente após upload sem precisar recarregar a página.
+- Link de rodapé levando à aba Produtos para quem quiser gerenciar a galeria de fotos.
+- Handlers usam o mesmo padrão de `LojistaProdutos.tsx` (Task #49): `uploadLogo`/`uploadBanner` já existentes em `lojista-api.ts`.
+
+Nenhuma rota nova de backend necessária — `uploadLogo` e `uploadBanner` já existiam.
+
+---
+
 ### Task #49 — Orientações de tamanho de foto + seção "Fotos do Negócio" no painel lojista
 
 **Problema duplo:**
