@@ -19,7 +19,9 @@
 
 **Arquivos**: `lib/documentation-state.ts` (novo), `routes/documents.ts`, `lib/documentation-job.ts`, `lib/startup-heal.ts`, `index.ts`, `routes/stripe.ts` (3 guards), `services/email.ts`, `LojistaDocumentacao.tsx`, `AdminDocumentacao.tsx`.
 
-**Provas (dev)**: (1) heal reconciliou negócio com agregado mentindo `submitted`+offline → `approved`/`verified=true`/`isVisible=true`. (2) reject → `verified=false`/`rejected`. (3) loja **destaque** `remaining=1`/`pending` → cron → `expired`+`isVisible=false`. (4) loja paga (assinatura ativa) com docs `expired` → `healPaidInvisibleBusinesses` **não** republicou. `validate-lojista-rules` verde.
+**`expired` é STICKY**: qualquer estado não-aprovado com `remaining<=0` permanece `expired`. Completar/reenviar os 3 docs depois do prazo (`submitted`) **não** tira do `expired` — só a aprovação dos 3 docs religa. Isso fecha a brecha em que `submitted` pós-prazo voltava `isDocumentationExpired` a `false` e o pagamento/heal republicavam a loja sem aprovação.
+
+**Provas (dev, re-seed limpo)**: (0) 20 negócios, 15 verificados com 3 docs aprovados (45), zero inconsistências (`verified` ⇔ 3 aprovados). (1) heal reconciliou negócio com agregado mentindo `submitted`+offline → `approved`/`verified=true`/`isVisible=true`. (2) reject → `verified=false`/`rejected`. (3) loja **destaque** `remaining=1`/`pending` → cron → `expired`+`isVisible=false`. (4) loja paga (assinatura `active`) com docs `expired` → `healPaidInvisibleBusinesses` **não** republicou. (5) STICKY: loja paga `expired` que envia os 3 docs (`submitted`) → heal mantém `expired`+`isVisible=false` (não republica sem aprovação). `validate-lojista-rules` verde.
 
 ### UI — Perfil do negócio: capa limpa + linha única de meta-informações reordenada
 

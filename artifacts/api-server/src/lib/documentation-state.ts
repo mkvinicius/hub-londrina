@@ -87,8 +87,13 @@ export async function syncDocumentationState(
     paused = false;
   }
 
-  // Estados com timer correndo e sem dias no banco → expirado (loja offline).
-  if ((status === "pending" || status === "rejected") && remaining <= 0) {
+  // Expiração é STICKY: uma vez que o banco de dias zera SEM os 3 docs
+  // aprovados, a loja fica `expired` (offline) até a APROVAÇÃO completa do
+  // admin. Reenviar/completar os documentos (`submitted`) NÃO tira do estado
+  // expirado — senão `isDocumentationExpired` voltaria a false e o pagamento/
+  // heal republicariam a loja sem aprovação (ver RULES.md R2). Só `allApproved`
+  // escapa da expiração.
+  if (!allApproved && remaining <= 0) {
     status = "expired";
     paused = false;
   }

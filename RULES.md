@@ -47,7 +47,8 @@ Pagar o plano e aprovar a documentação continuam sendo **trilhas separadas** �
 
 **Fonte única de verdade** — `lib/documentation-state.ts`:
 - `syncDocumentationState(businessId)` deriva `business_users.documentationStatus`, `documentationTimerPaused` e `businesses.verified` **a partir do estado real de `business_documents.status`**. É chamado em TODOS os pontos que mexem em documento: upload do lojista, approve/reject do admin, e o heal de reconciliação no startup (`healDocumentationConsistency`). É **proibido** recalcular esse agregado à mão em qualquer rota — sempre delegar a este helper.
-  - 3 aprovados → `approved` (timer pausado); algum rejeitado → `rejected` (timer corre); 3 presentes sem rejeitados → `submitted` (timer pausado); faltam docs → `pending` (timer corre); `pending`/`rejected` **sem dias no banco** → `expired`.
+  - 3 aprovados → `approved` (timer pausado); algum rejeitado → `rejected` (timer corre); 3 presentes sem rejeitados → `submitted` (timer pausado); faltam docs → `pending` (timer corre).
+  - **`expired` é STICKY**: qualquer estado **não-aprovado** com o banco de dias zerado (`remaining<=0`) vira `expired`. Completar/reenviar os 3 docs depois do prazo (`submitted`) **NÃO** tira do `expired` — senão `isDocumentationExpired` voltaria a `false` e pagamento/heal republicariam a loja sem aprovação. **Só `allApproved` escapa da expiração.**
   - `verified` é **estritamente derivado**: `verified=true` **se e somente se** os 3 docs estão aprovados; **qualquer** outro estado (pending/submitted/rejected/expired) força `verified=false`. Não há selo manual/legado — o heal de reconciliação corrige divergências históricas.
 - `isDocumentationExpired(businessId)` → `true` quando `documentationStatus='expired'`. É o gate de publicação usado pela trilha de pagamento.
 
