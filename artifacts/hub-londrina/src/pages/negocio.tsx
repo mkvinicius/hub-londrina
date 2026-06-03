@@ -794,11 +794,12 @@ export default function Negocio() {
   return (
     <Layout>
       <div className="pb-20 bg-[#FBF7F2] min-h-screen transition-colors">
-        {/* Hero — banner full-bleed com só o botão Voltar + logo flutuante sobre a foto.
-            Premium/nota/favoritar foram movidos pra linha de meta-info abaixo da capa. */}
+        {/* Hero — banner full-bleed com Voltar (topo-esq) + Favoritar (topo-dir) + logo.
+            Os badges de Premium/nota que flutuavam sobre a capa foram movidos pra
+            linha de meta-info abaixo (a nota também aparece lá ao final). */}
         <div className="bg-white shadow-sm">
           {/* Banner FULL-BLEED (sem max-w-7xl) pra cobrir a tela inteira.
-              Capa limpa: só Voltar (topo-esq) e logo ancorada na borda inferior esq. */}
+              Capa limpa: Voltar (topo-esq), Favoritar (topo-dir) e logo na borda inferior esq. */}
           <div className="relative w-full">
             {/* Voltar — botão flutuante com fundo escuro e backdrop-blur pra contraste em qualquer foto */}
             <button
@@ -808,6 +809,19 @@ export default function Negocio() {
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
+            </button>
+
+            {/* Favoritar — flutuante no canto superior direito */}
+            <button
+              onClick={() => setIsFavorite(!isFavorite)}
+              aria-label="Favoritar"
+              className={`absolute top-3 right-3 md:top-5 md:right-5 z-20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md ring-1 shadow-lg transition-colors ${
+                isFavorite
+                  ? "bg-rose-500 text-white ring-white/30"
+                  : "bg-black/55 hover:bg-black/70 text-white ring-white/20"
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? "fill-white" : ""}`} />
             </button>
 
             {(() => {
