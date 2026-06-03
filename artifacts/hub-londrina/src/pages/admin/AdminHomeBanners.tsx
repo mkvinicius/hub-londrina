@@ -13,7 +13,7 @@ interface Banner {
   linkUrl: string | null;
   ctaLabel: string | null;
   active: boolean;
-  status: "active" | "pending_review" | "rejected" | "expired";
+  status: "active" | "pending_review" | "paid_awaiting_upload" | "rejected" | "expired";
   requestedBy: "admin" | "lojista";
   rejectionReason: string | null;
   stripeSessionId: string | null;
@@ -46,12 +46,14 @@ function formatDate(d: string | null) {
 const STATUS_LABEL: Record<Banner["status"], string> = {
   active: "Ativo",
   pending_review: "Aguardando aprovação",
+  paid_awaiting_upload: "Pago — aguardando imagem",
   rejected: "Rejeitado",
   expired: "Expirado",
 };
 const STATUS_COLOR: Record<Banner["status"], string> = {
   active: "bg-emerald-500 text-white",
   pending_review: "bg-amber-500 text-white",
+  paid_awaiting_upload: "bg-blue-500 text-white",
   rejected: "bg-red-500 text-white",
   expired: "bg-gray-400 text-white",
 };
@@ -174,7 +176,7 @@ export default function AdminHomeBanners() {
     fetchBanners();
   }
 
-  const pending = banners.filter(b => b.status === "pending_review");
+  const pending = banners.filter(b => b.status === "pending_review" || b.status === "paid_awaiting_upload");
   const activeOnes = banners.filter(b => b.status === "active");
   const visible = tab === "pending" ? pending : tab === "active" ? activeOnes : banners;
   const activeSlots = activeOnes.filter(b => b.active).length;

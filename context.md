@@ -204,9 +204,13 @@ title       text NOT NULL
 imageUrl    text NOT NULL
 linkUrl     text
 active      boolean DEFAULT true
+status      text  (paid_awaiting_upload | active | pending_review[legado] | rejected | expired)
 endsAt      timestamp (auto-desativado pelo job)
 createdAt   timestamp DEFAULT now()
 ```
+Fluxo (Task #56): pagamento Stripe → status=`paid_awaiting_upload`, imageUrl="" → lojista faz upload via
+`POST /api/lojista/home-banner/upload` → Sharp resize 1200×280 gravity:attention → status=`active` automático.
+`pending_review` mantido apenas para banners legados (criados antes da Task #56).
 
 ### Tabela `business_clicks`
 ```

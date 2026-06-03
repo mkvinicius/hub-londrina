@@ -239,29 +239,29 @@ router.post("/lojista/boosts/sync", async (req: Request, res: Response) => {
 
     const meta = session.metadata || {};
 
-    // Caso A: solicitação de banner Home → cria pending_review
+    // Caso A: solicitação de banner Home → cria paid_awaiting_upload (lojista faz upload da imagem)
     if (meta.kind === "home_banner_request") {
       const { homeBannersTable } = await import("@workspace/db/schema");
       const dup = await db.select({ id: homeBannersTable.id })
         .from(homeBannersTable)
         .where(eq(homeBannersTable.stripeSessionId, session.id));
       if (dup.length > 0) {
-        return res.json({ ok: true, type: "home_banner", status: "pending_review", duplicate: true });
+        return res.json({ ok: true, type: "home_banner", status: "paid_awaiting_upload", duplicate: true });
       }
       const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
       if (!biz) return res.status(404).json({ error: "Negócio não encontrado" });
       await db.insert(homeBannersTable).values({
         businessId: lojista.businessId,
         title: biz.name,
-        imageUrl: biz.logoUrl || "",
+        imageUrl: "",
         linkUrl: `/negocio/${lojista.businessId}`,
         active: false,
-        status: "pending_review",
+        status: "paid_awaiting_upload",
         requestedBy: "lojista",
         stripeSessionId: session.id,
       });
-      logger.info(`[Boost Sync] Home banner pending_review criado para biz ${lojista.businessId}`);
-      return res.json({ ok: true, type: "home_banner", status: "pending_review" });
+      logger.info(`[Boost Sync] Home banner paid_awaiting_upload criado para biz ${lojista.businessId}`);
+      return res.json({ ok: true, type: "home_banner", status: "paid_awaiting_upload" });
     }
 
     const boostContext = meta.boostContext;
@@ -927,7 +927,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
         const session = event.data.object as Stripe.Checkout.Session;
         logger.info("[Stripe Webhook] checkout.session.completed — session:", session.id, "subscription:", session.subscription);
 
-        // Modelo C: solicitação de banner Home pelo lojista → cria pending_review
+        // Modelo C: solicitação de banner Home pelo lojista → cria paid_awaiting_upload (lojista faz upload)
         if (session.metadata?.kind === "home_banner_request") {
           const bizId = Number(session.metadata.businessId);
           if (Number.isFinite(bizId) && bizId > 0) {
@@ -942,19 +942,19 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                   await db.insert(homeBannersTable).values({
                     businessId: bizId,
                     title: biz.name,
-                    imageUrl: biz.logoUrl || "",
+                    imageUrl: "",
                     linkUrl: `/negocio/${bizId}`,
                     active: false,
-                    status: "pending_review",
+                    status: "paid_awaiting_upload",
                     requestedBy: "lojista",
                     stripeSessionId: session.id,
                     stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
                   });
-                  logger.info(`[Stripe Webhook] Banner Home pending_review criado para biz ${bizId}`);
+                  logger.info(`[Stripe Webhook] Banner Home paid_awaiting_upload criado para biz ${bizId}`);
                 }
               }
             } catch (err) {
-              logger.error("[Stripe Webhook] Erro criando banner pending_review:", err);
+              logger.error("[Stripe Webhook] Erro criando banner paid_awaiting_upload:", err);
             }
           }
           break; // não cai no fluxo de subscription de plano

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
 import {
   lojistaFetch,
@@ -7,7 +7,7 @@ import {
   getHomeSearchBoostPositions,
   createHomeSearchBoostCheckout,
 } from "@/lib/lojista-api";
-import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon } from "lucide-react";
+import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload } from "lucide-react";
 import { Link } from "wouter";
 
 interface CategoryPosition {
@@ -85,6 +85,42 @@ export default function LojistaBoost() {
   const [hsPositions, setHsPositions] = useState<HomeSearchPositionsResponse | null>(null);
   const [hsCheckoutLoading, setHsCheckoutLoading] = useState<number | null>(null);
   const [syncingPlan, setSyncingPlan] = useState(false);
+  const [bannerImageUploading, setBannerImageUploading] = useState(false);
+  const bannerImageRef = useRef<HTMLInputElement>(null);
+
+  async function handleBannerImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (bannerImageRef.current) bannerImageRef.current.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setBanner({ type: "error", msg: "Imagem muito grande. Máximo 10 MB." });
+      return;
+    }
+    setBannerImageUploading(true);
+    setBanner(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const token = localStorage.getItem("hub_lojista_token");
+      const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+      const r = await fetch(`${BASE}/api/lojista/home-banner/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setBanner({ type: "error", msg: data.error || "Erro ao enviar a imagem." });
+        return;
+      }
+      setBanner({ type: "success", msg: "Imagem enviada! Seu banner está ativo na Home agora." });
+      await loadAll();
+    } catch {
+      setBanner({ type: "error", msg: "Erro de conexão. Tente novamente." });
+    } finally {
+      setBannerImageUploading(false);
+    }
+  }
 
   async function syncPlan() {
     setSyncingPlan(true);
@@ -153,7 +189,7 @@ export default function LojistaBoost() {
           });
           if (r?.ok) {
             if (r.type === "home_banner") {
-              setBanner({ type: "success", msg: "Pagamento confirmado! Sua solicitação de banner Home está em análise pelo admin. Você será notificado quando for aprovada." });
+              setBanner({ type: "success", msg: "Pagamento confirmado! Vá até a seção Banner na Home abaixo para enviar a imagem e ativar seu banner." });
             } else if (r.status === "active") {
               const ctxLabel = r.type === "category"
                 ? `categoria (posição ${r.position}º)`
@@ -512,7 +548,7 @@ export default function LojistaBoost() {
           })()}
         </div>
 
-        {/* ===== BANNER HOME (R$299/mês) — Modelo C: compra → análise admin ===== */}
+        {/* ===== BANNER HOME (R$299/mês) — compra → upload → ativo automaticamente ===== */}
         <div className="mt-5 bg-white border border-gray-200 rounded-2xl p-5">
           <div className="flex items-start gap-3 mb-3">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#d97706]/10">
@@ -538,29 +574,86 @@ export default function LojistaBoost() {
           </div>
 
           <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">
-            Uma imagem do seu negócio ocupa o topo da página inicial do Hub Londrina. O maior destaque disponível na plataforma. Sujeito a aprovação.
+            Uma imagem do seu negócio ocupa o topo da página inicial do Hub Londrina. O maior destaque disponível na plataforma. Após o pagamento, você envia a imagem e ela vai ao ar imediatamente.
           </p>
 
+          {/* Status: aguardando upload de imagem */}
+          {homeBanner && homeBanner.status === "paid_awaiting_upload" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-blue-800 mb-2">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                Pagamento confirmado! Agora envie a imagem do banner.
+              </div>
+              <p className="text-xs text-blue-700 mb-3">
+                Dimensões ideais: <strong>1200×280px</strong> (proporção 4:1) · JPG, PNG ou WebP · máx 10 MB<br />
+                A imagem será recortada automaticamente para o tamanho ideal.
+              </p>
+              <input
+                type="file"
+                ref={bannerImageRef}
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleBannerImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => bannerImageRef.current?.click()}
+                disabled={bannerImageUploading}
+                className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${BTN_ELEVATION}`}
+              >
+                {bannerImageUploading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando imagem...</>
+                  : <><Upload className="w-4 h-4" /> Escolher imagem do banner</>}
+              </button>
+            </div>
+          )}
+
+          {/* Status: legado pending_review */}
           {homeBanner && homeBanner.status === "pending_review" && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-center gap-2 text-sm text-amber-800">
               <Clock className="w-4 h-4 flex-shrink-0" />
-              Sua solicitação está em análise pelo admin (enviada em {new Date(homeBanner.createdAt).toLocaleDateString("pt-BR")}).
+              Sua solicitação está em análise (enviada em {new Date(homeBanner.createdAt).toLocaleDateString("pt-BR")}).
             </div>
           )}
+
+          {/* Status: ativo */}
           {homeBanner && homeBanner.status === "active" && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 flex items-center gap-2 text-sm text-emerald-800">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               Seu banner está ativo na Home!
             </div>
           )}
+
+          {/* Status: rejeitado — pode reenviar imagem */}
           {homeBanner && homeBanner.status === "rejected" && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3 text-sm text-red-800">
-              <p className="font-semibold">Banner rejeitado</p>
-              {homeBanner.rejectionReason && <p className="text-xs mt-1">{homeBanner.rejectionReason}</p>}
+            <div className="mb-3">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 text-sm text-red-800">
+                <p className="font-semibold">Banner desativado</p>
+                {homeBanner.rejectionReason && <p className="text-xs mt-1">{homeBanner.rejectionReason}</p>}
+              </div>
+              <p className="text-xs text-gray-600 mb-2">Você pode enviar uma nova imagem:</p>
+              <input
+                type="file"
+                ref={bannerImageRef}
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleBannerImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => bannerImageRef.current?.click()}
+                disabled={bannerImageUploading}
+                className="w-full border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {bannerImageUploading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
+                  : <><Upload className="w-4 h-4" /> Enviar nova imagem</>}
+              </button>
             </div>
           )}
 
-          {(!homeBanner || homeBanner.status === "rejected" || homeBanner.status === "expired") && (
+          {/* Sem banner ou expirado — botão de compra */}
+          {(!homeBanner || homeBanner.status === "expired") && (
             planType !== "premium" ? (
               <div>
                 <button
@@ -601,7 +694,7 @@ export default function LojistaBoost() {
           )}
 
           <p className="text-[11px] text-gray-400 mt-2">
-            Após o pagamento, sua solicitação fica em análise. O admin aprova banners que respeitam as diretrizes de imagem e conteúdo.
+            Após o pagamento, você envia a imagem e ela vai ao ar instantaneamente — sem aprovação manual.
           </p>
         </div>
       </section>

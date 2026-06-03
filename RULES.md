@@ -139,7 +139,9 @@ Bloco "Vitrine de Produtos" em `landing.tsx` segue regras estritas:
 
 **Vídeo é obrigatório** para entrar (rotação ou boost). Lojista Premium sem vídeo recebe aviso destacado no `LojistaDashboard.tsx`: *"Você está perdendo aparições na Vitrine. Suba 1 vídeo para ativar."*
 
-**Aprovação admin**: todo vídeo novo entra com `status="pending"` e só aparece após admin aprovar em `/admin/vitrine` (mesma fila do home banner).
+**Aprovação admin**: todo vídeo novo entra com `status="pending"` e só aparece após admin aprovar em `/admin/vitrine`.
+
+**Nota**: home banners (R$299/mês) NÃO passam mais por fila de aprovação desde a Task #56 — ativação automática após upload.
 
 **Endpoint público**: `GET /api/vitrine` retorna até 12 cards (4 fixos + 8 aleatórios) com `{productId, businessId, name, price, videoUrl, photoUrl, whatsapp, businessName}`. **Não cacheia em CDN** — randomização precisa rodar a cada request.
 

@@ -6,6 +6,33 @@
 
 ## 2026-06-03
 
+### Task #56 — Banner Home: upload automático com Sharp (sem aprovação manual)
+
+**Problema**: o fluxo anterior criava o banner com `status="pending_review"` e imageUrl copiado do logo do negócio. O admin precisava aprovar manualmente antes de o banner ir ao ar, gerando fricção operacional e delay de horas ou dias.
+
+**Solução**: substituído por fluxo de upload direto com processamento automático via Sharp.
+
+**Mudanças no backend (`artifacts/api-server`)**:
+- `sharp` adicionado ao `onlyBuiltDependencies` em `pnpm-workspace.yaml` (usa binários pré-compilados — sem build scripts).
+- `routes/stripe.ts` (webhook `checkout.session.completed` + sync `POST /lojista/boosts/sync`): novo banner criado com `status="paid_awaiting_upload"` e `imageUrl=""` (antes: `pending_review` + logoUrl).
+- `routes/lojista.ts`: novo endpoint `POST /api/lojista/home-banner/upload` — valida MIME/tamanho, chama `sharp(buffer).resize(1200, 280, { fit: "cover", position: "attention" }).jpeg({ quality: 85 })`, faz upload para GCS em `home-banners/`, atualiza `status="active"` e `active=true` automaticamente. Lojistas com status `rejected` também podem reenviar imagem via mesmo endpoint.
+- Query `GET /api/lojista/boost-positions`: adicionado `paid_awaiting_upload` ao OR de status visíveis.
+- Resposta `homeBanner` agora inclui `createdAt`.
+
+**Mudanças no frontend (`artifacts/hub-londrina`)**:
+- `LojistaBoost.tsx`: adicionado `useRef` e ícone `Upload`; estados `bannerImageUploading` e `bannerImageRef`; handler `handleBannerImageUpload`; UI do card Banner Home completamente renovada — mostra card de upload azul quando `paid_awaiting_upload`, botão de reenvio quando `rejected`, remove menção a "sujeito a aprovação". Texto de rodapé atualizado.
+- Mensagem pós-sync `home_banner` atualizada para orientar sobre o upload.
+- `AdminHomeBanners.tsx`: tipo `Banner["status"]` agora inclui `paid_awaiting_upload`; label "Pago — aguardando imagem" (azul); aba "Pendentes" inclui ambos os status.
+
+**Schema / docs**:
+- Comentário em `lib/db/src/schema/home-banners.ts` atualizado.
+- `context.md` seção `home_banners` atualizada com novo campo `status` e fluxo.
+- `RULES.md` nota adicionada sobre fim da fila de aprovação para home banners.
+
+**Status legado**: `pending_review` preservado no DB/tipos para banners criados antes desta task — não há migração de dados.
+
+---
+
 ### Task #53 — Identidade Visual (logo + capa) na página "Perfil do Negócio"
 
 **Problema**: o lojista abria `/lojista/perfil` esperando encontrar onde alterar a foto do negócio, mas a página só exibia campos de texto. Os uploads de logo/capa (Task #49) haviam ficado em `/lojista/produtos`, o que é contra-intuitivo.

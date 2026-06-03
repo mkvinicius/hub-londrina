@@ -10,14 +10,15 @@ import {
 import { businessesTable } from "./businesses";
 
 // status:
-//   active          → publicado, aparece na home
-//   pending_review  → lojista pagou via Stripe, aguardando aprovação do admin
-//   rejected        → admin rejeitou (motivo opcional)
-//   expired         → endsAt passou
+//   active                → publicado, aparece na home
+//   paid_awaiting_upload  → lojista pagou via Stripe, aguarda upload da imagem (ativação automática)
+//   pending_review        → LEGADO — mantido para banners criados antes da Task #56
+//   rejected              → admin rejeitou (motivo opcional) — lojista pode reenviar imagem
+//   expired               → endsAt passou
 //
 // requestedBy:
 //   admin           → admin cadastrou diretamente (vai já como active)
-//   lojista         → lojista comprou via Stripe (vai como pending_review)
+//   lojista         → lojista comprou via Stripe (vai como paid_awaiting_upload)
 export const homeBannersTable = pgTable("home_banners", {
   id: serial("id").primaryKey(),
   businessId: integer("business_id").references(() => businessesTable.id, { onDelete: "cascade" }),

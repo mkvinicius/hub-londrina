@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import sharp from "sharp";
 import { loginLimiter } from "../middleware/rateLimiter";
 import multer from "multer";
 import path from "path";
@@ -1290,6 +1291,7 @@ router.get("/lojista/subscriptions", async (req: Request, res: Response) => {
       or(
         eq(homeBannersTable.status, "active"),
         eq(homeBannersTable.status, "pending_review"),
+        eq(homeBannersTable.status, "paid_awaiting_upload"),
       ),
     )).limit(1),
   ]);
@@ -1341,10 +1343,70 @@ router.get("/lojista/subscriptions", async (req: Request, res: Response) => {
       endsAt: homeBanner.endsAt?.toISOString() ?? null,
       daysLeft: daysUntil(homeBanner.endsAt ?? undefined),
       rejectionReason: homeBanner.rejectionReason,
+      createdAt: homeBanner.createdAt?.toISOString() ?? null,
       price: "R$299/mês",
       label: "Banner na Home",
     } : null,
   });
+});
+
+// ─── POST /api/lojista/home-banner/upload ─────────────────────────────────────
+// Lojista que já pagou (status=paid_awaiting_upload) sobe a imagem do banner.
+// Sharp redimensiona para 1200×280px com recorte inteligente (gravity:attention).
+// Banner fica ativo imediatamente — sem aprovação manual do admin.
+// ──────────────────────────────────────────────────────────────────────────────
+router.post("/lojista/home-banner/upload", memoryUpload.single("file"), async (req: Request, res: Response) => {
+  const lojista = (req as any).lojista as LojistaPayload;
+  if (!lojista) { res.status(401).json({ error: "Não autorizado" }); return; }
+
+  if (!req.file) { res.status(400).json({ error: "Nenhum arquivo enviado" }); return; }
+
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
+  if (!allowed.includes(req.file.mimetype)) {
+    res.status(400).json({ error: "Formato inválido. Use JPG, PNG ou WebP." });
+    return;
+  }
+  if (req.file.size > 10 * 1024 * 1024) {
+    res.status(400).json({ error: "Imagem muito grande. Máximo 10 MB." });
+    return;
+  }
+
+  const [existing] = await db.select()
+    .from(homeBannersTable)
+    .where(and(
+      eq(homeBannersTable.businessId, lojista.businessId),
+      or(
+        eq(homeBannersTable.status, "paid_awaiting_upload"),
+        eq(homeBannersTable.status, "rejected"),
+      ),
+    ))
+    .orderBy(desc(homeBannersTable.createdAt))
+    .limit(1);
+
+  if (!existing) {
+    res.status(400).json({ error: "Você não tem um banner pendente de upload. Compre o banner primeiro." });
+    return;
+  }
+
+  try {
+    const processed = await sharp(req.file.buffer)
+      .resize(1200, 280, { fit: "cover", position: "attention" })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const filename = `${lojista.businessId}-${Date.now()}.jpg`;
+    const imageUrl = await uploadBufferToGCS(processed, "home-banners", filename, "image/jpeg");
+
+    await db.update(homeBannersTable)
+      .set({ imageUrl, status: "active", active: true })
+      .where(eq(homeBannersTable.id, existing.id));
+
+    logger.info(`[HomeBanner] Banner ativado automaticamente para biz ${lojista.businessId}, id=${existing.id}`);
+    res.json({ ok: true, imageUrl });
+  } catch (err: any) {
+    logger.error("[HomeBanner] Erro processando imagem:", err.message);
+    res.status(500).json({ error: "Erro ao processar a imagem. Tente novamente." });
+  }
 });
 
 // ─── Sprint 4.3 — DELETE /api/lojista/account (LGPD: anonimização) ───────────
