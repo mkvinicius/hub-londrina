@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice, dismissHiddenPhotosNotice } from "@/lib/lojista-api";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice, dismissHiddenPhotosNotice, uploadLogo, uploadBanner, uploadPhoto, deletePhoto } from "@/lib/lojista-api";
+import { imgSrc } from "@/lib/utils";
 import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle, ArrowLeft, ArrowRight, Star } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -42,6 +43,15 @@ export default function LojistaProdutos() {
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [vitrineUploading, setVitrineUploading] = useState(false);
   const vitrineFileRef = useRef<HTMLInputElement>(null);
+
+  // Uploads de logo, capa e galeria do negócio (não confundir com galeria de produtos)
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bizPhotoUploading, setBizPhotoUploading] = useState(false);
+  const [bizPhotoMsg, setBizPhotoMsg] = useState("");
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
+  const bizPhotoFileRef = useRef<HTMLInputElement>(null);
 
   // Crop modal (galeria de fotos do produto) — abre quando o usuário escolhe um arquivo,
   // recorta em 4:3 antes do upload. Mantém o limite por plano (free=0, destaque=5, premium=8).
@@ -100,6 +110,98 @@ export default function LojistaProdutos() {
       setProfile((prev: any) => prev ? { ...prev, _photosAutoHidden: 0 } : prev);
     } catch {
       // best-effort
+    }
+  }
+
+  // ── Handlers de fotos do negócio (logo, capa, galeria) ──
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (logoFileRef.current) logoFileRef.current.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setBizPhotoMsg("Erro: logo deve ter até 2 MB.");
+      return;
+    }
+    setLogoUploading(true);
+    setBizPhotoMsg("");
+    try {
+      const data: { logoUrl: string } = await uploadLogo(file);
+      setProfile((prev: any) => prev ? { ...prev, logoUrl: data.logoUrl } : prev);
+      setBizPhotoMsg("Logo atualizada com sucesso!");
+      setTimeout(() => setBizPhotoMsg(""), 4000);
+    } catch (err: any) {
+      setBizPhotoMsg(`Erro: ${err.message}`);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (bannerFileRef.current) bannerFileRef.current.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setBizPhotoMsg("Erro: foto de capa deve ter até 5 MB.");
+      return;
+    }
+    setBannerUploading(true);
+    setBizPhotoMsg("");
+    try {
+      const data: { bannerUrl: string } = await uploadBanner(file);
+      setProfile((prev: any) => prev ? { ...prev, bannerUrl: data.bannerUrl } : prev);
+      setBizPhotoMsg("Foto de capa atualizada!");
+      setTimeout(() => setBizPhotoMsg(""), 4000);
+    } catch (err: any) {
+      setBizPhotoMsg(`Erro: ${err.message}`);
+    } finally {
+      setBannerUploading(false);
+    }
+  }
+
+  async function handleBizPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (bizPhotoFileRef.current) bizPhotoFileRef.current.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setBizPhotoMsg("Erro: apenas imagens JPG, PNG ou WebP.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setBizPhotoMsg(`Erro: ${file.name} acima de 10 MB.`);
+      return;
+    }
+    setBizPhotoUploading(true);
+    setBizPhotoMsg("");
+    try {
+      const data: { photoUrl: string } = await uploadPhoto(file);
+      setProfile((prev: any) => {
+        if (!prev) return prev;
+        const photos = Array.isArray(prev.photos) ? [...prev.photos, data.photoUrl] : [data.photoUrl];
+        return { ...prev, photos };
+      });
+      setBizPhotoMsg("Foto adicionada à galeria!");
+      setTimeout(() => setBizPhotoMsg(""), 4000);
+    } catch (err: any) {
+      setBizPhotoMsg(`Erro: ${err.message}`);
+    } finally {
+      setBizPhotoUploading(false);
+    }
+  }
+
+  async function handleBizPhotoDelete(index: number) {
+    if (!confirm("Remover esta foto da galeria do negócio?")) return;
+    try {
+      await deletePhoto(index);
+      setProfile((prev: any) => {
+        if (!prev) return prev;
+        const photos = Array.isArray(prev.photos)
+          ? prev.photos.filter((_: string, i: number) => i !== index)
+          : [];
+        return { ...prev, photos };
+      });
+    } catch (err: any) {
+      setBizPhotoMsg(`Erro: ${err.message}`);
     }
   }
 
@@ -462,6 +564,157 @@ export default function LojistaProdutos() {
         )}
       </p>
 
+      {/* ── Fotos do Negócio (logo, capa, galeria) ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+          <Upload className="w-4 h-4 text-[#d97706]" />
+          <h2 className="text-base font-bold text-gray-800">Fotos do Negócio</h2>
+        </div>
+
+        {bizPhotoMsg && (
+          <div className={`mx-6 mt-4 p-3 rounded-xl text-sm font-medium ${bizPhotoMsg.startsWith("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+            {bizPhotoMsg}
+          </div>
+        )}
+
+        <div className="p-6 space-y-6">
+          {/* Logo */}
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              {profile?.logoUrl ? (
+                <img src={imgSrc(profile.logoUrl)} alt="Logo" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 flex-shrink-0" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center flex-shrink-0">
+                  <Upload className="w-5 h-5 text-gray-400" />
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-bold text-gray-700">Logo do negócio</p>
+                <p className="text-xs text-gray-500">400×400px (1:1) · JPG, PNG, WebP · máx 2 MB</p>
+                <p className="text-xs text-gray-400">Exibida no card de busca e no topo do perfil público</p>
+              </div>
+            </div>
+            <input
+              type="file"
+              ref={logoFileRef}
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => logoFileRef.current?.click()}
+              disabled={logoUploading}
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+            >
+              {logoUploading
+                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <Upload className="w-4 h-4" />}
+              {logoUploading ? "Enviando..." : profile?.logoUrl ? "Trocar logo" : "Enviar logo"}
+            </button>
+          </div>
+
+          {/* Foto de capa */}
+          <div className="border-t border-gray-100 pt-5">
+            {profile?.bannerUrl ? (
+              <div className="mb-3 rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style={{ aspectRatio: "3 / 1" }}>
+                <img src={imgSrc(profile.bannerUrl)} alt="Capa" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="mb-3 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center" style={{ aspectRatio: "3 / 1" }}>
+                <div className="text-center text-gray-400 py-6">
+                  <Upload className="w-7 h-7 mx-auto mb-1 opacity-50" />
+                  <p className="text-xs">Sem foto de capa</p>
+                </div>
+              </div>
+            )}
+            <p className="text-sm font-bold text-gray-700 mb-0.5">Foto de capa (banner)</p>
+            <p className="text-xs text-gray-500 mb-3">
+              1200×400px (proporção 3:1) · JPG, PNG, WebP · máx 5 MB · Aparece no topo do perfil público do negócio
+            </p>
+            <input
+              type="file"
+              ref={bannerFileRef}
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleBannerUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => bannerFileRef.current?.click()}
+              disabled={bannerUploading}
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+            >
+              {bannerUploading
+                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <Upload className="w-4 h-4" />}
+              {bannerUploading ? "Enviando..." : profile?.bannerUrl ? "Trocar capa" : "Enviar foto de capa"}
+            </button>
+          </div>
+
+          {/* Galeria do negócio */}
+          <div className="border-t border-gray-100 pt-5">
+            <div className="flex items-start justify-between gap-4 mb-1">
+              <div>
+                <p className="text-sm font-bold text-gray-700">Galeria de fotos</p>
+                <p className="text-xs text-gray-500">Mín. 800px de largura · JPG, PNG, WebP · máx 10 MB por foto</p>
+              </div>
+              <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0 mt-1">
+                {(profile?.photos || []).length}/{photoLimit === 999 ? "∞" : photoLimit} fotos
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              Aparecem na aba "Galeria" do perfil público.
+              {profile?.planType === "free" && (
+                <> &nbsp;<a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Upgrade</a> para Destaque (10 fotos) ou Premium (ilimitado).</>
+              )}
+            </p>
+
+            {Array.isArray(profile?.photos) && profile.photos.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 mb-3">
+                {(profile.photos as string[]).map((url: string, i: number) => (
+                  <div key={`biz-photo-${i}`} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                    <img src={imgSrc(url)} alt={`Galeria ${i + 1}`} className="w-full aspect-square object-cover" />
+                    {i === 0 && (
+                      <span className="absolute top-1 left-1 text-[10px] font-bold bg-[#d97706] text-white px-1.5 py-0.5 rounded">
+                        Capa
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      title="Remover"
+                      onClick={() => handleBizPhotoDelete(i)}
+                      className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <input
+              type="file"
+              ref={bizPhotoFileRef}
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleBizPhotoUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => bizPhotoFileRef.current?.click()}
+              disabled={bizPhotoUploading || (profile?.photos || []).length >= (photoLimit === 999 ? 9999 : photoLimit)}
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {bizPhotoUploading
+                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <Plus className="w-4 h-4" />}
+              {bizPhotoUploading ? "Enviando..." : "Adicionar foto"}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {msg && (
         <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${msg.startsWith("Erro") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
           {msg}
@@ -543,7 +796,7 @@ export default function LojistaProdutos() {
                     <span className="text-sm font-medium">
                       {uploading ? "Enviando..." : "Clique para selecionar arquivo"}
                     </span>
-                    <span className="text-xs text-gray-400">JPG, PNG, WebP (máx 10MB) · MP4 (máx 50MB)</span>
+                    <span className="text-xs text-gray-400">JPG, PNG, WebP (máx 10MB) · MP4 (máx 50MB) · Imagem: recomendado 800×600px (4:3)</span>
                   </button>
                   {uploadPreview && (
                     <img src={uploadPreview} alt="Preview" className="mt-3 w-full max-h-48 rounded-xl object-cover border border-gray-200" />
@@ -654,7 +907,7 @@ export default function LojistaProdutos() {
               ) : (
                 <>
                   <p className="text-xs text-gray-500 mb-3">
-                    MP4 mostrando o produto em 360° (até 50 MB). Aparece no perfil público com botão "Ver em 360°".
+                    MP4 mostrando o produto em 360° (até 50 MB) · 720p ou 1080p, formato horizontal (16:9). Aparece no perfil público com botão "Ver em 360°".
                   </p>
                   <input
                     type="file"
@@ -720,7 +973,7 @@ export default function LojistaProdutos() {
                   <label className="text-sm font-bold text-gray-700">Vídeo da Vitrine (opcional)</label>
                 </div>
                 <p className="text-xs text-gray-500 mb-3">
-                  MP4 vertical de até 20 MB / 60s. Após o upload, nossa equipe revisa antes do
+                  MP4 vertical de até 20 MB / 60s · 9:16 · recomendado 1080×1920px. Após o upload, nossa equipe revisa antes do
                   vídeo entrar na rotação aleatória da home (até 12 vagas).
                 </p>
 

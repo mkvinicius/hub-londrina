@@ -255,7 +255,7 @@ export default function AdminPatrocinadores() {
                     className="text-sm"
                     data-testid="input-partner-logo"
                   />
-                  <p className="text-xs text-gray-400 mt-1">PNG/JPG/WEBP/SVG até 2MB. Prefira fundo transparente.</p>
+                  <p className="text-xs text-gray-400 mt-1">PNG/JPG/WEBP/SVG até 2MB · máx 300×200px recomendado. Prefira fundo transparente (PNG/SVG).</p>
                   {uploading && <p className="text-xs text-amber-600 mt-1">Enviando...</p>}
                 </div>
               </div>

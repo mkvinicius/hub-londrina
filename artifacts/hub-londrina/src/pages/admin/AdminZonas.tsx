@@ -404,6 +404,7 @@ export default function AdminZonas() {
                   onChange={e => setZoneForm({ ...zoneForm, bannerUrl: e.target.value })}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
                 />
+                <p className="text-xs text-gray-400 mt-1">Dimensão recomendada: 1200×400px (proporção 3:1). Prefira imagem horizontal sem textos importantes nas bordas.</p>
               </div>
               <button
                 onClick={handleSaveZone}

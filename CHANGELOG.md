@@ -6,6 +6,33 @@
 
 ## 2026-06-03
 
+### Task #49 — Orientações de tamanho de foto + seção "Fotos do Negócio" no painel lojista
+
+**Problema duplo:**
+1. Nenhum campo de upload exibia dimensões recomendadas em pixels — lojistas enviavam logos de 50×50px ou banners quadrados.
+2. Maior descoberta: `uploadLogo`, `uploadBanner`, `uploadPhoto` existiam no backend (e em `lojista-api.ts`) mas **nunca eram chamadas** em nenhuma tela. O lojista não tinha como fazer upload de logo, capa ou galeria do negócio.
+
+**Correções em `LojistaProdutos.tsx`:**
+- Nova seção **"Fotos do Negócio"** adicionada no topo da página (antes da lista de produtos), com três blocos:
+  - **Logo**: preview circular, hint `400×400px (1:1) · JPG, PNG, WebP · máx 2 MB`, chama `uploadLogo()`.
+  - **Foto de capa**: preview retangular 3:1, hint `1200×400px (3:1) · máx 5 MB`, chama `uploadBanner()`.
+  - **Galeria**: grid de thumbs com botão de remover, hint `mín. 800px de largura · máx 10 MB/foto`, chama `uploadPhoto()` / `deletePhoto()`. Respeita limite por plano (free=1, destaque=10, premium=∞) conforme `RULES.md R11`.
+- Hint do campo **Mídia do Produto** melhorado: `+ Imagem: recomendado 800×600px (4:3)`.
+- Hint do **Vídeo 360°** melhorado: `+ 720p ou 1080p, formato horizontal (16:9)`.
+- Hint do **Vídeo da Vitrine** melhorado: `+ 9:16 · recomendado 1080×1920px`.
+
+**Correções no painel admin:**
+- `AdminHomeBanners.tsx`: hint `Dimensão recomendada: 1200×400px (3:1)` abaixo do campo URL da imagem.
+- `AdminZonas.tsx`: hint `Dimensão recomendada: 1200×400px (3:1)` abaixo do campo URL do banner da zona.
+- `AdminPatrocinadores.tsx`: hint atualizado para incluir `máx 300×200px recomendado` além do já existente.
+
+**Dimensões padronizadas** (referência para todo o sistema):
+Logo `400×400px (1:1)` · Capa `1200×400px (3:1)` · Galeria negócio `≥800px` · Mídia produto `800×600px (4:3)` · Vídeo 360° `16:9` · Vitrine `1080×1920px (9:16)` · Logo parceiro `300×200px`
+
+**Nenhum invariante novo** adicionado ao `RULES.md` — R11 já cobria os limites de galeria por plano.
+
+---
+
 ### Task #47 — Bugfix: vídeos/fotos da aba Vitrine não carregavam (imgSrc ausente)
 
 **Sintoma**: na aba **Vitrine** de `/negocio/:id`, cards de produto mostravam ícone "?" no lugar do vídeo ou da foto de capa.

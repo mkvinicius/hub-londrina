@@ -270,6 +270,7 @@ export default function AdminHomeBanners() {
                 placeholder={selectedBiz?.logoUrl ? "(usa logo do negócio)" : "https://..."}
                 className={inputClass}
               />
+              <p className="text-xs text-gray-400 mt-1">Dimensão recomendada: 1200×400px (proporção 3:1). Use imagem pública acessível por HTTPS.</p>
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Expira em (opcional)</label>
