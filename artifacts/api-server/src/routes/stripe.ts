@@ -610,13 +610,10 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
 
   const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, lojista.businessId));
   if (!business) return res.status(404).json({ error: "Negócio não encontrado" });
-  if (business.status !== "active" || !business.isVisible) {
-    return res.status(400).json({
-      error: "Seu negócio precisa estar ativo e visível para anunciar na Home.",
-      code: "BUSINESS_INACTIVE",
-    });
-  }
 
+  // Gate de plano PRIMEIRO (R1): o motivo real do bloqueio para um lojista free
+  // é o plano, não a visibilidade. Inverter esta ordem mostra "negócio inativo"
+  // para quem na verdade só precisa fazer upgrade — confuso e esconde o gate.
   const planType = business.planType || "free";
   if (planType !== "premium") {
     return res.status(403).json({
@@ -624,6 +621,14 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
       code: "PLAN_REQUIRED",
       requiredPlan: "premium",
       currentPlan: planType,
+    });
+  }
+
+  // Só então valida estado do negócio (já é premium, mas pode estar inativo/oculto)
+  if (business.status !== "active" || !business.isVisible) {
+    return res.status(400).json({
+      error: "Seu negócio precisa estar ativo e visível para anunciar na Home.",
+      code: "BUSINESS_INACTIVE",
     });
   }
 

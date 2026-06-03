@@ -6,6 +6,19 @@
 
 ## 2026-06-03
 
+### Bugfix — home-banner/checkout retornava BUSINESS_INACTIVE em vez de PLAN_REQUIRED para lojista free
+
+**Sintoma**: o teste `R1 home-banner/checkout bloqueia free` em `validate-lojista-rules.mjs` falhava — esperava 403 `PLAN_REQUIRED` mas recebia 400 `BUSINESS_INACTIVE`.
+
+**Causa raiz**: em `artifacts/api-server/src/routes/stripe.ts`, o endpoint `POST /api/lojista/home-banner/checkout` checava `status !== "active" || !isVisible` **antes** do gate de plano. Como lojista free nasce `isVisible=false` por design, batia na guarda de visibilidade e nunca chegava ao check de plano. Todos os outros endpoints de checkout já tinham o gate de plano primeiro — só o home-banner estava invertido.
+
+**Correção**: invertida a ordem das duas guards — gate de plano (`planType !== "premium"` → 403 `PLAN_REQUIRED`) agora vem primeiro; checagem de `BUSINESS_INACTIVE` só depois. Faz sentido de produto também: free deve ouvir "exclusivo Premium", não "negócio inativo".
+
+**Prova**: `node scripts/src/validate-lojista-rules.mjs` → 10/10 ✓.
+**RULES.md**: nova diretriz em R1 — gate de plano sempre vem antes de checagens de estado do negócio em endpoints de checkout.
+
+---
+
 ### Task #59 — Selo "Verificado" aparece automaticamente após aprovação de documentação
 
 **Problema**: o badge "Verificado" (pill verde ✓) estava implementado no frontend (`BusinessCard.tsx` e `negocio.tsx`) mas **nunca aparecia** para nenhum lojista — mesmo após o admin aprovar toda a documentação. O campo `businesses.verified` permanecia `false` indefinidamente.

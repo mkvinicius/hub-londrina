@@ -27,6 +27,8 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 
 **Plan check sempre lê do DB** (nunca do JWT, que pode estar desatualizado).
 
+**Ordem das guards de checkout**: o **gate de plano vem PRIMEIRO**, antes de qualquer checagem de estado do negócio (`status`/`isVisible`). Para um lojista free o motivo real do bloqueio é o plano — retornar `BUSINESS_INACTIVE` antes de `PLAN_REQUIRED` esconde o gate e confunde o usuário (free nasce `isVisible=false` por design). Vale para todos os endpoints de checkout, incluindo `POST /api/lojista/home-banner/checkout`.
+
 ---
 
 ### R1.1 · Seção Patrocinadores na home (Task #31)

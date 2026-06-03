@@ -643,7 +643,7 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 - **Boost Avulso** (`boostContext=search`, `boostType=avulso`): 7/15/30 dias (R$29/R$49/R$79). Lojista solicita via WhatsApp e admin adiciona manualmente em `/admin/impulsionamento`.
 - **Destaque Home + Busca** (`boostContext=home_search`): 6 slots globais com 3 posições numeradas. Aparece no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente. Price ID: `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`.
 - **Destaque de Zona** (`boostContext=zone`): destaque na página da zona por 30 dias (R$79). Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
-- **Banner na Home** (`home_banners`): R$299/mês, máx. 2 lojistas simultâneos. Exclusivo Premium e sujeito a aprovação do admin antes de publicar.
+- **Banner na Home** (`home_banners`): R$299/mês, máx. 2 lojistas simultâneos. Exclusivo Premium. Sem fila de aprovação desde a Task #56 — após pagamento o lojista faz upload da imagem e o Sharp processa (1200×280) e ativa automaticamente. Gate de plano (`PLAN_REQUIRED`) é checado ANTES do estado do negócio (`BUSINESS_INACTIVE`) em `POST /api/lojista/home-banner/checkout`.
 - **Boost Direto Admin** (`businesses.boostedUntil`): admin define período sem cobrança (cortesia/promoção interna). Sobrescreve `boostedUntil` direto no negócio.
 
 **UX de bloqueio (regra R12):** todo card de impulsionamento em `LojistaBoost.tsx` exibe:
