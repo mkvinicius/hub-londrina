@@ -87,8 +87,16 @@ URLs de mídia salvas no DB são `/storage/objects/uploads/{folder}/{file}`. O h
 
 ---
 
-### R7 · Stripe sync pós-checkout (não confiar só no webhook)
+### R7 · Stripe sync pós-pagamento (não confiar só no webhook)
+
+**Fluxo A — Checkout novo** (lojista sem assinatura ativa):
 Todo `success_url` de checkout Stripe **deve incluir** `&session_id={CHECKOUT_SESSION_ID}`. O frontend (`LojistaDashboard.tsx`, `LojistaBoost.tsx`) detecta esse param e chama `/lojista/stripe/sync` ou `/lojista/boosts/sync` para garantir ativação imediata mesmo se o webhook atrasar.
+
+**Fluxo B — Portal Stripe** (lojista com assinatura ativa fazendo upgrade/downgrade):
+Lojistas com assinatura ativa são redirecionados ao Portal do Stripe (não ao checkout), que **não emite `session_id`**. O `return_url` do portal **deve incluir** `?portal_return=1`. `LojistaPlano.tsx` detecta esse param, chama `POST /lojista/stripe/sync` sem `sessionId` (o endpoint tem fallback que busca a subscription ativa por `stripeCustomerId`), e faz polling até `profile.planType === targetPlanType` retornado pelo sync — não apenas `!== "free"`, pois o plano antigo (destaque) já satisfaria essa condição.
+
+**Fallback de sync sem sessionId** (`POST /lojista/stripe/sync`, `stripe.ts`):
+Quando `sessionId` é ausente, busca `stripeCustomerId` em `subscriptions`, chama `stripe.subscriptions.list({ status: "active", limit: 1 })`, cai para `status: "all"` se não encontrar ativa.
 
 **Sync routes devem ser idempotentes** (checar `existingMine` antes de inserir, usar mesmas `pg_advisory_xact_lock` do webhook).
 

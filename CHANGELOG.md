@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-06-03
+
+### Task #44 — Bugfix: planType não sincronizava após upgrade via Portal Stripe
+
+**Sintoma**: lojista que fazia upgrade de Base/Destaque → Premium via Portal do Stripe continuava vendo todos os recursos Premium bloqueados (banner, boost de categoria, home search) após retornar ao painel.
+
+**Causa raiz**: `POST /stripe/portal` retornava `return_url="/lojista/plano"` sem nenhum sinal de sucesso. `LojistaPlano.tsx` só acionava sync/polling quando `?success=1` estava na URL — flag que nunca aparece no fluxo do portal (sem `session_id`). O único mecanismo restante era o webhook do Stripe, que pode não estar configurado.
+
+**Observação importante**: o endpoint `POST /lojista/stripe/sync` **já tinha** fallback sem `sessionId` (linhas ~165-178 de `stripe.ts`): quando `sessionId` é ausente, busca `stripeCustomerId` da tabela `subscriptions` e chama `stripe.subscriptions.list` diretamente. A correção foi feita sem criar novo endpoint.
+
+**Correções**:
+- `artifacts/api-server/src/routes/stripe.ts`:
+  - `return_url` do portal: `/lojista/plano` → `/lojista/plano?portal_return=1`
+  - Fallback de sync sem sessionId agora prefere `status="active"` (upgrade via portal entra imediatamente ativo), cai para `status="all"` se não encontrar ativa (ex: trialing/past_due)
+- `artifacts/hub-londrina/src/pages/lojista/LojistaPlano.tsx`:
+  - Detecta `?portal_return=1`, limpa URL, chama `POST /lojista/stripe/sync` (sem sessionId), faz polling até `profile.planType === targetPlanType` (plano confirmado pelo sync) — evita parada prematura em upgrades destaque→premium onde `planType !== "free"` já era satisfeito pelo plano antigo
+  - Banner azul "Sincronizando seu plano com o Stripe..." durante o polling (separado do banner verde de novo checkout)
+- `artifacts/hub-londrina/src/pages/lojista/LojistaBoost.tsx`:
+  - Botão "Sincronizar plano agora" exibido **apenas** quando `planType === "destaque"` — exatamente o cenário de upgrade Base→Premium com plano desatualizado no frontend
+
+**Regra criada**: ver RULES.md R7 (estendida para cobrir fluxo de portal).
+
+---
+
 ## 2026-05-16
 
 ### Task #35 — Páginas /contato e /faq + admin
