@@ -134,6 +134,13 @@ export async function deletePhoto(index: number) {
   return lojistaFetch(`/lojista/photos/${index}`, { method: "DELETE" });
 }
 
+export async function reorderPhotos(photos: string[]) {
+  return lojistaFetch("/lojista/photos/reorder", {
+    method: "PUT",
+    body: JSON.stringify({ photos }),
+  });
+}
+
 export async function lookupCep(cep: string) {
   return lojistaFetch(`/lojista/cep/${cep}`);
 }

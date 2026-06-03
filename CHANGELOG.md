@@ -16,7 +16,13 @@
 - Nova seção **"Fotos do Negócio"** adicionada no topo da página (antes da lista de produtos), com três blocos:
   - **Logo**: preview circular, hint `400×400px (1:1) · JPG, PNG, WebP · máx 2 MB`, chama `uploadLogo()`.
   - **Foto de capa**: preview retangular 3:1, hint `1200×400px (3:1) · máx 5 MB`, chama `uploadBanner()`.
-  - **Galeria**: grid de thumbs com botão de remover, hint `mín. 800px de largura · máx 10 MB/foto`, chama `uploadPhoto()` / `deletePhoto()`. Respeita limite por plano (free=1, destaque=10, premium=∞) conforme `RULES.md R11`.
+  - **Galeria**: grid de thumbs com ← → "Tornar Capa" e "Remover", hint `mín. 800px de largura · máx 10 MB/foto`, chama `uploadPhoto()` / `deletePhoto()` / `reorderPhotos()`. Respeita limite por plano (free=1, destaque=10, premium=∞) conforme `RULES.md R11`.
+
+**Nova rota backend** (`artifacts/api-server/src/routes/lojista.ts`):
+- `PUT /lojista/photos/reorder` — reordena `businesses.photos[]`. Valida que o payload contém exatamente as mesmas URLs (sem adição/remoção), só muda a ordem. Retorna `{ photos: string[] }`.
+
+**Nova função na API client** (`artifacts/hub-londrina/src/lib/lojista-api.ts`):
+- `reorderPhotos(photos: string[])` — chama `PUT /lojista/photos/reorder`.
 - Hint do campo **Mídia do Produto** melhorado: `+ Imagem: recomendado 800×600px (4:3)`.
 - Hint do **Vídeo 360°** melhorado: `+ 720p ou 1080p, formato horizontal (16:9)`.
 - Hint do **Vídeo da Vitrine** melhorado: `+ 9:16 · recomendado 1080×1920px`.

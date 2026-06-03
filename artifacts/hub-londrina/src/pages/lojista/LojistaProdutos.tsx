@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice, dismissHiddenPhotosNotice, uploadLogo, uploadBanner, uploadPhoto, deletePhoto } from "@/lib/lojista-api";
+import { getProfile, getProducts, createProduct, updateProduct, deleteProduct, getLojistaToken, uploadVitrineVideo, dismissDeactivationNotice, dismissHiddenPhotosNotice, uploadLogo, uploadBanner, uploadPhoto, deletePhoto, reorderPhotos } from "@/lib/lojista-api";
 import { imgSrc } from "@/lib/utils";
 import { Plus, Trash2, Edit2, X, Check, Upload, Link2, Video, Clock, AlertTriangle, ArrowLeft, ArrowRight, Star } from "lucide-react";
 
@@ -202,6 +202,35 @@ export default function LojistaProdutos() {
       });
     } catch (err: any) {
       setBizPhotoMsg(`Erro: ${err.message}`);
+    }
+  }
+
+  async function handleBizPhotoMove(index: number, dir: -1 | 1) {
+    if (!Array.isArray(profile?.photos)) return;
+    const arr = [...(profile.photos as string[])];
+    const j = index + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    setProfile((prev: any) => prev ? { ...prev, photos: arr } : prev);
+    try {
+      await reorderPhotos(arr);
+    } catch (err: any) {
+      setBizPhotoMsg(`Erro ao reordenar: ${err.message}`);
+      setProfile((prev: any) => prev ? { ...prev, photos: profile.photos } : prev);
+    }
+  }
+
+  async function handleBizMakeCover(index: number) {
+    if (!Array.isArray(profile?.photos) || index <= 0) return;
+    const arr = [...(profile.photos as string[])];
+    const [picked] = arr.splice(index, 1);
+    arr.unshift(picked);
+    setProfile((prev: any) => prev ? { ...prev, photos: arr } : prev);
+    try {
+      await reorderPhotos(arr);
+    } catch (err: any) {
+      setBizPhotoMsg(`Erro ao reordenar: ${err.message}`);
+      setProfile((prev: any) => prev ? { ...prev, photos: profile.photos } : prev);
     }
   }
 
@@ -680,14 +709,44 @@ export default function LojistaProdutos() {
                         Capa
                       </span>
                     )}
-                    <button
-                      type="button"
-                      title="Remover"
-                      onClick={() => handleBizPhotoDelete(i)}
-                      className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="absolute inset-x-0 bottom-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 py-1">
+                      <button
+                        type="button"
+                        title="Mover para esquerda"
+                        onClick={() => handleBizPhotoMove(i, -1)}
+                        disabled={i === 0}
+                        className="text-white disabled:opacity-30 hover:text-[#FF9800]"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                      </button>
+                      {i !== 0 && (
+                        <button
+                          type="button"
+                          title="Tornar capa"
+                          onClick={() => handleBizMakeCover(i)}
+                          className="text-white hover:text-[#FF9800]"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        title="Mover para direita"
+                        onClick={() => handleBizPhotoMove(i, 1)}
+                        disabled={i === (profile.photos as string[]).length - 1}
+                        className="text-white disabled:opacity-30 hover:text-[#FF9800]"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Remover"
+                        onClick={() => handleBizPhotoDelete(i)}
+                        className="text-white hover:text-red-400"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

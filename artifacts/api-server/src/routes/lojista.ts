@@ -419,6 +419,44 @@ router.delete("/lojista/photos/:index", async (req: Request, res: Response) => {
   res.json({ photos: newPhotos });
 });
 
+router.put("/lojista/photos/reorder", async (req: Request, res: Response) => {
+  const { businessId } = (req as any).lojista;
+  const { photos } = req.body;
+
+  if (!Array.isArray(photos) || !photos.every((u: unknown) => typeof u === "string")) {
+    res.status(400).json({ error: "photos deve ser um array de strings" });
+    return;
+  }
+
+  const [business] = await db
+    .select({ photos: businessesTable.photos })
+    .from(businessesTable)
+    .where(eq(businessesTable.id, businessId));
+
+  if (!business) {
+    res.status(404).json({ error: "Negócio não encontrado" });
+    return;
+  }
+
+  const current = new Set<string>(business.photos || []);
+  const incoming = new Set<string>(photos);
+  const sameSet =
+    current.size === incoming.size &&
+    [...current].every(u => incoming.has(u));
+
+  if (!sameSet) {
+    res.status(400).json({ error: "A lista de reordenação deve conter exatamente as mesmas fotos" });
+    return;
+  }
+
+  await db
+    .update(businessesTable)
+    .set({ photos })
+    .where(eq(businessesTable.id, businessId));
+
+  res.json({ photos });
+});
+
 router.get("/lojista/cep/:cep", async (req: Request, res: Response) => {
   // Pentest fix — SSRF/path-injection: aceita só 8 dígitos antes de chamar
   // a ViaCEP. `replace` já tira tudo que não é dígito; regex confirma.
