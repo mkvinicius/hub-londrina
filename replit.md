@@ -44,11 +44,11 @@ Diretório SaaS de negócios locais de Londrina/PR.
 
 **Endpoints chave** (resumo — ver código para lista completa):
 - Público: `/api/businesses`, `/api/search`, `/api/categories`, `/api/zones[/:slug]`, `/api/businesses/:id/reviews`, `/api/home-banners`, `/api/partners`, `/api/stripe/config`, `/api/legal-config`, `/api/faqs`, `/api/contact-messages` (POST, CSRF + rate-limit 5/h/IP)
-- Lojista: `/api/lojista/{login,profile,upload/*,products,metrics,reviews/:id/respond,boosts/*,home-banner/*,support,stripe/sync,boosts/sync,account}`
+- Lojista: `/api/lojista/{login,profile,upload/*,products,metrics,reviews/:id/respond,boosts/*,home-banner/*,home-banner/upload,support,stripe/sync,boosts/sync,account}`
 - Admin: `/api/admin/{login,stats,businesses,categories,zones,boosts,home-banners,partners,upload/partner-logo,reviews,audit-log,support,placements,impersonate/:businessId,legal-config,contact-messages,faqs}`
 - Stripe: `/api/stripe/{config,checkout,portal,subscription,invoices,webhook}`
 
-**Boost system** (resumo): 4 contextos — `category` (5 posições mensais Premium R$149→R$59), `zone` (6 vagas/zona Destaque+ R$79), `home_search` (6 vagas Premium R$149), `home_banner` (Premium R$299/mês com aprovação admin). Avulso 7/15/30d via WhatsApp. Locks `pg_advisory_xact_lock` em `lib/boost-locks.ts`. Expiração horária via `boost-expiration.ts`.
+**Boost system** (resumo): 4 contextos — `category` (5 posições mensais Premium R$149→R$59), `zone` (6 vagas/zona Destaque+ R$79), `home_search` (6 vagas Premium R$149), `home_banner` (Premium R$299/mês — lojista faz upload após pagamento, ativação automática via Sharp 1200×280). Avulso 7/15/30d via WhatsApp. Locks `pg_advisory_xact_lock` em `lib/boost-locks.ts`. Expiração horária via `boost-expiration.ts`.
 
 **API client gerado**: `@workspace/api-client-react` — hooks Orval (apenas para públicos). Admin/lojista usam `src/lib/{admin,lojista}-api.ts` direto.
 

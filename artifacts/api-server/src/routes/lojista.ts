@@ -1370,6 +1370,10 @@ router.post("/lojista/home-banner/upload", memoryUpload.single("file"), async (r
     res.status(400).json({ error: "Imagem muito grande. Máximo 10 MB." });
     return;
   }
+  if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido." });
+    return;
+  }
 
   const [existing] = await db.select()
     .from(homeBannersTable)

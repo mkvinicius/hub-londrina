@@ -627,19 +627,26 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
     });
   }
 
-  // Não permite comprar se já tem banner ativo ou pending_review
+  // Não permite comprar se já tem banner ativo, aguardando upload ou em análise
   const existing = await db.select().from(homeBannersTable).where(
     and(
       eq(homeBannersTable.businessId, lojista.businessId),
-      or(eq(homeBannersTable.status, "active"), eq(homeBannersTable.status, "pending_review"))!,
+      or(
+        eq(homeBannersTable.status, "active"),
+        eq(homeBannersTable.status, "paid_awaiting_upload"),
+        eq(homeBannersTable.status, "pending_review"),
+      )!,
     )
   );
   if (existing.length > 0) {
+    const st = existing[0].status;
     return res.status(400).json({
-      error: existing[0].status === "active"
+      error: st === "active"
         ? "Você já tem um banner ativo na Home."
-        : "Sua solicitação de banner está em análise pelo admin.",
-      code: existing[0].status === "active" ? "ALREADY_ACTIVE" : "ALREADY_PENDING",
+        : st === "paid_awaiting_upload"
+          ? "Você já pagou pelo banner. Vá até a seção Banner na Home para enviar a imagem."
+          : "Sua solicitação de banner está em análise.",
+      code: st === "active" ? "ALREADY_ACTIVE" : "ALREADY_PENDING",
     });
   }
 
