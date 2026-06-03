@@ -6,6 +6,21 @@
 
 ## 2026-06-03
 
+### Documentação — fonte única de verdade + offline para todos os planos ao expirar (Task #63, revoga R2-A)
+
+**Problema**: o estado da documentação vivia em 3 lugares que divergiam. Em produção: negócio #44 (premium) com `documentation_status='approved'` mas os 3 docs ainda `submitted` (banner verde "aprovada" mentindo enquanto os cards mostravam "Em análise"); negócio #43 (destaque) com 3 docs realmente aprovados porém `verified=false` (selo público não aparecia). Além disso, o usuário ajustou a regra de prazo/visibilidade.
+
+**Nova regra (R2 reescrito)**:
+- **Fonte única de verdade** (`lib/documentation-state.ts → syncDocumentationState`): `documentationStatus`, `documentationTimerPaused` e `businesses.verified` são sempre **derivados** de `business_documents.status`. Chamado em upload (lojista), approve/reject (admin) e no heal de startup. `verified=true` sse os 3 docs aprovados.
+- **Timer com banco de dias (banking)**: decrementa só em dias ativos (`pending`/`rejected`, não pausado). Enviar os 3 docs pausa (congela o saldo); rejeição retoma do saldo congelado. Não deriva mais o restante de `firstLoginAt`. Countdown por email só nos marcos {7, 3, 1}.
+- **Offline para TODOS os planos ao expirar**: quando os dias ativos zeram sem aprovação → `documentationStatus='expired'` + `businesses.isVisible=false` para qualquer plano (free, base/destaque, premium). **Revoga o antigo R2-A** (loja paga continuava visível). Email `documentacaoExpirada(nome)` agora com cópia "offline independente do plano".
+- **Trilho de pagamento guardado**: webhook (checkout/invoice), `stripe/sync` e `healPaidInvisibleBusinesses()` só setam `isVisible=true` quando `isDocumentationExpired(businessId) === false`. Pagamento **não** republica loja expirada — só a aprovação dos 3 docs religa.
+- **Reconciliação histórica**: `healDocumentationConsistency()` roda `syncDocumentationState` para todos os negócios no startup (corrige #43/#44). Conservador: não tira loja visível do ar retroativamente.
+
+**Arquivos**: `lib/documentation-state.ts` (novo), `routes/documents.ts`, `lib/documentation-job.ts`, `lib/startup-heal.ts`, `index.ts`, `routes/stripe.ts` (3 guards), `services/email.ts`, `LojistaDocumentacao.tsx`, `AdminDocumentacao.tsx`.
+
+**Provas (dev)**: (1) heal reconciliou negócio com agregado mentindo `submitted`+offline → `approved`/`verified=true`/`isVisible=true`. (2) reject → `verified=false`/`rejected`. (3) loja **destaque** `remaining=1`/`pending` → cron → `expired`+`isVisible=false`. (4) loja paga (assinatura ativa) com docs `expired` → `healPaidInvisibleBusinesses` **não** republicou. `validate-lojista-rules` verde.
+
 ### UI — Perfil do negócio: capa limpa + linha única de meta-informações reordenada
 
 **Problema**: na página `/negocio/:id`, os badges **Premium** e de **nota ("0 (0)")** flutuavam sobre a borda inferior da foto de capa em posições desencontradas, com aspecto bagunçado. A linha de meta-tags abaixo também tinha ordem pouco intuitiva (categoria antes do local).

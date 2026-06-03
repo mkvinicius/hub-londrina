@@ -148,21 +148,18 @@ export const emails = {
     `,
   }),
 
-  documentacaoExpirada: (nome: string, planoPago: boolean = false) => ({
-    subject: planoPago
-      ? `⚠️ Prazo da documentação venceu — envie para conseguir o selo Verificado`
-      : `🔴 Sua loja está offline — regularize a documentação`,
+  // Task #63 — Prazo da documentação venceu: a loja fica OFFLINE para TODOS os
+  // planos (gratuito e pagos). Pagar não basta — só a APROVAÇÃO dos 3 documentos
+  // pela equipe republica a loja. Enviar os documentos não republica sozinho.
+  documentacaoExpirada: (nome: string) => ({
+    subject: `🔴 Sua loja está offline — documentação vencida`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-        <h2 style="color:${planoPago ? "#d97706" : "#dc2626"}">Prazo da documentação encerrado</h2>
+        <h2 style="color:#dc2626">Prazo da documentação encerrado</h2>
         <p>Olá, <strong>${nome}</strong>!</p>
-        ${
-          planoPago
-            ? `<p>Os 10 dias para envio da documentação acabaram. <strong>Como você tem plano pago, sua loja segue publicada normalmente</strong> — todos os benefícios do plano continuam ativos. Mas, sem documentação aprovada, você não recebe o <strong>selo "Verificado"</strong> no perfil público (que aumenta a confiança dos clientes).</p>`
-            : `<p>O prazo para envio da documentação expirou e sua loja do plano gratuito foi temporariamente removida da listagem pública do Hub Londrina.</p>
-               <p>Para reativar, envie os 3 documentos solicitados. Assim que aprovados pela nossa equipe, sua loja volta ao ar.</p>`
-        }
-        <p><a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:${planoPago ? "#d97706" : "#dc2626"};color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">${planoPago ? "Enviar documentação" : "Regularizar agora"}</a></p>
+        <p>O prazo para envio da documentação expirou e <strong>sua loja foi removida da listagem pública do Hub Londrina</strong>. Isso vale para todos os planos — inclusive os pagos. Seu plano e os benefícios contratados continuam ativos, mas a loja só volta a aparecer após a regularização.</p>
+        <p>Para reativar, envie os 3 documentos solicitados. <strong>Sua loja volta ao ar somente após a aprovação pela nossa equipe</strong> — o envio sozinho não republica automaticamente.</p>
+        <p><a href="https://www.hublondrina.com.br/lojista/documentacao" style="background:#dc2626;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Regularizar agora</a></p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
         <p style="color:#888;font-size:12px">Hub Londrina — O guia de negócios locais feito por quem é de Londrina.</p>
       </div>

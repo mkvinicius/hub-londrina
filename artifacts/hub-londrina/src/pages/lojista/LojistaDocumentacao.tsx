@@ -127,18 +127,26 @@ export default function LojistaDocumentacao() {
             Envie os 3 documentos abaixo para validar oficialmente sua loja. A análise é feita pela nossa equipe em até 24h após o envio.
           </p>
           <p className="text-xs text-gray-500 mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <strong>📌 Importante:</strong> a análise da documentação é <strong>independente do pagamento do plano</strong>. Pagar o plano não aprova automaticamente seus documentos, e ter documentos pendentes não bloqueia os benefícios do plano que você pagou. O que a documentação aprovada libera é o <strong>selo "Verificado"</strong> no seu perfil público (e, no plano gratuito, mantém sua loja online após o prazo de 10 dias).
+            <strong>📌 Importante:</strong> envie os 3 documentos dentro do prazo de <strong>10 dias</strong>. Se o prazo vencer sem documentação aprovada, <strong>sua loja sai do ar para qualquer plano</strong> — inclusive os pagos. Pagar o plano não republica sozinho, e <strong>enviar os documentos também não</strong>: a loja só volta a aparecer <strong>após a aprovação pela nossa equipe</strong>. A documentação aprovada também libera o <strong>selo "Verificado"</strong> no seu perfil público.
           </p>
         </div>
 
         {data && (() => {
-          const s = data.documentationStatus;
+          // Task #63 — a fonte de verdade é o estado real dos documentos. O
+          // banner "aprovado" só aparece quando os 3 documentos estão de fato
+          // aprovados (evita o banner mentiroso quando o agregado diverge).
+          const allDocsApproved =
+            DOC_TYPES.length > 0 &&
+            DOC_TYPES.every(
+              (t) => data.documents.find((d) => d.documentType === t.type)?.status === "approved",
+            );
+          const s = allDocsApproved ? "approved" : data.documentationStatus;
           const statusMap: Record<string, { cls: string; msg: string }> = {
-            expired:   { cls: "bg-red-50 border-red-200 text-red-800",       msg: "⏰ Prazo de 10 dias encerrado sem documentação completa. Envie os documentos abaixo para conseguir o selo Verificado." },
+            expired:   { cls: "bg-red-50 border-red-200 text-red-800",       msg: "🔴 Prazo de 10 dias encerrado sem documentação aprovada — sua loja está offline. Envie os documentos abaixo; ela volta ao ar após a aprovação da nossa equipe." },
             submitted: { cls: "bg-blue-50 border-blue-200 text-blue-800",    msg: "📋 Documentação enviada — aguardando análise da nossa equipe (até 24h). Cada documento é avaliado individualmente." },
             approved:  { cls: "bg-green-50 border-green-200 text-green-800", msg: "✅ Documentação aprovada. Você agora tem o selo Verificado no seu perfil público." },
             rejected:  { cls: "bg-red-50 border-red-200 text-red-800",       msg: "❌ Um ou mais documentos foram rejeitados. Veja o motivo em cada card abaixo e reenvie apenas os marcados em vermelho." },
-            pending:   { cls: "bg-amber-50 border-amber-200 text-amber-800", msg: "📎 Envie os 3 documentos abaixo para receber o selo Verificado." },
+            pending:   { cls: "bg-amber-50 border-amber-200 text-amber-800", msg: "📎 Envie os 3 documentos abaixo dentro do prazo para manter sua loja no ar e receber o selo Verificado." },
           };
           const entry = statusMap[s] ?? statusMap["pending"];
           return (

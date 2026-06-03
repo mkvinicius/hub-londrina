@@ -4,6 +4,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { enforceProductLimitForBusiness, getProductLimitForPlan } from "./enforce-product-limits";
 import { productsTable } from "@workspace/db/schema";
+import { isDocumentationExpired, syncDocumentationState } from "./documentation-state";
 
 /**
  * Backfill idempotente: cura negócios com subscription paga (destaque|premium)
@@ -33,17 +34,29 @@ export async function healPaidInvisibleBusinesses() {
 
     if (stuck.length === 0) return;
 
-    const ids = stuck.map((s) => s.id);
+    // Task #63 — Gate de documentação: pagamento NÃO re-publica loja cuja
+    // documentação está `expired`. Só a aprovação dos 3 docs volta a publicá-la.
+    const publishable: number[] = [];
+    let skippedExpired = 0;
+    for (const s of stuck) {
+      if (await isDocumentationExpired(s.id)) {
+        skippedExpired++;
+        continue;
+      }
+      publishable.push(s.id);
+    }
 
-    // Task #32 — Apenas publica. NÃO toca documentationStatus (trilho independente).
-    await db
-      .update(businessesTable)
-      .set({ isVisible: true, status: "active" })
-      .where(inArray(businessesTable.id, ids));
+    if (publishable.length > 0) {
+      // Apenas publica. NÃO toca documentationStatus (trilho independente).
+      await db
+        .update(businessesTable)
+        .set({ isVisible: true, status: "active" })
+        .where(inArray(businessesTable.id, publishable));
+    }
 
     logger.info(
-      { ids, names: stuck.map((s) => s.name) },
-      `[StartupHeal] ${stuck.length} negócio(s) pago(s) que estavam invisíveis foram publicados (documentação NÃO foi alterada)`,
+      { publishable, skippedExpired },
+      `[StartupHeal] ${publishable.length} negócio(s) pago(s) invisíveis publicados; ${skippedExpired} mantido(s) offline por documentação expirada`,
     );
   } catch (err) {
     logger.error({ err }, "[StartupHeal] Falha ao curar negócios pagos invisíveis");
@@ -133,5 +146,65 @@ export async function healZoneRegionDisplayNames() {
     }
   } catch (err) {
     logger.error({ err }, "[StartupHeal] Falha ao curar regions com slug");
+  }
+}
+
+/**
+ * Task #63 — Backfill idempotente: reconcilia a documentação como FONTE ÚNICA
+ * DE VERDADE. Para todo negócio com conta de lojista, recomputa o agregado
+ * `documentationStatus`, o flag de timer e o selo `businesses.verified` a partir
+ * do estado real dos documentos (`syncDocumentationState`).
+ *
+ * Corrige divergências históricas onde o banner do lojista dizia "aprovado"
+ * mas os docs estavam só "submitted" (selo mentiroso), ou onde os 3 docs
+ * estavam aprovados mas o selo público não aparecia. NÃO altera `isVisible` de
+ * lojas não-aprovadas (não tira ninguém do ar retroativamente — a passagem
+ * para offline acontece só no momento da expiração, no cron). Aprovações
+ * completas restauram visibilidade + selo. Roda uma vez no startup.
+ */
+export async function healDocumentationConsistency() {
+  try {
+    const rows = await db
+      .select({ businessId: businessUsersTable.businessId })
+      .from(businessUsersTable);
+
+    let fixed = 0;
+    for (const r of rows) {
+      const before = await db
+        .select({
+          docStatus: businessUsersTable.documentationStatus,
+          verified: businessesTable.verified,
+        })
+        .from(businessUsersTable)
+        .innerJoin(businessesTable, eq(businessesTable.id, businessUsersTable.businessId))
+        .where(eq(businessUsersTable.businessId, r.businessId));
+      const prev = before[0];
+
+      await syncDocumentationState(r.businessId);
+
+      const after = await db
+        .select({
+          docStatus: businessUsersTable.documentationStatus,
+          verified: businessesTable.verified,
+        })
+        .from(businessUsersTable)
+        .innerJoin(businessesTable, eq(businessesTable.id, businessUsersTable.businessId))
+        .where(eq(businessUsersTable.businessId, r.businessId));
+      const next = after[0];
+
+      if (prev && next && (prev.docStatus !== next.docStatus || prev.verified !== next.verified)) {
+        fixed++;
+        logger.info(
+          { businessId: r.businessId, from: prev, to: next },
+          "[StartupHeal] Documentação reconciliada (status/selo derivados dos docs)",
+        );
+      }
+    }
+
+    if (fixed > 0) {
+      logger.info(`[StartupHeal] ${fixed} negócio(s) tiveram documentação reconciliada`);
+    }
+  } catch (err) {
+    logger.error({ err }, "[StartupHeal] Falha ao reconciliar documentação");
   }
 }

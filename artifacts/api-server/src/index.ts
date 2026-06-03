@@ -8,7 +8,7 @@ import { startRetentionJob } from "./lib/retention-job";
 import { startSubscriptionJob } from "./lib/subscription-job";
 import { startSubscriptionReminderJob } from "./lib/subscription-reminder-job";
 import { ensureViews } from "./lib/startup-views";
-import { healPaidInvisibleBusinesses, healOverflowingProductLimits, healZoneRegionDisplayNames } from "./lib/startup-heal";
+import { healPaidInvisibleBusinesses, healOverflowingProductLimits, healZoneRegionDisplayNames, healDocumentationConsistency } from "./lib/startup-heal";
 import fs from "fs";
 import path from "path";
 
@@ -54,6 +54,7 @@ if (Number.isNaN(port) || port <= 0) {
 initSentry()
   .then(() => runStartupSeed())
   .then(() => ensureViews())
+  .then(() => healDocumentationConsistency())
   .then(() => healPaidInvisibleBusinesses())
   .then(() => healOverflowingProductLimits())
   .then(() => healZoneRegionDisplayNames())

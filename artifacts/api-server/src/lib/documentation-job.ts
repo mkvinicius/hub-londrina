@@ -1,58 +1,58 @@
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable } from "@workspace/db/schema";
-import { and, eq, isNotNull, ne } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
 import { runOnceDaily } from "./job-checkpoint";
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
-const DOCUMENTATION_DAYS = 10;
+
+// Task #63 — só envia o email de contagem regressiva nestes marcos para não
+// floodar a caixa do lojista com um email por dia durante 10 dias.
+const COUNTDOWN_EMAIL_DAYS = new Set([7, 3, 1]);
 
 async function tickDocumentationTimers() {
   try {
+    // Task #63 — TIMER COM BANCO DE DIAS.
+    // O relógio só corre em estados `pending`/`rejected` com o timer ativo.
+    // `submitted` e `approved` têm `documentationTimerPaused=true` (ver
+    // documentation-state.ts), então os dias ficam "bancados": quando um doc é
+    // rejeitado o lojista retoma exatamente de onde parou — nunca recalculamos
+    // a partir de `firstLoginAt` (isso ignorava as pausas).
     const users = await db
       .select({
         userId: businessUsersTable.id,
         businessId: businessUsersTable.businessId,
         ownerEmail: businessesTable.ownerEmail,
         ownerName: businessesTable.ownerName,
-        planType: businessesTable.planType,
+        isVisible: businessesTable.isVisible,
         remaining: businessUsersTable.documentationRemainingDays,
-        firstLoginAt: businessUsersTable.firstLoginAt,
         status: businessUsersTable.documentationStatus,
       })
       .from(businessUsersTable)
       .innerJoin(businessesTable, eq(businessesTable.id, businessUsersTable.businessId))
       .where(
         and(
-          ne(businessUsersTable.documentationStatus, "approved"),
-          ne(businessUsersTable.documentationStatus, "expired"),
+          inArray(businessUsersTable.documentationStatus, ["pending", "rejected"]),
           isNotNull(businessUsersTable.firstLoginAt),
           eq(businessUsersTable.documentationTimerPaused, false),
+          gt(businessUsersTable.documentationRemainingDays, 0),
         ),
       );
 
     let processed = 0;
 
     for (const u of users) {
-      const daysSinceLogin = Math.floor(
-        (Date.now() - new Date(u.firstLoginAt!).getTime()) / ONE_DAY,
-      );
-      const newRemaining = Math.max(0, DOCUMENTATION_DAYS - daysSinceLogin);
-
-      if (newRemaining >= (u.remaining ?? DOCUMENTATION_DAYS)) {
-        continue;
-      }
-
+      const newRemaining = Math.max(0, (u.remaining ?? 0) - 1);
       processed++;
 
-      await db
-        .update(businessUsersTable)
-        .set({ documentationRemainingDays: newRemaining })
-        .where(eq(businessUsersTable.id, u.userId));
-
       if (newRemaining > 0) {
-        if (u.ownerEmail) {
+        await db
+          .update(businessUsersTable)
+          .set({ documentationRemainingDays: newRemaining })
+          .where(eq(businessUsersTable.id, u.userId));
+
+        if (u.ownerEmail && COUNTDOWN_EMAIL_DAYS.has(newRemaining)) {
           try {
             const tpl = emails.documentacaoPendente(u.ownerName || "Lojista", newRemaining);
             await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
@@ -61,29 +61,37 @@ async function tickDocumentationTimers() {
           }
         }
       } else {
-        // Task #32 — Prazo de 10 dias estourou SEM documentação completa.
-        // Marca como `expired` e NÃO auto-aprova/publica (trilho independente
-        // do pagamento). Para plano free isso mantém a loja offline; para
-        // pagos a loja continua visível (R2) mas o status reflete a pendência.
+        // Task #63 — Prazo estourou SEM documentação completa: a loja fica
+        // OFFLINE independentemente do plano. Só a aprovação dos 3 documentos
+        // (admin) volta a publicá-la — pagamento NÃO re-publica (ver
+        // isDocumentationExpired no gate do Stripe).
         await db
           .update(businessUsersTable)
           .set({
             documentationStatus: "expired",
             documentationRemainingDays: 0,
+            documentationTimerPaused: false,
           })
           .where(eq(businessUsersTable.id, u.userId));
 
+        await db
+          .update(businessesTable)
+          .set({ isVisible: false })
+          .where(eq(businessesTable.id, u.businessId));
+
         if (u.ownerEmail) {
           try {
-            const planoPago = u.planType === "destaque" || u.planType === "premium";
-            const tpl = emails.documentacaoExpirada(u.ownerName || "Lojista", planoPago);
+            const tpl = emails.documentacaoExpirada(u.ownerName || "Lojista");
             await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
           } catch (err) {
             logger.error({ err }, "[DocJob] Falha ao enviar email de documentação expirada");
           }
         }
 
-        logger.info({ businessId: u.businessId }, "[DocJob] Documentação marcada como expirada após 10 dias sem envio");
+        logger.info(
+          { businessId: u.businessId },
+          "[DocJob] Documentação expirada — loja colocada OFFLINE (todos os planos) até aprovação",
+        );
       }
     }
 
@@ -158,6 +166,6 @@ export function startDocumentationJob() {
   wrappedCycle();
   setInterval(wrappedCycle, ONE_DAY);
   logger.info(
-    "Job de documentação iniciado — cálculo por firstLoginAt (idempotente), intervalo: 24h",
+    "Job de documentação iniciado — banco de dias (decremento 1/dia, pausa em submitted/approved), intervalo: 24h",
   );
 }

@@ -576,9 +576,10 @@ POST /api/auth/reset-password    Valida token + salva nova senha (bcrypt)
 
 ### Job 2 — Documentation Job (`documentation-job.ts`)
 **Intervalo:** 24 horas (roda imediatamente ao iniciar)
-1. **tickDocumentationTimers()** — para cada lojista com `firstLoginAt` e timer não pausado e status ≠ approved:
-   - `remainingDays > 0`: decrementa 1 dia, envia `documentacaoPendente(nome, dias)`
-   - `remainingDays = 0`: status→`expired`, `businesses.isVisible=false`, `planFrozen=true`, envia `documentacaoExpirada`
+1. **tickDocumentationTimers()** — timer com **banco de dias (banking)**: para cada lojista com `firstLoginAt`, `documentationTimerPaused=false`, status ∈ {`pending`,`rejected`} e `remainingDays > 0`:
+   - decrementa 1 dia (só conta dias **ativos**; envio dos 3 docs/aprovação pausa, rejeição retoma — pausa controlada por `syncDocumentationState`)
+   - email de countdown `documentacaoPendente(nome, dias)` **só nos marcos {7, 3, 1}** (não 1/dia)
+   - ao chegar a 0: status→`expired` e `businesses.isVisible=false` **para QUALQUER plano** (free, base/destaque, premium), envia `documentacaoExpirada(nome)`. Republicação só via aprovação dos 3 docs — pagamento/heal não religam (ver RULES.md R2).
 2. **tickFreePlanExpiration()** — planos free com `firstLoginAt < hoje-30d` e `isVisible=true` → `isVisible=false`, envia `planoGratuitoExpirando`
 
 ### Job 3 — Subscription Job (`subscription-job.ts`)
@@ -601,7 +602,7 @@ POST /api/auth/reset-password    Valida token + salva nova senha (bcrypt)
 boasVindas(nome, negocio)              Cadastro recebido — aguardando análise
 cadastroAprovado(nome, negocio)        Perfil aprovado pela equipe
 cadastroRejeitado(nome, negocio, motivo)  Perfil rejeitado com motivo
-documentacaoPendente(nome, diasRestantes)  Countdown do timer (enviado diariamente)
+documentacaoPendente(nome, diasRestantes)  Countdown do timer (só nos marcos 7/3/1 dias)
 documentacaoExpirada(nome)             Loja offline — docs expirados
 documentacaoAprovada(nome)             Documentação aprovada — loja ativa
 documentacaoRejeitada(nome, motivo)    Documentação rejeitada — corrigir e reenviar
@@ -746,17 +747,19 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 ## 10. SISTEMA DE DOCUMENTAÇÃO (VALIDAÇÃO DE LOJA)
 
 ### Fluxo Completo
+> **Fonte única de verdade**: `lib/documentation-state.ts → syncDocumentationState(businessId)` deriva `documentationStatus`/`timerPaused`/`businesses.verified` do estado real de `business_documents`. Chamado em upload, approve, reject e no heal de startup. Proibido recalcular o agregado à mão (ver RULES.md R2).
+
 1. Lojista faz o **1º login** → `firstLoginAt=now`, `documentationDeadline=+10d`, `documentationRemainingDays=10`, `documentationStatus=pending`
-2. **Job diário** decrementa `remainingDays` e envia email de countdown
+2. **Job diário** decrementa `remainingDays` apenas em dias ativos (pending/rejected, timer não pausado); email de countdown só nos marcos 7/3/1
 3. Lojista envia os 3 documentos via `/lojista/documentacao`:
    - `personal_id` — RG ou CNH
    - `cnpj_card` — Cartão CNPJ (valida via ReceitaWS)
    - `address_proof` — Comprovante de endereço
-4. Timer pausa quando os 3 docs estão presentes e nenhum rejeitado
+4. Timer **pausa** (banking) quando os 3 docs estão presentes e nenhum rejeitado (`submitted`); **retoma** do saldo congelado após rejeição
 5. Admin revisa em `/admin/documentacao`:
-   - **Aprovar** todos → `documentationStatus=approved`, `isVisible=true`, `planFrozen=false`
-   - **Rejeitar** → timer despausado, email com motivo
-6. Se `remainingDays` chega a 0: `documentationStatus=expired`, `isVisible=false`, `planFrozen=true`
+   - **Aprovar** todos 3 → `documentationStatus=approved`, `verified=true`, `isVisible=true`, `planFrozen=false` (religa a loja)
+   - **Rejeitar** → `verified=false`, `rejected`, timer retomado, email com motivo
+6. Se `remainingDays` chega a 0 sem aprovação: `documentationStatus=expired`, `isVisible=false` **para QUALQUER plano**. Pagamento/heal não republicam — só a aprovação dos 3 docs religa a loja.
 
 ### Storage de Documentos
 - Arquivos em `private://documents/{businessId}/{type}-{timestamp}.ext`

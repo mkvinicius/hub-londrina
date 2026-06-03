@@ -8,6 +8,7 @@ import { enforceProductLimitForBusiness, enforcePhotoLimitForBusiness } from "..
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
 import { categoryLockKey, zoneLockKey, homeSearchLockKey, homeSearchPositionLockKey, vitrineSlotLockKey } from "../lib/boost-locks";
+import { isDocumentationExpired } from "../lib/documentation-state";
 
 const router: IRouter = Router();
 
@@ -121,17 +122,25 @@ async function syncSubscriptionFromStripe(stripeSubId: string): Promise<{ busine
   // Task #12 — mesma ideia para fotos da galeria do negócio.
   await enforcePhotoLimitForBusiness(businessId, finalPlan);
 
-  // Task #32 — Pagamento confirmado = autorização para PUBLICAR imediatamente,
-  // mas NÃO aprova a documentação. São trilhos independentes: o admin continua
-  // analisando cada documento individualmente. Por isso não tocamos em
-  // `documentationStatus` aqui.
+  // Task #63 — Pagamento confirmado autoriza PUBLICAR, MAS o gate de
+  // documentação tem precedência: se a documentação está `expired`, a loja
+  // permanece OFFLINE até a aprovação dos 3 documentos pelo admin. Pagar NÃO
+  // re-publica. A documentação continua sendo trilho independente do plano
+  // (admin analisa cada doc), então não tocamos em `documentationStatus` aqui.
   if (isActive) {
     const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
     if (biz && (biz.status === "pending" || !biz.isVisible)) {
-      await db.update(businessesTable)
-        .set({ status: "active", isVisible: true })
-        .where(eq(businessesTable.id, businessId));
-      logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) publicado após pagamento (plano=${planType}) — documentação NÃO foi alterada`);
+      if (await isDocumentationExpired(businessId)) {
+        await db.update(businessesTable)
+          .set({ status: "active" })
+          .where(eq(businessesTable.id, businessId));
+        logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) NÃO publicado: documentação expirada (plano=${planType}). Aguardando aprovação do admin.`);
+      } else {
+        await db.update(businessesTable)
+          .set({ status: "active", isVisible: true })
+          .where(eq(businessesTable.id, businessId));
+        logger.info(`[Stripe Sync] Negócio ${businessId} (${biz.name}) publicado após pagamento (plano=${planType}) — documentação NÃO foi alterada`);
+      }
     }
   }
 
@@ -994,14 +1003,23 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             if (sub) {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
 
-              // Task #32 — Pagamento = publicar imediatamente, mas NÃO toca documentationStatus.
-              // Análise de docs é trilho independente do admin.
+              // Task #63 — Pagamento = publicar, MAS gate de documentação tem
+              // precedência: docs `expired` mantêm a loja OFFLINE até aprovação
+              // do admin. Pagar NÃO re-publica. Análise de docs continua trilho
+              // independente do admin (não tocamos documentationStatus aqui).
               // Removido email `cadastroAprovado` (era enganoso: dizia "perfil aprovado" sem o admin ter aprovado nada).
               if (biz && (biz.status === "pending" || !biz.isVisible)) {
-                await db.update(businessesTable)
-                  .set({ status: "active", isVisible: true })
-                  .where(eq(businessesTable.id, sub.businessId));
-                logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento — documentação NÃO foi alterada`);
+                if (await isDocumentationExpired(sub.businessId)) {
+                  await db.update(businessesTable)
+                    .set({ status: "active" })
+                    .where(eq(businessesTable.id, sub.businessId));
+                  logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) NÃO publicado: documentação expirada. Aguardando aprovação do admin.`);
+                } else {
+                  await db.update(businessesTable)
+                    .set({ status: "active", isVisible: true })
+                    .where(eq(businessesTable.id, sub.businessId));
+                  logger.info(`[Stripe Webhook] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento — documentação NÃO foi alterada`);
+                }
               }
 
               if (biz?.ownerEmail) {
@@ -1065,12 +1083,20 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             });
             if (sub && (sub.status === "active" || sub.status === "trialing")) {
               const [biz] = await db.select().from(businessesTable).where(eq(businessesTable.id, sub.businessId));
-              const justPublished = !!biz && wasInvisible;
+              // Task #63 — gate de documentação: docs `expired` impedem a
+              // re-publicação por pagamento; só a aprovação do admin republica.
+              const docExpired = !!biz && (await isDocumentationExpired(sub.businessId));
+              const justPublished = !!biz && wasInvisible && !docExpired;
               if (justPublished) {
                 await db.update(businessesTable)
                   .set({ status: "active", isVisible: true })
                   .where(eq(businessesTable.id, sub.businessId));
                 logger.info(`[Stripe Webhook invoice] Negócio ${sub.businessId} (${biz.name}) publicado após pagamento — documentação NÃO foi alterada`);
+              } else if (!!biz && wasInvisible && docExpired) {
+                await db.update(businessesTable)
+                  .set({ status: "active" })
+                  .where(eq(businessesTable.id, sub.businessId));
+                logger.info(`[Stripe Webhook invoice] Negócio ${sub.businessId} (${biz.name}) NÃO publicado: documentação expirada. Aguardando aprovação do admin.`);
               }
 
               if (biz?.ownerEmail) {

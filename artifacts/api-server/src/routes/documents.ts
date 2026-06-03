@@ -13,6 +13,7 @@ import { sendEmail, emails } from "../services/email";
 import { logger } from "../lib/logger";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 import { validateMagicBytes } from "../lib/validateUpload";
+import { syncDocumentationState } from "../lib/documentation-state";
 
 const router: IRouter = Router();
 
@@ -117,45 +118,6 @@ function signedUrlFor(docId: number): string {
   return `/api/documents/signed/${token}`;
 }
 
-// Pausa o timer SOMENTE quando os 3 tipos esperados foram enviados (sem rejeitados pendentes)
-async function recomputeDocumentationStatus(businessId: number): Promise<void> {
-  const docs = await db
-    .select()
-    .from(businessDocumentsTable)
-    .where(eq(businessDocumentsTable.businessId, businessId));
-
-  const byType = new Map<string, (typeof docs)[number]>();
-  for (const d of docs) byType.set(d.documentType, d);
-
-  const allPresent = VALID_TYPES.every((t) => byType.has(t));
-  const anyRejected = docs.some((d) => d.status === "rejected");
-  const allApproved = VALID_TYPES.every((t) => byType.get(t)?.status === "approved");
-
-  if (allApproved) {
-    // tratado pela rota PATCH (não toca aqui)
-    return;
-  }
-
-  if (allPresent && !anyRejected) {
-    // 3 docs enviados e nenhum rejeitado → pausa timer, status submitted
-    await db
-      .update(businessUsersTable)
-      .set({ documentationStatus: "submitted", documentationTimerPaused: true })
-      .where(eq(businessUsersTable.businessId, businessId));
-  } else if (anyRejected) {
-    await db
-      .update(businessUsersTable)
-      .set({ documentationStatus: "rejected", documentationTimerPaused: false })
-      .where(eq(businessUsersTable.businessId, businessId));
-  } else {
-    // Faltam docs → continua pendente, timer rodando
-    await db
-      .update(businessUsersTable)
-      .set({ documentationStatus: "pending", documentationTimerPaused: false })
-      .where(eq(businessUsersTable.businessId, businessId));
-  }
-}
-
 // POST /api/lojista/documents — upload de documento
 router.post(
   "/lojista/documents",
@@ -219,8 +181,10 @@ router.post(
       })
       .returning();
 
-    // Recalcula status do lojista — só pausa timer se tem os 3 tipos
-    await recomputeDocumentationStatus(businessId);
+    // Task #63 — fonte única de verdade: deriva status agregado + timer a
+    // partir dos documentos reais. NÃO re-publica loja offline/expirada (só a
+    // aprovação completa pelo admin faz isso).
+    await syncDocumentationState(businessId);
 
     let cnpjAlert: string | null = null;
     if (documentType === "cnpj_card") {
@@ -356,29 +320,11 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
       .set({ status: "approved", reviewedAt: new Date(), rejectionReason: null })
       .where(eq(businessDocumentsTable.id, id));
 
-    const allDocs = await db
-      .select()
-      .from(businessDocumentsTable)
-      .where(eq(businessDocumentsTable.businessId, doc.businessId));
-    const approvedTypes = new Set(
-      allDocs.filter((d) => d.status === "approved").map((d) => d.documentType),
-    );
-    const allApproved = VALID_TYPES.every((t) => approvedTypes.has(t));
+    // Task #63 — fonte única de verdade: deriva status/verified/visibilidade.
+    // Quando os 3 ficam aprovados, a loja volta ao ar e ganha o selo.
+    const { allApproved } = await syncDocumentationState(doc.businessId);
 
     if (allApproved) {
-      await db
-        .update(businessUsersTable)
-        .set({
-          documentationStatus: "approved",
-          documentationTimerPaused: true,
-        })
-        .where(eq(businessUsersTable.businessId, doc.businessId));
-
-      await db
-        .update(businessesTable)
-        .set({ isVisible: true, planFrozen: false, verified: true })
-        .where(eq(businessesTable.id, doc.businessId));
-
       const [biz] = await db
         .select({ ownerName: businessesTable.ownerName, ownerEmail: businessesTable.ownerEmail })
         .from(businessesTable)
@@ -391,9 +337,6 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
           logger.error({ err }, "[Documents] Falha ao enviar email de aprovação");
         }
       }
-    } else {
-      // alguns aprovados mas não todos — recomputa
-      await recomputeDocumentationStatus(doc.businessId);
     }
 
     // Sprint 4.2 — audit log: aprovação de documento
@@ -413,19 +356,8 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
     })
     .where(eq(businessDocumentsTable.id, id));
 
-  await db
-    .update(businessUsersTable)
-    .set({
-      documentationStatus: "rejected",
-      documentationTimerPaused: false,
-    })
-    .where(eq(businessUsersTable.businessId, doc.businessId));
-
-  // Remove selo Verificado — documentação deixou de estar completamente aprovada
-  await db
-    .update(businessesTable)
-    .set({ verified: false })
-    .where(eq(businessesTable.id, doc.businessId));
+  // Task #63 — fonte única de verdade: status=rejected, timer retoma, selo cai.
+  await syncDocumentationState(doc.businessId);
 
   const [biz] = await db
     .select({ ownerName: businessesTable.ownerName, ownerEmail: businessesTable.ownerEmail })

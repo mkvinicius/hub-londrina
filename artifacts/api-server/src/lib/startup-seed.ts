@@ -1,5 +1,6 @@
-import { db, categoriesTable, businessesTable, reviewsTable, businessUsersTable, productsTable } from "@workspace/db";
-import { count } from "drizzle-orm";
+import { db, categoriesTable, businessesTable, reviewsTable, businessUsersTable, productsTable, businessDocumentsTable } from "@workspace/db";
+import { count, eq } from "drizzle-orm";
+import { VALID_DOC_TYPES } from "./documentation-state";
 import { logger } from "./logger";
 import bcrypt from "bcryptjs";
 
@@ -639,6 +640,34 @@ export async function runStartupSeed() {
 
     await db.insert(businessUsersTable).values(usersData);
     logger.info({ count: usersData.length }, "Business users seeded");
+
+    // Task #63 — `businesses.verified` é estritamente derivado dos documentos
+    // (3 aprovados ⇔ verified=true). Para que os negócios marcados como
+    // verificados continuem com o selo após o heal de reconciliação no startup,
+    // o seed cria os 3 documentos aprovados e marca a documentação como aprovada.
+    const verifiedBusinesses = businesses.filter((b) => b.verified === true);
+    if (verifiedBusinesses.length > 0) {
+      const docsData = verifiedBusinesses.flatMap((b) =>
+        VALID_DOC_TYPES.map((type) => ({
+          businessId: b.id,
+          documentType: type,
+          fileUrl: `private://documents/${b.id}/${type}-seed.pdf`,
+          status: "approved",
+          reviewedAt: new Date(),
+        })),
+      );
+      await db.insert(businessDocumentsTable).values(docsData);
+      for (const b of verifiedBusinesses) {
+        await db
+          .update(businessUsersTable)
+          .set({ documentationStatus: "approved", documentationTimerPaused: true })
+          .where(eq(businessUsersTable.businessId, b.id));
+      }
+      logger.info(
+        { businesses: verifiedBusinesses.length, documents: docsData.length },
+        "Approved documents seeded for verified businesses",
+      );
+    }
 
     logger.info("=== LOGINS DOS LOJISTAS ===");
     logger.info("Senha padrão para todos: Hub@2026");

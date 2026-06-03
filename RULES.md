@@ -40,23 +40,34 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 
 ---
 
-### R2 · Pagamento e aprovação de documentos são trilhos INDEPENDENTES (Task #32)
-Pagar o plano publica a loja imediatamente, mas **NÃO aprova nenhum documento**. A análise da documentação é feita pelo admin, doc por doc, em paralelo. As duas trilhas nunca se contaminam.
+### R2 · Documentação aprovada é PRÉ-REQUISITO de visibilidade após o prazo (Task #63, substitui Task #32)
+Pagar o plano e aprovar a documentação continuam sendo **trilhas separadas** — pagar **NÃO aprova documento** e o admin analisa doc por doc — mas as duas trilhas **se cruzam num ponto**: depois que o prazo de documentação estoura, **só a aprovação dos 3 documentos mantém/coloca a loja no ar**. Pagamento (e qualquer heal) **não republica** loja com documentação `expired`.
+
+> ⚠️ Mudança em relação à Task #32: o antigo R2-A ("loja paga continua visível mesmo com documentação expirada") foi **REVOGADO**. Agora documentação expirada derruba a loja **para todos os planos**.
+
+**Fonte única de verdade** — `lib/documentation-state.ts`:
+- `syncDocumentationState(businessId)` deriva `business_users.documentationStatus`, `documentationTimerPaused` e `businesses.verified` **a partir do estado real de `business_documents.status`**. É chamado em TODOS os pontos que mexem em documento: upload do lojista, approve/reject do admin, e o heal de reconciliação no startup (`healDocumentationConsistency`). É **proibido** recalcular esse agregado à mão em qualquer rota — sempre delegar a este helper.
+  - 3 aprovados → `approved` (timer pausado); algum rejeitado → `rejected` (timer corre); 3 presentes sem rejeitados → `submitted` (timer pausado); faltam docs → `pending` (timer corre); `pending`/`rejected` **sem dias no banco** → `expired`.
+  - `verified` é **estritamente derivado**: `verified=true` **se e somente se** os 3 docs estão aprovados; **qualquer** outro estado (pending/submitted/rejected/expired) força `verified=false`. Não há selo manual/legado — o heal de reconciliação corrige divergências históricas.
+- `isDocumentationExpired(businessId)` → `true` quando `documentationStatus='expired'`. É o gate de publicação usado pela trilha de pagamento.
 
 **Trilha A — Pagamento** (Stripe):
-- `checkout.session.completed`, `invoice.payment_succeeded` (webhook), `POST /api/lojista/stripe/sync` (fallback) e `healPaidInvisibleBusinesses()` (startup) devem, quando o pagamento confirma:
-  - setar `businesses.isVisible = true` e `businesses.status = "active"` se ainda não estiverem.
-  - **NUNCA** alterar `business_users.documentationStatus` nem `documentationRemainingDays`.
-- Email enviado: apenas `pagamentoConfirmado` (que explica que docs são separadas). **Proibido** disparar `cadastroAprovado` aqui — o admin não aprovou nada.
+- `checkout.session.completed`, `invoice.payment_succeeded` (webhook), `POST /api/lojista/stripe/sync` (fallback) e `healPaidInvisibleBusinesses()` (startup), quando o pagamento confirma:
+  - setam `businesses.status = "active"` sempre; e setam `businesses.isVisible = true` **APENAS se `isDocumentationExpired(businessId) === false`**. Se a documentação está `expired`, a loja permanece **offline** até a aprovação dos 3 docs.
+  - **NUNCA** alteram `business_users.documentationStatus` nem `documentationRemainingDays`.
+- Email enviado: apenas `pagamentoConfirmado`/`upgradePlano`. **Proibido** disparar `cadastroAprovado` aqui — o admin não aprovou nada.
 
-**Trilha B — Documentação** (admin + cron):
-- Status (`pending → submitted → approved | rejected | expired`) só muda em: `POST /api/lojista/documents`, `PATCH /api/admin/documents/:id`, e `documentation-job.ts` (cron). Pagamento NÃO aciona nenhum desses.
-- Quando **todos** os documentos são aprovados (`allApproved`): `businesses.verified = true` é setado automaticamente (junto com `isVisible=true`, `planFrozen=false`). Badge "Verificado" aparece nos cards e na página do negócio.
-- Quando um documento é **rejeitado**: `businesses.verified = false` é setado automaticamente. Admin ainda pode setar `verified` manualmente via `PATCH /api/admin/businesses/:id`.
-- Quando os 10 dias estouram em `documentation-job.ts` SEM os 3 docs aprovados, status vai para `expired`. **Não** auto-aprova nem mexe em `isVisible` (loja paga continua visível por R2-A; loja free fica offline porque nasce com `isVisible=false`).
+**Trilha B — Documentação** (lojista + admin + cron):
+- **Timer com banco de dias (banking)**: o lojista nasce com `documentationRemainingDays=10`. O relógio em `documentation-job.ts` **decrementa 1 por dia ativo** SOMENTE em `pending`/`rejected` com `documentationTimerPaused=false`. Enviar os 3 docs (`submitted`) ou aprovar (`approved`) **pausa** o timer (congela o saldo); uma rejeição **retoma** do saldo congelado. **Nunca** derivar o restante de `firstLoginAt` (isso ignorava as pausas).
+- Status (`pending → submitted → approved | rejected | expired`) só muda via `syncDocumentationState` (upload/approve/reject) e via o cron. Pagamento NÃO aciona nenhum desses.
+- Aprovação completa religa a loja: `verified=true`, `isVisible=true`, `status=active`, `planFrozen=false`. Badge "Verificado" aparece nos cards e na página do negócio.
+- **Expiração (cron)**: quando `documentationRemainingDays` chega a 0 sem os 3 aprovados, o cron seta `documentationStatus='expired'` **e `businesses.isVisible=false` para QUALQUER plano** (gratuito, base/destaque, premium), e dispara `emails.documentacaoExpirada(nome)`. O envio dos docs sozinho **não** republica — só a aprovação do admin.
+- Emails de contagem regressiva são enviados **apenas** nos marcos `{7, 3, 1}` dias restantes (não 1/dia).
 - Email de rejeição lista TODOS os docs atualmente rejeitados no negócio (não só o último), via `emails.documentacaoRejeitada(nome, Array<{tipo, motivo}>)`.
 
-**Teste**: lojista free novo → paga → 1) `SELECT is_visible FROM businesses WHERE id=X` retorna `true` em até 5s; 2) `SELECT documentation_status FROM business_users WHERE business_id=X` continua `pending` (não foi tocado).
+**Reconciliação (startup)**: `healDocumentationConsistency()` roda `syncDocumentationState` para todos os negócios, corrigindo divergências históricas (banner "aprovado" com docs `submitted`; 3 aprovados sem selo). É **conservador**: não tira loja visível do ar retroativamente — a passagem para offline acontece só no momento da expiração, no cron.
+
+**Teste** (provado em dev — ver CHANGELOG): (1) docs 3-aprovados com agregado mentindo `submitted`+`verified=false`+offline → após heal: `approved`/`verified=true`/`isVisible=true`. (2) rejeitar 1 doc → `verified=false`/`rejected`. (3) loja **destaque** com `remaining=1`/`pending` → cron → `expired`+`isVisible=false`. (4) loja paga (assinatura ativa) com docs `expired` e invisível → `healPaidInvisibleBusinesses` **não** republica (`isVisible` continua `false`).
 
 ---
 

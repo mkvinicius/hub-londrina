@@ -119,7 +119,8 @@ export default function AdminDocumentacao() {
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Documentação dos Lojistas</h1>
             <p className="text-gray-600 text-sm">
               Aprove ou rejeite os documentos enviados. O timer do lojista é pausado durante a
-              análise.
+              análise. Lojas com documentação expirada ficam offline (todos os planos) e só voltam
+              ao ar quando os 3 documentos forem aprovados.
             </p>
           </div>
         </div>
