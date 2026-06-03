@@ -357,7 +357,7 @@ function BusinessVitrine({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {products.map((item) => {
             const showVideo = item.videoUrl && item.videoStatus === "approved";
-            const poster = item.mediaUrl || "";
+            const poster = imgSrc(item.mediaUrl);
             const reelUrl = (() => {
               if (!item.instagramReelUrl) return null;
               try {
@@ -405,7 +405,7 @@ function BusinessVitrine({
                   </span>
                 )}
                 {showVideo ? (
-                  <VitrineVideo src={item.videoUrl!} poster={poster} />
+                  <VitrineVideo src={imgSrc(item.videoUrl)!} poster={poster} />
                 ) : poster ? (
                   <img src={poster} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (

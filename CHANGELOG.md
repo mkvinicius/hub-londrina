@@ -6,6 +6,22 @@
 
 ## 2026-06-03
 
+### Task #47 — Bugfix: vídeos/fotos da aba Vitrine não carregavam (imgSrc ausente)
+
+**Sintoma**: na aba **Vitrine** de `/negocio/:id`, cards de produto mostravam ícone "?" no lugar do vídeo ou da foto de capa.
+
+**Causa raiz**: `imgSrc()` em `utils.ts` transforma qualquer URL que começa com `/` adicionando o prefixo `/api` — necessário para que o reverse-proxy roteie `/api/storage/objects/...` até o Express. O componente `BusinessVitrine` em `negocio.tsx` passava `item.mediaUrl` e `item.videoUrl` **sem** esse wrapper. Em desenvolvimento o seed usa `/videos/vitrine-cafe.mp4` (arquivo estático no `public/` do Vite), então parecia funcionar — mas em produção os uploads reais ficam em `/storage/objects/uploads/vitrine/xxx.mp4` e precisam do prefixo → 404 → ícone "?".
+
+**Prova**: `imgSrc` já estava importada no topo de `negocio.tsx` e usada em todas as outras imagens da página (linhas 160, 187, 245, 469, 517) — só `BusinessVitrine` havia ficado sem ela.
+
+**Correções** (`artifacts/hub-londrina/src/pages/negocio.tsx`):
+- `const poster = item.mediaUrl || ""` → `const poster = imgSrc(item.mediaUrl)` — cobre a foto de capa (fallback quando sem vídeo)
+- `<VitrineVideo src={item.videoUrl!} ...>` → `<VitrineVideo src={imgSrc(item.videoUrl)!} ...>` — cobre o src do `<source>` e o `poster` do `<video>`
+
+Nenhuma mudança em RULES.md ou replit.md necessária — a obrigação de usar `imgSrc()` já era implícita no padrão existente do código.
+
+---
+
 ### Task #44 — Bugfix: planType não sincronizava após upgrade via Portal Stripe
 
 **Sintoma**: lojista que fazia upgrade de Base/Destaque → Premium via Portal do Stripe continuava vendo todos os recursos Premium bloqueados (banner, boost de categoria, home search) após retornar ao painel.
