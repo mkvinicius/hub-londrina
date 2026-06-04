@@ -50,31 +50,49 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Sprint 4.5 — Sentry (graceful: silencioso se SENTRY_DSN ausente)
-initSentry()
-  .then(() => runStartupSeed())
-  .then(() => ensureViews())
-  .then(() => healDocumentationConsistency())
-  .then(() => healPaidInvisibleBusinesses())
-  .then(() => healOverflowingProductLimits())
-  .then(() => healZoneRegionDisplayNames())
-  .then(() => {
-    app.listen(port, (err) => {
-      if (err) {
-        logger.error({ err }, "Error listening on port");
-        process.exit(1);
-      }
+// Deploy fix — a porta é aberta IMEDIATAMENTE para que o health check do
+// autoscale passe dentro do timeout. As tarefas de inicialização que dependem
+// do banco (Sentry/seed/views/heal) rodam DEPOIS do listen e NÃO bloqueiam a
+// abertura da porta. Antes, qualquer travamento/rejeição nessas etapas (a cadeia
+// não tinha .catch) impedia o app.listen e a publicação falhava no timeout.
+app.listen(port, (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
 
-      logger.info({ port }, "Server listening");
-      // Pentest fix — confirma no startup que os limiters estão registrados
-      // (express-rate-limit é em memória; o log facilita auditar reset após deploy).
-      logger.info(
-        "Rate limiters ativos: admin/login, lojista/login, register, review, csrf-token, business-view, cnpj, reset-senha",
-      );
-      startBoostExpirationJob();
-      startDocumentationJob();
-      startRetentionJob();
-      startSubscriptionJob();
-      startSubscriptionReminderJob();
-    });
-  });
+  logger.info({ port }, "Server listening");
+  // Pentest fix — confirma no startup que os limiters estão registrados
+  // (express-rate-limit é em memória; o log facilita auditar reset após deploy).
+  logger.info(
+    "Rate limiters ativos: admin/login, lojista/login, register, review, csrf-token, business-view, cnpj, reset-senha",
+  );
+
+  void runStartupTasks();
+});
+
+// Tarefas de inicialização pós-listen. Falhas são logadas mas NÃO derrubam o
+// servidor — a porta já está aberta e o health check já passou.
+async function runStartupTasks() {
+  try {
+    // Sprint 4.5 — Sentry (graceful: silencioso se SENTRY_DSN ausente)
+    await initSentry();
+    await runStartupSeed();
+    await ensureViews();
+    await healDocumentationConsistency();
+    await healPaidInvisibleBusinesses();
+    await healOverflowingProductLimits();
+    await healZoneRegionDisplayNames();
+  } catch (startupErr) {
+    logger.error(
+      { err: startupErr },
+      "Falha em tarefa de inicialização pós-listen (servidor segue no ar)",
+    );
+  }
+
+  startBoostExpirationJob();
+  startDocumentationJob();
+  startRetentionJob();
+  startSubscriptionJob();
+  startSubscriptionReminderJob();
+}

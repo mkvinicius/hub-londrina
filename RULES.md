@@ -192,6 +192,9 @@ Os dados legais (razão social, CNPJ, DPO_EMAIL, TERMS_VERSION, RETENTION_MONTHS
 4. **TERMS_VERSION invalida consents implícitos**: trocar a versão força usuários novos a re-aceitar (auth.ts checa contra valor vigente do store, não contra constante hardcoded). Consents antigos no banco mantêm a versão original — auditoria preservada.
 5. **Front consome via `useLegalConfig()` hook** (fetch único + cache módulo + fallback aos defaults). Componentes não devem importar `LEGAL_CONFIG` cru se precisam de reatividade após edição admin.
 
+### R14 · Startup do api-server abre a porta ANTES das tarefas de manutenção
+O autoscale só considera o deploy saudável quando o processo abre sua porta (`PORT`) dentro do timeout do health check. Em `artifacts/api-server/src/index.ts`, `app.listen(port)` deve rodar **primeiro**; as tarefas que dependem do banco (Sentry/seed/`ensureViews`/`heal*`/jobs) rodam **depois** do listen, dentro de um bloco com `try/catch` que **loga mas não derruba** o servidor. **Proibido** colocar `app.listen` no fim de uma cadeia de promises de startup (qualquer travamento/rejeição segura a porta fechada e a publicação falha no timeout — `not all artifact ports opened`). Uma tarefa de manutenção que falha nunca pode impedir a porta de abrir.
+
 ---
 
 ## 🚧 Workflow de qualidade (para o agente)

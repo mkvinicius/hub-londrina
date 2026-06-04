@@ -6,6 +6,18 @@
 
 ## 2026-06-04
 
+### Deploy falhava ao publicar — porta do api-server abria só DEPOIS das tarefas de startup
+
+**Problema relatado**: a publicação (autoscale) falhava no build/deploy. Diagnóstico **com prova nos logs de produção** (não leitura de código): o build compilava normalmente (`dist/index.mjs` gerado e executado) — a falha era em **runtime**. O hub-londrina (SSR, porta 22662) subia, mas o **api-server (porta 8080) nunca abria a porta**, e o deploy estourava no timeout (`not all artifact ports opened within timeout expected=[8080 22662] detected=1`). O processo do api-server iniciava (pid) mas **não emitia nenhum log** — coerente com travar **antes** do `listen`.
+
+**Causa-raiz** (`artifacts/api-server/src/index.ts`): o `app.listen` estava no **fim** de uma cadeia `initSentry → runStartupSeed → ensureViews → healDocumentationConsistency → healPaidInvisibleBusinesses → healOverflowingProductLimits → healZoneRegionDisplayNames`, **sem `.catch()`**. Todas essas etapas dependem do banco. Qualquer travamento (ex.: conexão lenta/pendurada — `pool` tem `connectionTimeoutMillis`) ou rejeição não tratada impedia o `listen`, então a porta nunca abria e o health check do autoscale falhava.
+
+**Mudança (somente `index.ts`)**: o `app.listen(port)` agora roda **primeiro** (abre a porta imediatamente → health check passa), e as tarefas de manutenção (Sentry/seed/views/heal/jobs) rodam **depois** dentro de `runStartupTasks()`, com `try/catch` que **loga mas não derruba** o servidor. Falha de manutenção não impede mais a publicação.
+
+**Fora de escopo** (intocados): lógica de seed/views/heal/jobs (só mudou a ordem/tratamento de erro), build (`esbuild` não faz typecheck), demais artifacts. Os ~40 erros de typecheck pré-existentes em `api-server`/`hub-londrina` **não** bloqueiam o deploy (o build não roda `tsc`) e ficam como dívida fora desta task.
+
+**Provas**: (1) logs de produção mostravam `detected=1 expected=2` (porta 8080 ausente) e timeout. (2) Após o fix, logs locais do api-server mostram a ordem correta: `Server listening port:8080` **antes** de `Database already seeded`/`View ... criada`/jobs. (3) `GET /api/healthz` → `{"status":"ok"}`. (4) `validate-lojista-rules` verde (12/12). (5) typecheck de `index.ts` limpo.
+
 ### Banner na Home — dimensões antes da compra + gate Premium blindado na UI (Task #64)
 
 **Problema relatado**: cliente Premium achava que o Banner na Home "não funcionava". Diagnóstico (com prova SQL em produção): o fluxo de auto-upload (Task #56) já estava implementado e o backend liberava a compra (negócio #45 "Restaurante Estações Gastronomia" estava `plan_type=premium`/`active`). As falhas reais eram de **front**:
