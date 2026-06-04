@@ -6,6 +6,21 @@
 
 ## 2026-06-04
 
+### Gates de plano alinhados com a realidade: logo/capa travados em Base/Destaque+ e limite de produtos documentado (Task #75)
+
+**Problema**: duas divergências entre `RULES.md` (contrato) e o código real. (1) **Limite de produtos** — RULES.md prometia `Destaque(10)/Premium(∞)`, mas o código aplica `Destaque=6/Premium=10` (`enforce-product-limits.ts` + `lojista.ts`). (2) **Logo/foto de capa** — RULES.md exigia plano Destaque, mas as rotas `POST /api/lojista/upload/{logo,banner}` aceitavam **todos os planos, inclusive Gratuito** (decisão antiga "identidade visual básica").
+
+**Decisão do dono** (via pergunta): (1) manter o limite real `Destaque=6/Premium=10` → corrigir o contrato; (2) **travar** logo/capa a partir de Base/Destaque (bloquear Gratuito) → corrigir o código.
+
+**Correção**:
+- **Backend** (`routes/lojista.ts`): `requirePlan("destaque")` aplicado **antes** do `memoryUpload` em `/upload/logo` e `/upload/banner` (gate de plano vem primeiro — R1). Plano lê do DB via middleware, não do JWT. Comentário antigo "disponíveis em TODOS os planos" reescrito.
+- **Frontend** (`LojistaPerfil.tsx` e `LojistaProdutos.tsx`): para `planType==="free"`, aviso âmbar "Exclusivo Base/Destaque" + link discreto "Ver planos" + botões de logo/capa `disabled` (regra de UI de CTA bloqueado — R1).
+- **RULES.md R1**: limite de vitrine corrigido para `Destaque(6)/Premium(10)`; linha de logo/capa aponta para os componentes reais (`LojistaPerfil`/`LojistaProdutos`) — o `LojistaFotos.tsx` citado não existe.
+
+**Provas (dev)**: (1) curl multipart por plano: FREE logo→**403 PLAN_REQUIRED**, FREE capa→**403 PLAN_REQUIRED**, DESTAQUE logo→**200 logoUrl**, PREMIUM capa→**200 bannerUrl**. (2) E2E (Playwright): lojista FREE logado vê o aviso âmbar e botões desabilitados em `/lojista/perfil` e `/lojista/produtos`. (3) `validate-lojista-rules` verde (10/10 — gates existentes intactos). (4) code review (architect): PASSA, sem bypass via outras rotas (`PATCH /profile` não grava `logoUrl/bannerUrl`). (5) typecheck: nenhum erro novo nos arquivos tocados (erros pré-existentes em `stripe.ts`/`vitrine.ts`/`create-boost-products.ts`/`icons.tsx` fora de escopo; api-server builda via esbuild).
+
+**Fora de escopo**: degradação silenciosa do front quando `getProfile` falha (limite 0 implícito sem aviso) — preexistente, coberto pela Task #76.
+
 ### Loja com documentação expirada sai do ar de fato — para todos os planos (Task #71)
 
 **Problema relatado**: lojas com `documentationStatus='expired'` continuavam **públicas/online**. Diagnóstico **com prova SQL em produção** (read-only, não leitura de código): 5 negócios estavam `documentation_status='expired'` E `is_visible=true` ao mesmo tempo (ex.: #21 Sabor do Sul destaque, #37 Elétrica Londrina, #42 Loja Teste, #44 Estrategista digital premium, #45 Restaurante Estações). Isso viola R2 ("documentação expirada derruba a loja para TODOS os planos").

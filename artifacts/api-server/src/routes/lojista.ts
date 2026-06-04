@@ -20,6 +20,7 @@ import { businessDocumentsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
 import { sanitizeBusiness, sanitizeText } from "../lib/sanitize";
 import { validateMagicBytes } from "../lib/validateUpload";
+import { requirePlan } from "../middleware/checkPlan";
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripeClient: Stripe | null = STRIPE_SECRET_KEY
@@ -297,10 +298,10 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
-// Logo e banner são identidade visual básica — disponíveis em TODOS os planos
-// (inclusive Gratuito). Diferenciais Premium estão em vitrine, vídeo, boost
-// e métricas avançadas, não em poder mostrar uma foto de perfil.
-router.post("/lojista/upload/logo", memoryUpload.single("file"), async (req: Request, res: Response) => {
+// Logo e foto de capa exigem plano Base/Destaque ou superior (Task #75 — decisão do
+// dono). Plano Gratuito NÃO envia identidade visual. Gate via requirePlan("destaque")
+// ANTES do parse do upload — o gate de plano vem primeiro (RULES.md R1).
+router.post("/lojista/upload/logo", requirePlan("destaque"), memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
@@ -321,7 +322,7 @@ router.post("/lojista/upload/logo", memoryUpload.single("file"), async (req: Req
   res.json({ logoUrl });
 });
 
-router.post("/lojista/upload/banner", memoryUpload.single("file"), async (req: Request, res: Response) => {
+router.post("/lojista/upload/banner", requirePlan("destaque"), memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });

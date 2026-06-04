@@ -15,10 +15,10 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 | Boost home+busca | Premium | `POST /api/lojista/boosts/checkout` (boostContext=home_search) | `LojistaBoost.tsx` card Home+Busca |
 | Boost categoria | Premium | `POST /api/lojista/boosts/category-checkout` | `LojistaBoost.tsx` tabela categoria |
 | Banner Home R$299 | Premium | `POST /api/lojista/home-banner/checkout` | `LojistaBoost.tsx` card Banner Home |
-| Logo / Banner upload | Destaque | `POST /api/lojista/upload/{logo,banner}` | `LojistaFotos.tsx` (LockedFeature) |
+| Logo / Banner upload | Destaque | `POST /api/lojista/upload/{logo,banner}` (`requirePlan("destaque")`) | `LojistaPerfil.tsx` / `LojistaProdutos.tsx` (aviso "Exclusivo Base/Destaque" + botões disabled) |
 | Instagram / Website | Destaque | `PATCH /api/lojista/profile` | `LojistaPerfil.tsx` (LockedFeature) |
 | Vídeo vitrine | Premium | `PATCH /api/lojista/profile` (videoUrl) | `LojistaPerfil.tsx` (LockedFeature) |
-| Vitrine produtos | Destaque (10) / Premium (∞) | `POST /api/lojista/products` | `LojistaProdutos.tsx` (LockedFeature) |
+| Vitrine produtos | Destaque (6) / Premium (10) | `POST /api/lojista/products` | `LojistaProdutos.tsx` (LockedFeature) |
 | Métricas | Destaque (números) / Premium (gráfico) | `GET /api/lojista/metrics` | `LojistaMetricas.tsx` (LockedFeature) |
 | Resposta a review | Destaque | `POST /api/lojista/reviews/:id/respond` | `LojistaAvaliacoes.tsx` |
 | Relatório PDF | Premium | endpoint dedicado | — |

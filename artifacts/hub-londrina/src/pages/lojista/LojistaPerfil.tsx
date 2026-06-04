@@ -250,6 +250,13 @@ export default function LojistaPerfil() {
           </div>
         )}
 
+        {isFree && (
+          <div className="mx-6 mt-4 p-3 rounded-xl text-sm bg-amber-50 border border-amber-200 text-amber-800">
+            <strong>Exclusivo dos planos Base/Destaque e Premium.</strong> Envie logo e foto de capa após fazer upgrade.{" "}
+            <a href="/lojista/plano" className="underline font-semibold">Ver planos</a>
+          </div>
+        )}
+
         <div className="p-6 space-y-6">
           {/* Logo */}
           <div>
@@ -281,7 +288,7 @@ export default function LojistaPerfil() {
             <button
               type="button"
               onClick={() => logoFileRef.current?.click()}
-              disabled={logoUploading}
+              disabled={logoUploading || isFree}
               className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
             >
               {logoUploading
@@ -319,7 +326,7 @@ export default function LojistaPerfil() {
             <button
               type="button"
               onClick={() => bannerFileRef.current?.click()}
-              disabled={bannerUploading}
+              disabled={bannerUploading || isFree}
               className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
             >
               {bannerUploading
