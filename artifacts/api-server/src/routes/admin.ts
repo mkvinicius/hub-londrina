@@ -16,6 +16,7 @@ import {
   isCoreKey,
   listLegalConfigRows,
 } from "../lib/legal-config-store";
+import { ZONE_SLOTS, HOME_SEARCH_SLOTS } from "../lib/boost-locks";
 import { legalConfigTable } from "@workspace/db/schema";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
 import { z } from "zod/v4";
@@ -848,7 +849,6 @@ router.delete("/admin/boosts/:id", validateId, async (req: Request, res: Respons
 
 // ─── Boosts EXTRA: por zona e Home+Busca ────────────────────────────────────────
 const VALID_ZONES = ["norte", "sul", "leste", "oeste", "centro"];
-const MAX_SLOTS_PER_CONTEXT = 6;
 
 router.get("/admin/boosts-extra", async (_req: Request, res: Response) => {
   const rows = await db
@@ -903,7 +903,8 @@ router.get("/admin/boosts-extra", async (_req: Request, res: Response) => {
   res.json({
     zones,
     homeSearch,
-    maxSlots: MAX_SLOTS_PER_CONTEXT,
+    zoneMaxSlots: ZONE_SLOTS,
+    homeSearchMaxSlots: HOME_SEARCH_SLOTS,
   });
 });
 
@@ -955,12 +956,13 @@ router.post("/admin/boosts-extra", async (req: Request, res: Response) => {
   ];
   if (boostContext === "zone") slotConditions.push(eq(searchBoostsTable.zone, zone));
 
+  const slotCap = boostContext === "zone" ? ZONE_SLOTS : HOME_SEARCH_SLOTS;
   const activeSlots = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(...slotConditions));
-  if (activeSlots.length >= MAX_SLOTS_PER_CONTEXT) {
+  if (activeSlots.length >= slotCap) {
     res.status(400).json({
       error: boostContext === "zone"
-        ? `Zona ${zone} já tem ${MAX_SLOTS_PER_CONTEXT} slots ocupados`
-        : `Home + Busca já tem ${MAX_SLOTS_PER_CONTEXT} slots ocupados`,
+        ? `Zona ${zone} já tem ${slotCap} slots ocupados`
+        : `Home + Busca já tem ${slotCap} slots ocupados`,
       code: "SLOTS_FULL",
     });
     return;

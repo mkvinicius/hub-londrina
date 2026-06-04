@@ -260,7 +260,7 @@ export const emails = {
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
         <h2 style="color:#d97706">Fila de espera</h2>
         <p>Olá, <strong>${nome}</strong>!</p>
-        <p>Recebemos seu pagamento, mas as 6 vagas do <strong>${ctxLabel}</strong> estão atualmente ocupadas.</p>
+        <p>Recebemos seu pagamento, mas as vagas do <strong>${ctxLabel}</strong> estão atualmente ocupadas.</p>
         <p>Você foi adicionado à <strong>fila de espera</strong>. Assim que uma vaga for liberada, ativaremos seu destaque automaticamente por 30 dias e você receberá um email de confirmação.</p>
         <p><a href="https://www.hublondrina.com.br/lojista/impulsionamento" style="background:#d97706;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold">Acompanhar status</a></p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0">

@@ -6,6 +6,28 @@
 
 ## 2026-06-04
 
+### Destaque de Zona: 6→3 vagas por zona + textos dos cards de busca mais claros (Task #66)
+
+**Pedido**: (A) reduzir as vagas do "Destaque de Zona" de 6 para 3 por zona (com 6 destaques a página da região fica poluída); (B) deixar mais claros os textos dos dois cards de busca ("Destaque Home + Busca" vs "Boost na busca por categoria"), que confundiam o lojista por parecerem o mesmo produto — **sem unificá-los** (decisão do usuário).
+
+**Mudança (A) — capacidade da zona**:
+- Nova **fonte única** de capacidade em `lib/boost-locks.ts`: `ZONE_SLOTS = 3` (dedicada à zona) e `HOME_SEARCH_SLOTS = 6` (contador legado do home_search). Antes havia um único `SLOTS_PER_CONTEXT = 6` compartilhado entre zona e home_search — reduzir um afetaria o outro.
+- `boosts.ts` (disponibilidade), `stripe.ts` (checkout/sync + webhook, 2 pontos), `boost-expiration.ts` (promoção de waitlist) **e `admin.ts` (`/admin/boosts-extra`)** agora derivam o teto por contexto (`zone → 3`, `home_search → 6`). Nenhum `6` hardcoded sobrou no caminho da zona. Regra de negócio inalterada: zona segue exclusiva Destaque/Premium, R$79/30 dias, na zona do próprio negócio. 4º+ comprador vai para `waitlist` e é promovido quando uma vaga abre (agora com teto 3).
+  - **Atenção** (achado da revisão de código): o `admin.ts` ainda usava um `MAX_SLOTS_PER_CONTEXT = 6` compartilhado, permitindo a um admin encher uma zona até 6 vagas por fora do limite — corrigido para usar `ZONE_SLOTS`/`HOME_SEARCH_SLOTS`. O GET `/admin/boosts-extra` passou a expor `zoneMaxSlots`/`homeSearchMaxSlots` (campo `maxSlots` único removido; não era consumido pelo front).
+- Card "Destaque de Zona" no painel do lojista exibe "X de 3" automaticamente (contagem vem da API).
+
+**Bugfix de borda (corrigido junto)**: `boosts.ts` referenciava `HOME_PRICE_BRL` (preço legado do home_search) **sem nunca defini-lo** → `ReferenceError` derrubava `GET /api/lojista/boosts/availability` com **500** para todos os planos (o card de Zona nem carregava). Definido `HOME_PRICE_BRL = 149` (valor legado, bate com `home_search.priceBRL: 149` no `stripe.ts`). Estava entre os erros de runtime pré-existentes.
+
+**Mudança (B) — textos (somente front)**:
+- `LojistaBoost.tsx`: card "Destaque Home + Busca" agora deixa explícito que aparece no **site inteiro** (home + busca de **qualquer categoria**); seção "Boost na busca por categoria" ganhou caixa explicativa de que aparece **só dentro da própria categoria**. Cada texto cita o outro produto para reforçar a diferença de alcance.
+- `AdminImpulsionamento.tsx` (painel "Como funcionam os impulsionamentos?"): "6 vagas por zona" → "3 vagas por zona"; texto do Home+Busca corrigido (era "6 slots globais com 3 posições", contraditório) para "3 posições numeradas (R$249/179/129) … toda busca do site, de qualquer categoria".
+
+**Nova regra**: RULES.md **R15** documenta as capacidades por contexto como fonte única (`ZONE_SLOTS`/`HOME_SEARCH_SLOTS` em `boost-locks.ts`) e proíbe hardcodar números no caminho da zona.
+
+**Fora de escopo** (intocados): preços (zona R$79, home_search R$249/179/129, categoria R$149→R$59), `category` (5 posições), `home_banner` (2 slots), vitrine, e a elegibilidade de plano de qualquer contexto.
+
+**Provas**: (1) `curl /api/lojista/boosts/availability` como lojista Premium → `zoneAvailability.total: 3` e `homeSearchAvailability.total: 6` (intacto). (2) `GET /api/admin/boosts-extra` → `zoneMaxSlots: 3, homeSearchMaxSlots: 6`. (3) Caminho admin: criados 3 boosts de zona em `leste` (201), 4ª criação **bloqueada** com `400 {"code":"SLOTS_FULL","error":"Zona leste já tem 3 slots ocupados"}`, e cleanup (volta a 0). (4) `validate-lojista-rules` verde (12/12). (5) E2E (`runTest`) logando como Premium: card "Destaque de Zona" mostra **"3 de 3"** (não 6), card Home+Busca cita "site inteiro"/"qualquer categoria", e seção de categoria diz "só dentro da sua categoria". (6) typecheck: nenhum erro novo nos arquivos alterados (os pré-existentes de `api-server`/`hub-londrina` permanecem como dívida fora desta task).
+
 ### Deploy falhava ao publicar — porta do api-server abria só DEPOIS das tarefas de startup
 
 **Problema relatado**: a publicação (autoscale) falhava no build/deploy. Diagnóstico **com prova nos logs de produção** (não leitura de código): o build compilava normalmente (`dist/index.mjs` gerado e executado) — a falha era em **runtime**. O hub-londrina (SSR, porta 22662) subia, mas o **api-server (porta 8080) nunca abria a porta**, e o deploy estourava no timeout (`not all artifact ports opened within timeout expected=[8080 22662] detected=1`). O processo do api-server iniciava (pid) mas **não emitia nenhum log** — coerente com travar **antes** do `listen`.

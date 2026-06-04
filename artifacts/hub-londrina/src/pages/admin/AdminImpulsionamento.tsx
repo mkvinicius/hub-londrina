@@ -484,7 +484,7 @@ export default function AdminImpulsionamento() {
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
                 <Home className="w-3.5 h-3.5 text-indigo-500" /> Destaque Home + Busca
               </p>
-              <p>6 slots globais com 3 posições numeradas. Aparecem no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente.</p>
+              <p>3 posições numeradas (1ª R$249, 2ª R$179, 3ª R$129). Aparecem no topo da home E em TODA busca do site, de qualquer categoria. Exclusivo Premium. Cobrança mensal recorrente.</p>
             </div>
             <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-3">
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
@@ -496,7 +496,7 @@ export default function AdminImpulsionamento() {
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
                 <MapPin className="w-3.5 h-3.5 text-emerald-600" /> Destaque de Zona
               </p>
-              <p>6 vagas por zona (Centro/Norte/Sul/Leste/Oeste) que destacam o negócio na página da região por 30 dias (R$79). Disponível para planos Destaque e Premium. Gerenciado em "Zonas".</p>
+              <p>3 vagas por zona (Centro/Norte/Sul/Leste/Oeste) que destacam o negócio na página da região por 30 dias (R$79). Disponível para planos Destaque e Premium. Gerenciado em "Zonas".</p>
             </div>
             <div className="bg-rose-50/40 border border-rose-100 rounded-xl p-3 md:col-span-2">
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">

@@ -195,6 +195,13 @@ Os dados legais (razão social, CNPJ, DPO_EMAIL, TERMS_VERSION, RETENTION_MONTHS
 ### R14 · Startup do api-server abre a porta ANTES das tarefas de manutenção
 O autoscale só considera o deploy saudável quando o processo abre sua porta (`PORT`) dentro do timeout do health check. Em `artifacts/api-server/src/index.ts`, `app.listen(port)` deve rodar **primeiro**; as tarefas que dependem do banco (Sentry/seed/`ensureViews`/`heal*`/jobs) rodam **depois** do listen, dentro de um bloco com `try/catch` que **loga mas não derruba** o servidor. **Proibido** colocar `app.listen` no fim de uma cadeia de promises de startup (qualquer travamento/rejeição segura a porta fechada e a publicação falha no timeout — `not all artifact ports opened`). Uma tarefa de manutenção que falha nunca pode impedir a porta de abrir.
 
+### R15 · Capacidade de vagas dos boosts por contexto (fonte única)
+As constantes de capacidade vivem em `api-server/src/lib/boost-locks.ts` e são a **fonte única** usada por disponibilidade (`boosts.ts`), checkout/sync e webhook Stripe (`stripe.ts`), job de expiração/waitlist (`boost-expiration.ts`) **e criação avulsa pelo admin (`admin.ts` → `/admin/boosts-extra`)**:
+- `ZONE_SLOTS = 3` — vagas ativas de "Destaque de Zona" **por zona** (Task #66, reduzido de 6). 4º+ comprador entra na `waitlist` e é promovido quando uma vaga abre.
+- `HOME_SEARCH_SLOTS = 6` — contador **legado** do `home_search` antigo. O modelo vigente é por **posição numerada** (3 vagas: #1 R$249, #2 R$179, #3 R$129) via `/lojista/boosts/home-search-checkout`; o `/boosts/checkout` genérico só aceita `zone`.
+
+**Proibido** hardcodar `6` (ou qualquer número) no caminho da zona — sempre importar `ZONE_SLOTS`. Reduzir a zona **não pode** afetar o teto do home_search nem de nenhum outro contexto (são constantes separadas de propósito).
+
 ---
 
 ## 🚧 Workflow de qualidade (para o agente)

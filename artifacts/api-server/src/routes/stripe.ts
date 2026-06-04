@@ -7,7 +7,7 @@ import { subscriptionsTable, businessesTable, businessUsersTable, searchBoostsTa
 import { enforceProductLimitForBusiness, enforcePhotoLimitForBusiness } from "../lib/enforce-product-limits";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { sendEmail, emails, sendAssinaturaCancelada } from "../services/email";
-import { categoryLockKey, zoneLockKey, homeSearchLockKey, homeSearchPositionLockKey, vitrineSlotLockKey } from "../lib/boost-locks";
+import { categoryLockKey, zoneLockKey, homeSearchLockKey, homeSearchPositionLockKey, vitrineSlotLockKey, ZONE_SLOTS, HOME_SEARCH_SLOTS } from "../lib/boost-locks";
 import { isDocumentationExpired } from "../lib/documentation-state";
 
 const router: IRouter = Router();
@@ -385,8 +385,8 @@ router.post("/lojista/boosts/sync", async (req: Request, res: Response) => {
       });
     }
 
-    // Caso C2: boost zona (avulso, 6 vagas) — modelo legacy de home_search também cai aqui
-    // mas em prática novos pagamentos home_search sempre vêm com position (modelo novo).
+    // Caso C2: boost zona (avulso, cap ZONE_SLOTS) — modelo legacy de home_search também cai aqui
+    // (cap HOME_SEARCH_SLOTS), mas novos pagamentos home_search sempre vêm com position (modelo novo).
     if (boostContext === "zone" || boostContext === "home_search") {
       const zone = meta.zone || "";
       const lockKey = boostContext === "zone" ? zoneLockKey(zone) : homeSearchLockKey();
@@ -411,7 +411,8 @@ router.post("/lojista/boosts/sync", async (req: Request, res: Response) => {
         const occupied = await tx.select({ id: searchBoostsTable.id })
           .from(searchBoostsTable).where(and(...slotConditions));
 
-        const status: "active" | "waitlist" = occupied.length < 6 ? "active" : "waitlist";
+        const slotCap = boostContext === "zone" ? ZONE_SLOTS : HOME_SEARCH_SLOTS;
+        const status: "active" | "waitlist" = occupied.length < slotCap ? "active" : "waitlist";
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
         await tx.insert(searchBoostsTable).values({
@@ -1410,7 +1411,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             return { skipped: true as const };
           }
 
-          // Conta vagas ocupadas dentro da transação (max 6)
+          // Conta vagas ocupadas dentro da transação (cap por contexto: ZONE_SLOTS / HOME_SEARCH_SLOTS)
           const slotConditions = [
             eq(searchBoostsTable.boostContext, boostContext as any),
             eq(searchBoostsTable.status, "active"),
@@ -1420,7 +1421,8 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           const occupied = await tx.select({ id: searchBoostsTable.id })
             .from(searchBoostsTable).where(and(...slotConditions));
 
-          const status: "active" | "waitlist" = occupied.length < 6 ? "active" : "waitlist";
+          const slotCap = boostContext === "zone" ? ZONE_SLOTS : HOME_SEARCH_SLOTS;
+          const status: "active" | "waitlist" = occupied.length < slotCap ? "active" : "waitlist";
           const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
           await tx.insert(searchBoostsTable).values({

@@ -4,6 +4,7 @@ import { and, asc, eq, isNull, or, gt, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
 import { runWithCheckpoint } from "./job-checkpoint";
+import { ZONE_SLOTS, HOME_SEARCH_SLOTS } from "./boost-locks";
 
 async function expireBoosts() {
   try {
@@ -68,9 +69,9 @@ async function expireHomeBanners() {
 
 async function promoteWaitlist() {
   // Para cada contexto especial (zone por zona específica + home_search), conta vagas ativas
-  // e promove o waitlist mais antigo se houver vaga disponível (max 6 por contexto/zona)
+  // e promove o waitlist mais antigo se houver vaga disponível. Teto por contexto:
+  // zona = ZONE_SLOTS (3), home_search legado = HOME_SEARCH_SLOTS (6).
   try {
-    const SLOTS = 6;
     const contexts: Array<{ ctx: "zone" | "home_search"; zones: (string | null)[] }> = [
       { ctx: "home_search", zones: [null] },
     ];
@@ -96,7 +97,8 @@ async function promoteWaitlist() {
         ];
         if (ctx === "zone" && z) slotConditions.push(eq(searchBoostsTable.zone, z));
         const active = await db.select({ id: searchBoostsTable.id }).from(searchBoostsTable).where(and(...slotConditions));
-        let freeSlots = SLOTS - active.length;
+        const slotCap = ctx === "zone" ? ZONE_SLOTS : HOME_SEARCH_SLOTS;
+        let freeSlots = slotCap - active.length;
         if (freeSlots <= 0) continue;
 
         const waitlistConds = [

@@ -475,13 +475,13 @@ export default function LojistaBoost() {
                       )}
                     </div>
                     <p className="text-sm text-gray-600 mt-0.5">
-                      3 posições numeradas. <strong>1ª lugar garantido</strong> no autocomplete da home, da busca e em "Destaques para você".
+                      3 posições numeradas. Aparece no <strong>site inteiro</strong> — home e busca de <strong>qualquer categoria</strong>.
                     </p>
                   </div>
                 </div>
 
                 <p className="text-xs text-gray-700 leading-relaxed bg-white/70 border border-amber-100 rounded-lg px-3 py-2 mb-3">
-                  Seu negócio aparece numa seção especial de destaque tanto na página inicial quanto nos resultados de busca. Alta visibilidade para quem ainda não sabe o que está procurando.
+                  O destaque mais amplo: seu negócio aparece numa seção especial na <strong>página inicial</strong> e no topo de <strong>toda busca do site</strong>, não importa a categoria que a pessoa pesquisou. Ideal para quem quer máxima visibilidade e ainda não é procurado pelo nome. (Diferente do "Boost na busca por categoria" abaixo, que só aparece dentro da sua categoria.)
                 </p>
 
                 {!hsPositions.eligible && (
@@ -725,10 +725,14 @@ export default function LojistaBoost() {
       {/* ============================================================ */}
       {/* SEÇÃO ORIGINAL: BOOST MENSAL E AVULSO (mantida)               */}
       {/* ============================================================ */}
-      <h2 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2">
+      <h2 className="text-lg font-black text-gray-800 mb-2 flex items-center gap-2">
         <Zap className="w-5 h-5 text-[#d97706]" />
         Boost na busca por categoria
       </h2>
+
+      <p className="text-xs text-gray-700 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4">
+        Aparece <strong>só dentro da sua categoria</strong>: quando alguém busca pela categoria do seu negócio, você sobe para o topo dos resultados e do autocomplete daquela categoria. É mais focado que o "Destaque Home + Busca" acima (que aparece no site inteiro) — perfeito para quem já sabe que tipo de serviço procura.
+      </p>
 
       {planType !== "premium" && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 flex items-start gap-3">

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "@workspace/db";
 import { businessesTable, searchBoostsTable, subscriptionsTable } from "@workspace/db/schema";
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
-import { homeSearchPositionLockKey } from "../lib/boost-locks";
+import { homeSearchPositionLockKey, ZONE_SLOTS, HOME_SEARCH_SLOTS } from "../lib/boost-locks";
 
 // Modelo antigo de "6 vagas iguais R$149" para home_search foi substituído por
 // 3 posições numeradas (ver endpoints /home-search-positions e /home-search-checkout).
@@ -59,8 +59,10 @@ const HOME_SEARCH_POSITION_PRICES_BRL: Record<number, number> = {
   3: 129,
 };
 
-const SLOTS_PER_CONTEXT = 6;
 const ZONE_PRICE_BRL = 79;
+// Preço legado do home_search "vaga única" (modelo antigo de 6 vagas iguais).
+// O modelo vigente usa posições numeradas (HOME_SEARCH_POSITION_PRICES_BRL).
+const HOME_PRICE_BRL = 149;
 
 interface LojistaPayload { businessId: number; email: string; role: string }
 
@@ -133,8 +135,8 @@ router.get("/lojista/boosts/availability", lojistaAuth, async (req: Request, res
     plan: planType,
     zone: bizZone,
     zoneAvailability: {
-      total: SLOTS_PER_CONTEXT,
-      available: Math.max(0, SLOTS_PER_CONTEXT - zoneOccupied),
+      total: ZONE_SLOTS,
+      available: Math.max(0, ZONE_SLOTS - zoneOccupied),
       price: ZONE_PRICE_BRL,
       eligible: planType === "destaque" || planType === "premium",
       requiredPlan: "destaque",
@@ -144,8 +146,8 @@ router.get("/lojista/boosts/availability", lojistaAuth, async (req: Request, res
       } : null,
     },
     homeSearchAvailability: {
-      total: SLOTS_PER_CONTEXT,
-      available: Math.max(0, SLOTS_PER_CONTEXT - homeOccupied),
+      total: HOME_SEARCH_SLOTS,
+      available: Math.max(0, HOME_SEARCH_SLOTS - homeOccupied),
       price: HOME_PRICE_BRL,
       eligible: planType === "premium",
       requiredPlan: "premium",
