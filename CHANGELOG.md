@@ -6,6 +6,16 @@
 
 ## 2026-06-04
 
+### Config legal propaga em ~60s, não em 5 min: header HTTP alinhado ao cache interno (Task #78)
+
+**Problema** (R13): o store interno da config legal (`legal-config-store.ts`) cacheia 60s e é invalidado a cada escrita do admin (`invalidateLegalConfig()`), mas o endpoint público `GET /api/legal-config` (`routes/legal.ts`) respondia com `Cache-Control: public, max-age=300` (5 min). Resultado: o admin salvava, a origem já servia o valor novo, mas o navegador/CDN segurava a versão antiga por até 5 min.
+
+**Correção**: header HTTP alinhado à janela do store — `max-age=300` → `max-age=60` em `routes/legal.ts`. `RULES.md` R13 (item 3) atualizado para documentar que o `Cache-Control` do endpoint público deve bater com os 60s do store.
+
+**Provas (dev)**: (1) `curl -D -` em `/api/legal-config` → `Cache-Control: public, max-age=60`. (2) E2E de propagação na origem: login admin → `PUT /api/admin/legal-config/LAST_UPDATED` (com CSRF) com valor sentinela → **HTTP 200** → `GET /api/legal-config` refletiu o valor sentinela **imediatamente** (store invalidado), header já `max-age=60`; valor original restaurado ao final (HTTP 200).
+
+**Fora de escopo** (intocados, já corretos): chaves CORE, proteção de DELETE (403), invalidação de consents por `TERMS_VERSION`, TTL interno do store (60s).
+
 ### Defesa em profundidade do invariante de documentação expirada (R2) — reads públicos + cron via fonte única + teste de regressão (Task #77)
 
 **Problema**: o invariante "documentação `expired` = loja offline para TODOS os planos" (R2) dependia de **um único caminho de escrita** gravar `isVisible=false`. As listagens públicas filtravam **só** por `isVisible`; se qualquer caminho futuro (nova rota, refactor) esquecesse de baixar a flag, uma loja `expired` voltaria a aparecer no site. Além disso, o cron de expiração **duplicava** a lógica de transição (`expired`+`isVisible=false`) em vez de delegar à fonte única `syncDocumentationState`, abrindo espaço para divergência.

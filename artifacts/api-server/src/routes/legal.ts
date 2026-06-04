@@ -6,7 +6,7 @@ const router: IRouter = Router();
 router.get("/legal-config", async (_req: Request, res: Response) => {
   try {
     const data = await getLegalConfig();
-    res.set("Cache-Control", "public, max-age=300");
+    res.set("Cache-Control", "public, max-age=60");
     res.json({ data });
   } catch {
     res.status(500).json({ error: "Falha ao ler config legal" });
