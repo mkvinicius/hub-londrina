@@ -764,6 +764,7 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
    - **Aprovar** todos 3 → `documentationStatus=approved`, `verified=true`, `isVisible=true`, `planFrozen=false` (religa a loja)
    - **Rejeitar** → `verified=false`, `rejected`, timer retomado, email com motivo
 6. Se `remainingDays` chega a 0 sem aprovação: `documentationStatus=expired`, `isVisible=false` **para QUALQUER plano**. Pagamento/heal não republicam — só a aprovação dos 3 docs religa a loja.
+   - **Task #71** — `expired` + `isVisible=true` é estado inválido (loja expirada continuava no ar). `syncDocumentationState` agora grava `isVisible=false` sempre que o estado é `expired`, em QUALQUER caminho (heal de boot / cron / upload), não só no instante exato da expiração pelo cron. Assim o heal de startup derruba toda loja `expired` que tenha ficado visível (corrige a base inteira), sem republicar nada nem desfazer ocultação manual em estados não-expirados.
 
 ### Storage de Documentos
 - Arquivos em `private://documents/{businessId}/{type}-{timestamp}.ext`

@@ -387,6 +387,25 @@ router.patch("/admin/businesses/:id", validateId, async (req: Request, res: Resp
     if (typeof req.body.isVisible !== "boolean") {
       res.status(400).json({ error: "isVisible deve ser boolean" }); return;
     }
+    // Task #71 — `expired` = loja OFFLINE para TODOS os planos (RULES.md R2).
+    // O admin NÃO pode republicar manualmente uma loja com documentação
+    // expirada por aqui: como os reads públicos filtram só por `isVisible`,
+    // um `isVisible=true` manual a recolocaria no ar contornando o invariante.
+    // Só a aprovação dos 3 docs (`/admin/documentos`) religa a loja.
+    if (req.body.isVisible === true) {
+      const [docUser] = await db
+        .select({ docStatus: businessUsersTable.documentationStatus })
+        .from(businessUsersTable)
+        .where(eq(businessUsersTable.businessId, id));
+      if (docUser?.docStatus === "expired") {
+        res.status(409).json({
+          error:
+            "Documentação expirada: a loja fica offline para todos os planos. Aprove os 3 documentos para religá-la — não é possível torná-la visível manualmente.",
+          code: "DOCUMENTATION_EXPIRED",
+        });
+        return;
+      }
+    }
     updates.isVisible = req.body.isVisible;
   }
   // Task #63 — `businesses.verified` é ESTRITAMENTE derivado dos documentos

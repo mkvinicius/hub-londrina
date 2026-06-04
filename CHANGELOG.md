@@ -6,6 +6,22 @@
 
 ## 2026-06-04
 
+### Loja com documentação expirada sai do ar de fato — para todos os planos (Task #71)
+
+**Problema relatado**: lojas com `documentationStatus='expired'` continuavam **públicas/online**. Diagnóstico **com prova SQL em produção** (read-only, não leitura de código): 5 negócios estavam `documentation_status='expired'` E `is_visible=true` ao mesmo tempo (ex.: #21 Sabor do Sul destaque, #37 Elétrica Londrina, #42 Loja Teste, #44 Estrategista digital premium, #45 Restaurante Estações). Isso viola R2 ("documentação expirada derruba a loja para TODOS os planos").
+
+**Causa-raiz**: o `isVisible=false` da expiração era gravado **apenas** pelo cron (`documentation-job.ts`), no instante exato da transição (estado em `pending`/`rejected` com `remaining` chegando a 0). Negócios que chegavam a `expired` por outro caminho (`syncDocumentationState` via heal/upload), ou cuja flag nunca foi virada nesse momento exato, ficavam `expired` **mas visíveis** — e os caminhos de leitura pública (`businesses.ts`, `search.ts`, `zones.ts`) filtram só por `isVisible`+`status`, sem checar `expired`. A reconciliação (`reopenOnApproval=false`) era deliberadamente conservadora e **não tocava** `isVisible` para nenhum estado não-aprovado.
+
+**Correção (fonte única — `lib/documentation-state.ts`)**: na branch não-aprovada de `syncDocumentationState`, quando o estado resolvido é **`expired`**, o UPDATE agora grava **`{ verified:false, isVisible:false }`** (antes só `verified:false`). Estados não-expirados (`pending`/`submitted`/`rejected`) **seguem conservadores** — não tocam `isVisible` (loja paga dentro do prazo de 10 dias continua no ar) e nunca republicam. Como o heal de boot (`healDocumentationConsistency`) roda `syncDocumentationState` para **todos** os negócios, essa mudança **corrige a base inteira automaticamente** no próximo deploy — incluindo as 5 lojas de produção — sem script de migração. `expired` + `isVisible=true` deixa de ser um estado que persiste. A religação continua **exclusiva** da aprovação dos 3 docs (`reopenOnApproval:true`, intacto).
+
+**Reforço do invariante (guard admin — `routes/admin.ts`)**: a revisão de código (architect) apontou um furo: o `PATCH /api/admin/businesses/:id` ainda permitia o admin setar `isVisible=true` à mão numa loja `expired` — e, como os reads públicos filtram só por `isVisible`, ela voltaria a aparecer até o próximo `syncDocumentationState`. Correção: o endpoint agora **rejeita** com **`409 DOCUMENTATION_EXPIRED`** qualquer `{isVisible:true}` quando `documentationStatus='expired'`. Religar a loja segue exclusivo da aprovação dos 3 docs.
+
+**Fora de escopo** (intocados): trilha de pagamento (gates `isDocumentationExpired` já corretos), `expired` sticky, `verified` write-protected, cron de expiração (continua gravando `isVisible=false` no momento da transição — agora redundante e coerente com o sync).
+
+**Provas (dev)**: (1) estado-bug reproduzido no negócio #20 (`expired` + `is_visible=true` + `remaining=0`, igual às 5 linhas de produção) → aparecia em `GET /api/businesses` (total=20) E em `GET /api/search`. (2) após restart do api-server (heal de boot), SQL: `is_visible=false`, `documentation_status=expired` → loja **sumiu** de `/api/businesses` (total=19) e de `/api/search`. (3) **conservadoria**: 4 lojas `pending` com `remaining>0` (#5/#9/#15/#17) **continuaram visíveis** — só a `expired` (#20) saiu. (4) #20 restaurado ao estado original. (5) `validate-lojista-rules` verde (10/10). (6) typecheck: nenhum erro novo em `documentation-state.ts` (os ~40 erros pré-existentes em `stripe.ts`/`vitrine.ts` permanecem como dívida fora desta task; build usa esbuild sem `tsc`).
+
+**Regra atualizada**: RULES.md R2 — nova "Exceção `expired`" e a cláusula de reconciliação reescrita (a única ação retroativa de visibilidade do heal é derrubar `expired` visível). context.md (fluxo de documentação) atualizado.
+
 ### Banner "Documentação aprovada" só aparece com os 3 docs realmente aprovados (Task #69)
 
 **Problema relatado**: na tela do lojista **Documentação** (`/lojista/documentacao`), a faixa verde **"✅ Documentação aprovada — selo Verificado"** aparecia mesmo com os 3 documentos ainda **"Em análise"** (`submitted`). Mentira para o lojista e viola a regra do dono (a frase "aprovado"/selo só existe com os 3 docs aprovados pelo admin).

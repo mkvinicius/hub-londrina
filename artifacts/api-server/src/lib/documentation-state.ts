@@ -47,11 +47,20 @@ export interface DocumentationSyncResult {
  * deve ser usada no caminho de aprovação final do admin. Por padrão
  * (`reopenOnApproval=false`) a sincronização é puramente uma RECONCILIAÇÃO de
  * estado documental: deriva `documentationStatus`, `documentationTimerPaused` e
- * o selo `verified`, mas NÃO mexe em `isVisible`/`status`/`planFrozen`. Isso é
- * essencial para o heal de startup e o cron, que rodam para todos os negócios e
- * não podem desfazer uma ocultação manual feita pelo admin nem republicar lojas
- * por engano. A passagem para offline na expiração é responsabilidade do cron
- * (`documentation-job.ts`), no momento exato em que o prazo estoura.
+ * o selo `verified`, e para estados NÃO-expirados (pending/submitted/rejected)
+ * NÃO mexe em `isVisible`/`status`/`planFrozen` — assim o heal de startup e o
+ * cron, que rodam para todos os negócios, não desfazem uma ocultação manual do
+ * admin nem republicam lojas por engano (uma loja paga ainda dentro do prazo de
+ * 10 dias segue no ar).
+ *
+ * EXCEÇÃO `expired` (Task #71): documentação expirada = loja OFFLINE para TODOS
+ * os planos (RULES.md R2). `expired` + `isVisible=true` é estado inválido. Por
+ * isso, quando o estado resolve para `expired`, a reconciliação TAMBÉM grava
+ * `isVisible=false` — não apenas o cron no instante da transição. Isso fecha a
+ * brecha em que uma loja que chegou a `expired` por outro caminho (heal/sync,
+ * ou cuja flag nunca foi virada) continuava aparecendo no site público. NUNCA
+ * republica (não toca em `isVisible` no sentido true): só a aprovação dos 3
+ * docs (`reopenOnApproval:true`) volta a colocá-la no ar.
  */
 export async function syncDocumentationState(
   businessId: number,
@@ -136,11 +145,17 @@ export async function syncDocumentationState(
     }
   } else {
     // `verified` é ESTRITAMENTE derivado: qualquer estado não-aprovado
-    // (pending/submitted/rejected/expired) remove o selo. Não toca isVisible —
-    // a passagem para offline é responsabilidade do cron na expiração.
+    // (pending/submitted/rejected/expired) remove o selo.
+    //
+    // Task #71 — `expired` derruba a loja para TODOS os planos (RULES.md R2).
+    // Aqui garantimos que a reconciliação (heal/cron/upload) também grave
+    // `isVisible=false` quando o estado é `expired`, e não só o cron no instante
+    // da transição. Estados não-expirados (pending/submitted/rejected) seguem
+    // conservadores: NÃO mexem em `isVisible` (loja paga no prazo de 10 dias
+    // continua no ar) e nunca republicam — só a aprovação final do admin religa.
     await db
       .update(businessesTable)
-      .set({ verified: false })
+      .set(status === "expired" ? { verified: false, isVisible: false } : { verified: false })
       .where(eq(businessesTable.id, businessId));
   }
 
