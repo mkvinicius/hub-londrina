@@ -4,6 +4,24 @@
 
 ---
 
+## 2026-06-04
+
+### Banner na Home — dimensões antes da compra + gate Premium blindado na UI (Task #64)
+
+**Problema relatado**: cliente Premium achava que o Banner na Home "não funcionava". Diagnóstico (com prova SQL em produção): o fluxo de auto-upload (Task #56) já estava implementado e o backend liberava a compra (negócio #45 "Restaurante Estações Gastronomia" estava `plan_type=premium`/`active`). As falhas reais eram de **front**:
+1. As **dimensões só apareciam DEPOIS de pagar** (dentro do bloco `paid_awaiting_upload`). Antes de comprar, a descrição não dizia o tamanho aceito nem que o próprio lojista sobe a imagem.
+2. **Gate Premium podia travar falsamente**: se `GET /lojista/profile` falhasse, a UI rebaixava `planType` para `"free"` silenciosamente → Premium via "Exclusivo Premium" com botão desabilitado e **sem saída** (o atalho "Sincronizar plano agora" só aparecia para `destaque`).
+
+**Mudança (somente `LojistaBoost.tsx`, front)**:
+- **Fonte única do texto de dimensões** (`BANNER_SPECS_LINE`): `1200×280px (4:1) · JPG/PNG/WebP · máx 10 MB · recorte automático`, reutilizada **antes da compra** (na descrição, com destaque "Após o pagamento, você mesmo envia a imagem") e **pós-pagamento** (bloco de upload). Valores batem com o backend (Sharp `resize(1200, 280)`).
+- **Sem downgrade silencioso de plano**: `loadAll()` busca o profile em separado; se falhar, seta `planLoadError=true` (não cai para `free`). Demais fetches têm `.catch` individual e não derrubam a página.
+- **Saída para Premium exibido como bloqueado**: o card de Banner mostra um ramo `planLoadError` ("Não foi possível carregar o seu plano… Recarregar") e o atalho **"Sincronizar plano agora"** passa a aparecer para **qualquer** estado não-premium (antes só `destaque`).
+- Removido o rodapé cinza redundante (a mensagem agora está destacada na descrição). **R1 preservado**: não-premium continua com botão cinza desabilitado + alerta amarelo "Exclusivo Premium" + link "Ver planos".
+
+**Fora de escopo** (intocados): backend de checkout/upload (gate `PLAN_REQUIRED` antes de `BUSINESS_INACTIVE` já correto), expiração automática (Task #57), validação de conteúdo (Task #58), regra de offline por documentação (Task #63).
+
+**Provas**: (1) E2E logado como Premium (`contato@sabordosul.com.br`) em `/lojista/boost`: dimensões visíveis ANTES da compra, botão "Comprar banner — R$299/mês" habilitado, sem "Exclusivo Premium". (2) `validate-lojista-rules` verde — "R1 home-banner/checkout bloqueia free (403 PLAN_REQUIRED)" intacto. (3) typecheck do arquivo limpo (erros restantes são pré-existentes em `icons.tsx`/`busca.tsx`/`negocio.tsx`).
+
 ## 2026-06-03
 
 ### Documentação — fonte única de verdade + offline para todos os planos ao expirar (Task #63, revoga R2-A)

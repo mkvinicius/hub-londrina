@@ -27,6 +27,8 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 
 **Plan check sempre lê do DB** (nunca do JWT, que pode estar desatualizado).
 
+**UI nunca rebaixa o plano silenciosamente** (Task #64): se o fetch de `/lojista/profile` falhar, o front **não** pode assumir `planType="free"` e renderizar o recurso como bloqueado — isso mostra "Exclusivo Premium" para quem É Premium. Tratar o erro à parte (ex.: `planLoadError`) com aviso "recarregar", e sempre oferecer "Sincronizar plano agora" para qualquer estado não-premium. O texto de dimensões de upload (ex.: Banner Home `1200×280`) deve ter **fonte única** no componente e bater com o processamento do backend (Sharp), aparecendo **antes** da compra.
+
 **Ordem das guards de checkout**: o **gate de plano vem PRIMEIRO**, antes de qualquer checagem de estado do negócio (`status`/`isVisible`). Para um lojista free o motivo real do bloqueio é o plano — retornar `BUSINESS_INACTIVE` antes de `PLAN_REQUIRED` esconde o gate e confunde o usuário (free nasce `isVisible=false` por design). Vale para todos os endpoints de checkout, incluindo `POST /api/lojista/home-banner/checkout`.
 
 ---

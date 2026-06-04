@@ -31,6 +31,14 @@ type HomeSearchPositionsResponse = CategoryPositionsResponse;
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 const WHATSAPP_NUMBER = "5543999999999";
 
+// Especificações do Banner Home — fonte única (mesmos valores do backend: Sharp resize 1200×280).
+// Reutilizado na descrição pré-compra e no bloco de upload pós-pagamento para nunca divergir.
+const BANNER_SPECS_LINE = (
+  <>
+    Dimensões aceitas: <strong>1200×280px</strong> (proporção 4:1) · JPG, PNG ou WebP · máx 10 MB · recorte automático.
+  </>
+);
+
 interface BoostInfo {
   boostType: string;
   position: number | null;
@@ -86,6 +94,7 @@ export default function LojistaBoost() {
   const [hsCheckoutLoading, setHsCheckoutLoading] = useState<number | null>(null);
   const [syncingPlan, setSyncingPlan] = useState(false);
   const [bannerImageUploading, setBannerImageUploading] = useState(false);
+  const [planLoadError, setPlanLoadError] = useState(false);
   const bannerImageRef = useRef<HTMLInputElement>(null);
 
   async function handleBannerImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -141,24 +150,31 @@ export default function LojistaBoost() {
   }
 
   async function loadAll() {
+    // O plano é carregado em separado: se ESTE fetch falhar, não podemos rebaixar
+    // a UI para "free" silenciosamente (isso travava o Banner Home para Premium).
     try {
-      const [profile, posData, avail, hb, cats, hs] = await Promise.all([
-        lojistaFetch("/lojista/profile"),
-        lojistaFetch("/lojista/boost-positions"),
-        lojistaFetch("/lojista/boosts/availability"),
+      const profile = await lojistaFetch("/lojista/profile");
+      setBoost(profile._boost || null);
+      setPlanType(profile.planType || "free");
+      setPlanLoadError(false);
+    } catch {
+      setPlanLoadError(true);
+    }
+    try {
+      const [posData, avail, hb, cats, hs] = await Promise.all([
+        lojistaFetch("/lojista/boost-positions").catch(() => ({ positions: [] })),
+        lojistaFetch("/lojista/boosts/availability").catch(() => null),
         lojistaFetch("/lojista/home-banner/status").catch(() => ({ banner: null })),
         getCategoryBoostPositions().catch(() => null),
         getHomeSearchBoostPositions().catch(() => null),
       ]);
-      setBoost(profile._boost || null);
-      setPositions(posData.positions || []);
-      setPlanType(profile.planType || "free");
+      setPositions(posData?.positions || []);
       setAvailability(avail);
       setHomeBanner(hb?.banner || null);
       setCatPositions(cats);
       setHsPositions(hs);
-    } catch (e) {
-      // ignore
+    } catch {
+      // falhas secundárias não derrubam a página
     } finally {
       setLoading(false);
     }
@@ -573,8 +589,11 @@ export default function LojistaBoost() {
             <span className="text-lg font-black text-[#d97706] whitespace-nowrap">R$299/mês</span>
           </div>
 
-          <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">
-            Uma imagem do seu negócio ocupa o topo da página inicial do Hub Londrina. O maior destaque disponível na plataforma. Após o pagamento, você envia a imagem e ela vai ao ar imediatamente.
+          <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-2">
+            Uma imagem do seu negócio ocupa o topo da página inicial do Hub Londrina. O maior destaque disponível na plataforma. <strong>Após o pagamento, você mesmo envia a imagem</strong> e ela vai ao ar imediatamente, sem aprovação manual.
+          </p>
+          <p className="text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+            {BANNER_SPECS_LINE}
           </p>
 
           {/* Status: aguardando upload de imagem */}
@@ -585,8 +604,7 @@ export default function LojistaBoost() {
                 Pagamento confirmado! Agora envie a imagem do banner.
               </div>
               <p className="text-xs text-blue-700 mb-3">
-                Dimensões ideais: <strong>1200×280px</strong> (proporção 4:1) · JPG, PNG ou WebP · máx 10 MB<br />
-                A imagem será recortada automaticamente para o tamanho ideal.
+                {BANNER_SPECS_LINE}
               </p>
               <input
                 type="file"
@@ -654,7 +672,18 @@ export default function LojistaBoost() {
 
           {/* Sem banner ou expirado — botão de compra */}
           {(!homeBanner || homeBanner.status === "expired") && (
-            planType !== "premium" ? (
+            planLoadError ? (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Não foi possível carregar o seu plano agora.{" "}
+                <button
+                  type="button"
+                  onClick={loadAll}
+                  className="font-bold underline hover:no-underline"
+                >
+                  Recarregar
+                </button>
+              </p>
+            ) : planType !== "premium" ? (
               <div>
                 <button
                   type="button"
@@ -668,19 +697,17 @@ export default function LojistaBoost() {
                   Exclusivo para o plano <strong>Premium</strong>.{" "}
                   <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
                 </p>
-                {planType === "destaque" && (
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    Acabou de fazer o upgrade para Premium?{" "}
-                    <button
-                      type="button"
-                      onClick={syncPlan}
-                      disabled={syncingPlan}
-                      className="font-semibold underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {syncingPlan ? "Sincronizando..." : "Sincronizar plano agora"}
-                    </button>
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Já é Premium mas aparece bloqueado?{" "}
+                  <button
+                    type="button"
+                    onClick={syncPlan}
+                    disabled={syncingPlan}
+                    className="font-semibold underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {syncingPlan ? "Sincronizando..." : "Sincronizar plano agora"}
+                  </button>
+                </p>
               </div>
             ) : (
               <button
@@ -692,10 +719,6 @@ export default function LojistaBoost() {
               </button>
             )
           )}
-
-          <p className="text-[11px] text-gray-400 mt-2">
-            Após o pagamento, você envia a imagem e ela vai ao ar instantaneamente — sem aprovação manual.
-          </p>
         </div>
       </section>
 

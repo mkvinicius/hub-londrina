@@ -211,6 +211,10 @@ createdAt   timestamp DEFAULT now()
 Fluxo (Task #56): pagamento Stripe → status=`paid_awaiting_upload`, imageUrl="" → lojista faz upload via
 `POST /api/lojista/home-banner/upload` → Sharp resize 1200×280 gravity:attention → status=`active` automático.
 `pending_review` mantido apenas para banners legados (criados antes da Task #56).
+UI (Task #64): o texto de dimensões aceitas (`1200×280px · 4:1 · JPG/PNG/WebP · máx 10 MB · recorte automático`)
+tem fonte única `BANNER_SPECS_LINE` em `LojistaBoost.tsx`, exibido ANTES da compra e no bloco de upload (sem
+divergir do backend). O gate Premium da UI não rebaixa `planType` para `free` se `GET /lojista/profile` falhar
+(estado `planLoadError` + botão "Recarregar"); "Sincronizar plano agora" aparece para qualquer não-premium.
 
 ### Tabela `business_clicks`
 ```
@@ -644,7 +648,7 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 - **Boost Avulso** (`boostContext=search`, `boostType=avulso`): 7/15/30 dias (R$29/R$49/R$79). Lojista solicita via WhatsApp e admin adiciona manualmente em `/admin/impulsionamento`.
 - **Destaque Home + Busca** (`boostContext=home_search`): 6 slots globais com 3 posições numeradas. Aparece no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente. Price ID: `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`.
 - **Destaque de Zona** (`boostContext=zone`): destaque na página da zona por 30 dias (R$79). Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
-- **Banner na Home** (`home_banners`): R$299/mês, máx. 2 lojistas simultâneos. Exclusivo Premium. Sem fila de aprovação desde a Task #56 — após pagamento o lojista faz upload da imagem e o Sharp processa (1200×280) e ativa automaticamente. Gate de plano (`PLAN_REQUIRED`) é checado ANTES do estado do negócio (`BUSINESS_INACTIVE`) em `POST /api/lojista/home-banner/checkout`.
+- **Banner na Home** (`home_banners`): R$299/mês, máx. 2 lojistas simultâneos. Exclusivo Premium. Sem fila de aprovação desde a Task #56 — após pagamento o lojista faz upload da imagem e o Sharp processa (1200×280) e ativa automaticamente. Gate de plano (`PLAN_REQUIRED`) é checado ANTES do estado do negócio (`BUSINESS_INACTIVE`) em `POST /api/lojista/home-banner/checkout`. As dimensões aceitas (1200×280 · 4:1 · JPG/PNG/WebP · máx 10 MB) aparecem ANTES da compra (Task #64, fonte única `BANNER_SPECS_LINE`).
 - **Boost Direto Admin** (`businesses.boostedUntil`): admin define período sem cobrança (cortesia/promoção interna). Sobrescreve `boostedUntil` direto no negócio.
 
 **UX de bloqueio (regra R12):** todo card de impulsionamento em `LojistaBoost.tsx` exibe:
