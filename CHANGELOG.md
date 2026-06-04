@@ -6,6 +6,20 @@
 
 ## 2026-06-04
 
+### Robustez do front do lojista: token centralizado, limite do banner unificado em 15MB e fallback de zona removido (Task #76)
+
+**Problema**: três fragilidades no painel do lojista (sem quebra funcional hoje, mas violando padrões e mascarando erros). (1) **R4** — o upload do banner da home lia `localStorage.getItem("hub_lojista_token")` direto + `fetch` manual, fora do helper central de autenticação; se a chave mudar, quebra em silêncio. (2) **R6** — o banner da home validava 10MB enquanto a regra geral e as demais telas usam 15MB. (3) **R3** — o cabeçalho do dashboard usava `zone || region`, mascarando `zone` nulo e podendo gerar "Zona Zona Sul" ao capitalizar o display.
+
+**Correção**:
+- **R4 (token central)**: novo `uploadHomeBanner(file)` em `lib/lojista-api.ts` (usa `lojistaFetch`, trata token + 401). `LojistaBoost.handleBannerImageUpload` reescrito para chamá-lo — removido o `localStorage`/`fetch` manual; `catch` usa `err?.message`.
+- **R6 (15MB)**: limite unificado 10MB→15MB em **três** pontos para o contrato bater com o backend (R1/R30): check do cliente em `LojistaBoost`, texto `BANNER_SPECS_LINE` ("máx 10 MB"→"máx 15 MB") e o check do backend em `routes/lojista.ts` (`home-banner/upload`). O multer global já era 15MB e o `app.ts` já retorna 413 amigável.
+- **R3 (sem fallback)**: `LojistaDashboard.tsx` passa a usar **só** `profile?.zone` (slug canônico) → "Zona não definida" quando ausente, em vez de cair em `region`.
+- **RULES.md**: R3 atualizado (usa só `zone`, sem fallback `zone || region`).
+
+**Provas (dev)**: (1) curl `home-banner/upload` como premium: **11,44MB (>10,<15)** → **400 "Você não tem um banner pendente de upload"** (passou do size-check; antes daria "Máximo 10 MB"); **16MB (>15)** → **413 "Arquivo muito grande. O limite por imagem é de 15MB."** (2) `rg localStorage` em `LojistaBoost.tsx` → **vazio** (sem acesso direto). (3) `validate-lojista-rules` verde (10/10) — inclui **R3 profile zone='sul' region='Zona Sul'**, confirmando o render "Zona Sul". (4) typecheck do front: nenhum erro novo (só `icons.tsx` pré-existente — `JSX` namespace). Observação: screenshot do dashboard autenticado não capturado — SPA com JWT em `localStorage` não é injetável pela ferramenta de screenshot; R3 provado pelo contrato de dados (`lojista-rules`) + código.
+
+**Fora de escopo** (intocados): limites de 10MB de foto de produto/negócio (`LojistaProdutos.tsx` + `product-media` no backend) — só o banner da home foi alvo; processamento Sharp do banner.
+
 ### Gates de plano alinhados com a realidade: logo/capa travados em Base/Destaque+ e limite de produtos documentado (Task #75)
 
 **Problema**: duas divergências entre `RULES.md` (contrato) e o código real. (1) **Limite de produtos** — RULES.md prometia `Destaque(10)/Premium(∞)`, mas o código aplica `Destaque=6/Premium=10` (`enforce-product-limits.ts` + `lojista.ts`). (2) **Logo/foto de capa** — RULES.md exigia plano Destaque, mas as rotas `POST /api/lojista/upload/{logo,banner}` aceitavam **todos os planos, inclusive Gratuito** (decisão antiga "identidade visual básica").

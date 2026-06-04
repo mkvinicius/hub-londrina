@@ -124,6 +124,14 @@ export async function uploadBanner(file: File) {
   return lojistaFetch("/lojista/upload/banner", { method: "POST", body: formData });
 }
 
+// Banner Home (R$299/mês) — upload pós-pagamento. Usa o helper centralizado
+// (token único + tratamento de 401) em vez de ler o localStorage direto (R4).
+export async function uploadHomeBanner(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return lojistaFetch("/lojista/home-banner/upload", { method: "POST", body: formData });
+}
+
 export async function uploadPhoto(file: File) {
   const formData = new FormData();
   formData.append("file", file);

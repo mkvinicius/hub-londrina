@@ -78,7 +78,7 @@ Pagar o plano e aprovar a documentação continuam sendo **trilhas separadas** �
 
 ### R3 · GET /api/lojista/profile deve sempre retornar zone + region
 Ambos os campos vêm do cadastro e são necessários para:
-- `LojistaDashboard.tsx` mostrar "Zona X" no cabeçalho (fallback: `zone || region`)
+- `LojistaDashboard.tsx` mostrar "Zona X" no cabeçalho (usa **só** `zone`, o slug canônico — sem fallback `zone || region`, que mascarava `zone` nulo e podia gerar "Zona Zona Sul" ao capitalizar o display)
 - `LojistaBoost.tsx` calcular ocupação da zona do negócio
 
 **Teste**: `curl -H "Authorization: Bearer $JWT" /api/lojista/profile | jq '.zone, .region'` deve retornar 2 valores não-nulos.

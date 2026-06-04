@@ -6,6 +6,7 @@ import {
   createCategoryBoostCheckout,
   getHomeSearchBoostPositions,
   createHomeSearchBoostCheckout,
+  uploadHomeBanner,
 } from "@/lib/lojista-api";
 import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload } from "lucide-react";
 import { Link } from "wouter";
@@ -35,7 +36,7 @@ const WHATSAPP_NUMBER = "5543999999999";
 // Reutilizado na descrição pré-compra e no bloco de upload pós-pagamento para nunca divergir.
 const BANNER_SPECS_LINE = (
   <>
-    Dimensões aceitas: <strong>1200×280px</strong> (proporção 4:1) · JPG, PNG ou WebP · máx 10 MB · recorte automático.
+    Dimensões aceitas: <strong>1200×280px</strong> (proporção 4:1) · JPG, PNG ou WebP · máx 15 MB · recorte automático.
   </>
 );
 
@@ -101,31 +102,18 @@ export default function LojistaBoost() {
     const file = e.target.files?.[0];
     if (bannerImageRef.current) bannerImageRef.current.value = "";
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setBanner({ type: "error", msg: "Imagem muito grande. Máximo 10 MB." });
+    if (file.size > 15 * 1024 * 1024) {
+      setBanner({ type: "error", msg: "Imagem muito grande. Máximo 15 MB." });
       return;
     }
     setBannerImageUploading(true);
     setBanner(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const token = localStorage.getItem("hub_lojista_token");
-      const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-      const r = await fetch(`${BASE}/api/lojista/home-banner/upload`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: fd,
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        setBanner({ type: "error", msg: data.error || "Erro ao enviar a imagem." });
-        return;
-      }
+      await uploadHomeBanner(file);
       setBanner({ type: "success", msg: "Imagem enviada! Seu banner está ativo na Home agora." });
       await loadAll();
-    } catch {
-      setBanner({ type: "error", msg: "Erro de conexão. Tente novamente." });
+    } catch (err: any) {
+      setBanner({ type: "error", msg: err?.message || "Erro ao enviar a imagem." });
     } finally {
       setBannerImageUploading(false);
     }

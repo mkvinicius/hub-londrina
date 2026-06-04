@@ -1367,8 +1367,8 @@ router.post("/lojista/home-banner/upload", memoryUpload.single("file"), async (r
     res.status(400).json({ error: "Formato inválido. Use JPG, PNG ou WebP." });
     return;
   }
-  if (req.file.size > 10 * 1024 * 1024) {
-    res.status(400).json({ error: "Imagem muito grande. Máximo 10 MB." });
+  if (req.file.size > 15 * 1024 * 1024) {
+    res.status(400).json({ error: "Imagem muito grande. Máximo 15 MB." });
     return;
   }
   if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {

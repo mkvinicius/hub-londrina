@@ -249,7 +249,7 @@ export default function LojistaDashboard() {
               </Link>
               <span className="text-sm text-gray-500">
                 {(() => {
-                  const z = profile?.zone || profile?.region;
+                  const z = profile?.zone;
                   return z ? `Zona ${String(z).charAt(0).toUpperCase()}${String(z).slice(1)}` : "Zona não definida";
                 })()}
               </span>
