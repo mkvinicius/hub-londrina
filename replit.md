@@ -57,3 +57,11 @@ Diretório SaaS de negócios locais de Londrina/PR.
 **Required secrets** (Stripe): `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_BASE_PRICE_ID`, `STRIPE_BASE_ANNUAL_PRICE_ID`, `STRIPE_PREMIUM_PRICE_ID`, `STRIPE_PREMIUM_ANNUAL_PRICE_ID`, `STRIPE_ZONE_BOOST_PRICE_ID`, `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`, `STRIPE_HOME_BANNER_PRICE_ID`, `STRIPE_BOOST_CAT_{1..5}_PRICE_ID`. Outros: `JWT_SECRET`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `RESEND_API_KEY`, `SENTRY_DSN` (opcional).
 
 **Seed dev**: 10 categorias · 20 negócios reais · 20 lojistas (senha `Hub@2026`) · 42 produtos · 10 reviews.
+
+## User preferences
+
+Regras permanentes do dono (válidas em TODAS as tarefas):
+- **Ler SEMPRE os 3 arquivos-base antes E depois de qualquer alteração**: `replit.md`, `RULES.md`, `context.md`.
+- **Fazer commit de tudo** que for alterado/implementado ao final de cada tarefa.
+- **Regras de negócio exigem prova concreta** (SQL/curl/E2E + screenshot quando houver UI), nunca apenas leitura de código.
+- Responder **sempre em português**.

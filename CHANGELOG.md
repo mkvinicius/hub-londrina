@@ -6,6 +6,18 @@
 
 ## 2026-06-04
 
+### Banner "Documentação aprovada" só aparece com os 3 docs realmente aprovados (Task #69)
+
+**Problema relatado**: na tela do lojista **Documentação** (`/lojista/documentacao`), a faixa verde **"✅ Documentação aprovada — selo Verificado"** aparecia mesmo com os 3 documentos ainda **"Em análise"** (`submitted`). Mentira para o lojista e viola a regra do dono (a frase "aprovado"/selo só existe com os 3 docs aprovados pelo admin).
+
+**Causa-raiz** (frontend, `LojistaDocumentacao.tsx`): o banner escolhia o estado com `s = allDocsApproved ? "approved" : data.documentationStatus`. Quando `allDocsApproved` era `false`, ele **caía de volta** no agregado `documentationStatus` — que pode estar `"approved"` por divergência histórica / build antigo em produção → faixa verde indevida enquanto os cards mostravam "Em análise". O backend (`syncDocumentationState`) já estava correto; nada a corrigir lá (R2 intacto).
+
+**Correção (somente front, `LojistaDocumentacao.tsx`)**: o estado do banner agora é derivado **estritamente** dos status reais dos 3 documentos — `allDocsApproved → approved`; `documentationStatus==='expired' → expired` (único estado sticky não-derivável dos docs, lido do backend); `anyRejected → rejected`; `allPresent → submitted`; senão `pending`. O caso "approved" (verde) é **inalcançável** sem os 3 docs `approved`, mesmo que o agregado venha mentindo. Selo público "Verificado" segue governado por `businesses.verified` (derivado no backend) — sem regressão.
+
+**Fora de escopo** (intocados): backend de documentação (`syncDocumentationState`, upload/approve/reject — já corretos), re-marcar negócios históricos (Task #60), cron de expiração, gate de pagamento.
+
+**Provas** (E2E Playwright com `[DB]` steps, negócio #1, restaurado ao fim): (A) **divergência (o bug)** — 3 docs `submitted` + `documentation_status='approved'` → banner **AZUL** "aguardando análise", verde **ausente**. (B) 3 aprovados → banner **VERDE** "Documentação aprovada". (C) 1 doc rejeitado → banner **VERMELHO** "rejeitado", verde ausente. (D) `documentation_status='expired'` → banner **VERMELHO** "Prazo de 10 dias encerrado", verde ausente. `validate-lojista-rules` verde (10/10); typecheck do arquivo limpo (erros restantes em `icons.tsx` são pré-existentes).
+
 ### Destaque de Zona: 6→3 vagas por zona + textos dos cards de busca mais claros (Task #66)
 
 **Pedido**: (A) reduzir as vagas do "Destaque de Zona" de 6 para 3 por zona (com 6 destaques a página da região fica poluída); (B) deixar mais claros os textos dos dois cards de busca ("Destaque Home + Busca" vs "Boost na busca por categoria"), que confundiam o lojista por parecerem o mesmo produto — **sem unificá-los** (decisão do usuário).

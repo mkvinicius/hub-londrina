@@ -132,15 +132,32 @@ export default function LojistaDocumentacao() {
         </div>
 
         {data && (() => {
-          // Task #63 — a fonte de verdade é o estado real dos documentos. O
-          // banner "aprovado" só aparece quando os 3 documentos estão de fato
-          // aprovados (evita o banner mentiroso quando o agregado diverge).
+          // Task #69 — o banner é derivado ESTRITAMENTE do estado real dos 3
+          // documentos. A faixa verde "aprovado" só aparece quando os 3 docs
+          // estão de fato `approved`. NUNCA confiamos em `documentationStatus`
+          // para o caso "approved" — um agregado divergente (build antigo em
+          // produção / histórico) com `documentationStatus="approved"` mas docs
+          // ainda `submitted` exibia a faixa verde mentirosa. O único estado
+          // que NÃO é derivável dos docs é `expired` (sticky, vem do banco de
+          // dias no backend), então só esse é lido da API.
+          const docStatus = (type: string) =>
+            data.documents.find((d) => d.documentType === type)?.status;
           const allDocsApproved =
-            DOC_TYPES.length > 0 &&
-            DOC_TYPES.every(
-              (t) => data.documents.find((d) => d.documentType === t.type)?.status === "approved",
-            );
-          const s = allDocsApproved ? "approved" : data.documentationStatus;
+            DOC_TYPES.length > 0 && DOC_TYPES.every((t) => docStatus(t.type) === "approved");
+          const anyRejected = DOC_TYPES.some((t) => docStatus(t.type) === "rejected");
+          const allPresent = DOC_TYPES.every((t) => !!docStatus(t.type));
+          let s: "approved" | "expired" | "rejected" | "submitted" | "pending";
+          if (allDocsApproved) {
+            s = "approved";
+          } else if (data.documentationStatus === "expired") {
+            s = "expired";
+          } else if (anyRejected) {
+            s = "rejected";
+          } else if (allPresent) {
+            s = "submitted";
+          } else {
+            s = "pending";
+          }
           const statusMap: Record<string, { cls: string; msg: string }> = {
             expired:   { cls: "bg-red-50 border-red-200 text-red-800",       msg: "🔴 Prazo de 10 dias encerrado sem documentação aprovada — sua loja está offline. Envie os documentos abaixo; ela volta ao ar após a aprovação da nossa equipe." },
             submitted: { cls: "bg-blue-50 border-blue-200 text-blue-800",    msg: "📋 Documentação enviada — aguardando análise da nossa equipe (até 24h). Cada documento é avaliado individualmente." },
