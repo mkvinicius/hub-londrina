@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, searchBoostsTable, zonesTable } from "@workspace/db/schema";
 import { eq, and, ne, desc, asc, sql, or } from "drizzle-orm";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
+import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
 
 const router: IRouter = Router();
 
@@ -85,7 +86,9 @@ function zoneCondition(zone: ZoneSlug) {
   return and(
     eq(businessesTable.zone, zone),
     eq(businessesTable.status, "active"),
-    ne(businessesTable.isVisible, false)
+    ne(businessesTable.isVisible, false),
+    // Task #77 — defesa em profundidade (RULES.md R2): exclui `expired` além de `isVisible`.
+    NOT_DOCUMENTATION_EXPIRED,
   );
 }
 

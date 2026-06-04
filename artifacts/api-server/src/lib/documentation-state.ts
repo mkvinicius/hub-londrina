@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, businessDocumentsTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export const DOCUMENTATION_DAYS = 10;
 export const VALID_DOC_TYPES = ["personal_id", "cnpj_card", "address_proof"] as const;
@@ -175,3 +175,23 @@ export async function isDocumentationExpired(businessId: number): Promise<boolea
     .where(eq(businessUsersTable.businessId, businessId));
   return user?.status === "expired";
 }
+
+/**
+ * Task #77 — DEFESA EM PROFUNDIDADE (RULES.md R2).
+ *
+ * Condição SQL para os reads públicos (listagem `/api/businesses`, busca
+ * `/api/search` e zonas `/api/zones/...`) excluírem lojas cuja documentação
+ * está `expired`, ALÉM do filtro de `isVisible`. Como `expired` = loja OFFLINE
+ * para TODOS os planos (R2) e a visibilidade depende de UM único caminho de
+ * escrita gravar `isVisible=false`, esta condição é a segunda camada: se algum
+ * caminho futuro esquecer o gate, a loja expirada ainda assim NÃO reaparece no
+ * site público. NÃO substitui o filtro de `isVisible` — soma-se a ele.
+ *
+ * Subquery correlacionada: a referência a `businesses.id` resolve para o FROM
+ * externo (todas as rotas públicas têm `.from(businessesTable)` sem alias).
+ */
+export const NOT_DOCUMENTATION_EXPIRED = sql`NOT EXISTS (
+  SELECT 1 FROM ${businessUsersTable}
+  WHERE ${businessUsersTable.businessId} = ${businessesTable.id}
+    AND ${businessUsersTable.documentationStatus} = 'expired'
+)`;

@@ -4,6 +4,7 @@ import { businessesTable, searchBoostsTable } from "@workspace/db/schema";
 import { or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
 import { SearchQueryParams } from "@workspace/api-zod";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
+import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
 
 const router: IRouter = Router();
 
@@ -110,7 +111,8 @@ router.get("/search", async (req, res) => {
   }
   const { q, region, category, zone } = parsed.data;
 
-  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active")];
+  // Task #77 — defesa em profundidade (RULES.md R2): exclui `expired` além de `isVisible`.
+  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active"), NOT_DOCUMENTATION_EXPIRED];
 
   if (zone) conditions.push(eq(businessesTable.zone, zone));
 

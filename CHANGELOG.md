@@ -6,6 +6,20 @@
 
 ## 2026-06-04
 
+### Defesa em profundidade do invariante de documentação expirada (R2) — reads públicos + cron via fonte única + teste de regressão (Task #77)
+
+**Problema**: o invariante "documentação `expired` = loja offline para TODOS os planos" (R2) dependia de **um único caminho de escrita** gravar `isVisible=false`. As listagens públicas filtravam **só** por `isVisible`; se qualquer caminho futuro (nova rota, refactor) esquecesse de baixar a flag, uma loja `expired` voltaria a aparecer no site. Além disso, o cron de expiração **duplicava** a lógica de transição (`expired`+`isVisible=false`) em vez de delegar à fonte única `syncDocumentationState`, abrindo espaço para divergência.
+
+**Correção** (defense-in-depth, 4 camadas):
+- **Reads públicos (segunda camada)**: nova condição exportada `NOT_DOCUMENTATION_EXPIRED` em `lib/documentation-state.ts` (subquery `NOT EXISTS` correlacionada em `business_users.documentation_status='expired'`). Aplicada **além** do filtro de `isVisible` em `GET /api/businesses` (`routes/businesses.ts`), `GET /api/search` (`routes/search.ts`) e `GET /api/zones/:zone/{stats,businesses}` (`routes/zones.ts`). Não substitui `isVisible` — soma-se a ele.
+- **Cron via fonte única**: o else-branch de expiração em `lib/documentation-job.ts` agora **zera o banco de dias e chama `syncDocumentationState(businessId)`** (única escrita de `expired`+`isVisible=false`) em vez de duplicar a transição; o email `documentacaoExpirada` + log de auditoria só disparam quando `sync.status === "expired"`.
+- **Teste de regressão**: novo `scripts/src/validate-doc-expired-invariant.ts` (script npm `validate-doc-expired`, registrado como validação `doc-expired-invariant`). Cria 2 negócios descartáveis `isVisible=true` na mesma zona (um `expired`, um `approved`/controle), verifica que o `expired` some das 3 superfícies públicas e o controle permanece, e que o admin não republica (409); cleanup em `finally`.
+- **RULES.md R2**: documentadas as 4 camadas (defesa em profundidade nos reads, cron delegando à fonte única, item de teste (7)).
+
+**Provas (dev)**: (1) validação `doc-expired-invariant` **PASSOU** (exit 0): `✓ R2 /api/businesses oculta loja expirada mesmo com isVisible=true` · `✓ controle: lista loja approved (filtro não derruba todos)` · `✓ R2 /api/search oculta` · `✓ R2 /api/zones/:zone/businesses oculta` · `✓ controle zones lista approved` · `✓ admin NÃO republica (409 DOCUMENTATION_EXPIRED)`. (2) typecheck: nenhum erro novo nos arquivos tocados (`documentation-state.ts`, `documentation-job.ts`, `businesses.ts`, `search.ts`, `zones.ts`, script novo); erros pré-existentes em `stripe.ts`/`vitrine.ts`/`create-boost-products.ts` fora de escopo (api-server builda via esbuild). (3) `validate-lojista-rules` segue verde.
+
+**Fora de escopo** (intocados): reads `GET /api/businesses/:id`, `/nearby`, `/home-featured` — só as 3 listagens nomeadas foram alvo; a religação continua exclusiva da aprovação dos 3 docs.
+
 ### Robustez do front do lojista: token centralizado, limite do banner unificado em 15MB e fallback de zona removido (Task #76)
 
 **Problema**: três fragilidades no painel do lojista (sem quebra funcional hoje, mas violando padrões e mascarando erros). (1) **R4** — o upload do banner da home lia `localStorage.getItem("hub_lojista_token")` direto + `fetch` manual, fora do helper central de autenticação; se a chave mudar, quebra em silêncio. (2) **R6** — o banner da home validava 10MB enquanto a regra geral e as demais telas usam 15MB. (3) **R3** — o cabeçalho do dashboard usava `zone || region`, mascarando `zone` nulo e podendo gerar "Zona Zona Sul" ao capitalizar o display.

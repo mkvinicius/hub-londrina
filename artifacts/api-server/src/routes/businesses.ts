@@ -8,6 +8,7 @@ import { businessesTable, categoriesTable, reviewsTable, businessClicksTable, se
 import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte, inArray } from "drizzle-orm";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 import { sanitizeBusiness } from "../lib/sanitize";
+import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
 import { z } from "zod";
 import {
   ListBusinessesQueryParams,
@@ -71,7 +72,9 @@ router.get("/businesses", async (req: Request, res: Response) => {
   }
   const { category, region, q, sort, zone } = parsed.data;
 
-  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active")];
+  // Task #77 — `NOT_DOCUMENTATION_EXPIRED` é defesa em profundidade (RULES.md R2):
+  // exclui lojas `expired` ALÉM do filtro de `isVisible`.
+  const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active"), NOT_DOCUMENTATION_EXPIRED];
 
   if (category) conditions.push(eq(businessesTable.categorySlug, category));
   if (region) conditions.push(eq(businessesTable.region, region));

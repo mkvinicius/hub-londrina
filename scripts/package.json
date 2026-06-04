@@ -8,6 +8,7 @@
     "seed": "tsx ./src/seed.ts",
     "backfill-product-galleries": "tsx ./src/backfill-product-galleries.ts",
     "heal-doc-status-task32": "tsx ./src/heal-doc-status-task32.ts",
+    "validate-doc-expired": "tsx ./src/validate-doc-expired-invariant.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

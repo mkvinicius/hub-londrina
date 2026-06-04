@@ -30,6 +30,10 @@ args = "api-health"
 task = "workflow.run"
 args = "lojista-rules"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "doc-expired-invariant"
+
 [[workflows.workflow]]
 name = "api-health"
 author = "agent"
@@ -48,6 +52,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node scripts/src/validate-lojista-rules.mjs"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "doc-expired-invariant"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run validate-doc-expired"
 
 [workflows.workflow.metadata]
 isValidation = true

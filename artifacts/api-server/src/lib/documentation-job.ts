@@ -4,6 +4,7 @@ import { and, eq, gt, inArray, isNotNull } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
 import { runOnceDaily } from "./job-checkpoint";
+import { syncDocumentationState } from "./documentation-state";
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
@@ -61,37 +62,37 @@ async function tickDocumentationTimers() {
           }
         }
       } else {
-        // Task #63 — Prazo estourou SEM documentação completa: a loja fica
-        // OFFLINE independentemente do plano. Só a aprovação dos 3 documentos
-        // (admin) volta a publicá-la — pagamento NÃO re-publica (ver
-        // isDocumentationExpired no gate do Stripe).
+        // Task #63 / Task #77 — Prazo estourou SEM documentação completa: a loja
+        // fica OFFLINE independentemente do plano. A transição é derivada pela
+        // FONTE ÚNICA (`syncDocumentationState`), que grava `documentationStatus`,
+        // `documentationTimerPaused` e `businesses.isVisible=false` quando o estado
+        // resolve para `expired` — NÃO duplicamos a escrita aqui (RULES.md R2).
+        // Primeiro zeramos o banco de dias para que a fonte única enxergue
+        // `remaining=0`; só a aprovação dos 3 docs religa a loja.
         await db
           .update(businessUsersTable)
-          .set({
-            documentationStatus: "expired",
-            documentationRemainingDays: 0,
-            documentationTimerPaused: false,
-          })
+          .set({ documentationRemainingDays: 0 })
           .where(eq(businessUsersTable.id, u.userId));
 
-        await db
-          .update(businessesTable)
-          .set({ isVisible: false })
-          .where(eq(businessesTable.id, u.businessId));
+        const sync = await syncDocumentationState(u.businessId);
 
-        if (u.ownerEmail) {
-          try {
-            const tpl = emails.documentacaoExpirada(u.ownerName || "Lojista");
-            await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
-          } catch (err) {
-            logger.error({ err }, "[DocJob] Falha ao enviar email de documentação expirada");
+        // Email + log apenas quando o estado REALMENTE resolveu para `expired`
+        // (allApproved escapa da expiração — defesa contra corrida de aprovação).
+        if (sync.status === "expired") {
+          if (u.ownerEmail) {
+            try {
+              const tpl = emails.documentacaoExpirada(u.ownerName || "Lojista");
+              await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
+            } catch (err) {
+              logger.error({ err }, "[DocJob] Falha ao enviar email de documentação expirada");
+            }
           }
-        }
 
-        logger.info(
-          { businessId: u.businessId },
-          "[DocJob] Documentação expirada — loja colocada OFFLINE (todos os planos) até aprovação",
-        );
+          logger.info(
+            { businessId: u.businessId },
+            "[DocJob] Documentação expirada — loja colocada OFFLINE (todos os planos) até aprovação",
+          );
+        }
       }
     }
 
