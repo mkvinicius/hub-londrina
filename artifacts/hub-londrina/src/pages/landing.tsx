@@ -250,7 +250,7 @@ export default function Landing() {
   const [regionOpen, setRegionOpen] = useState(false);
   const [, navigate] = useLocation();
 
-  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; subtitle: string | null; imageUrl: string; linkUrl: string | null; ctaLabel: string | null; businessId: number | null }[]>([]);
+  const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; subtitle: string | null; imageUrl: string; linkUrl: string | null; ctaLabel: string | null; businessId: number | null; requestedBy: string | null }[]>([]);
   const [bannerIdx, setBannerIdx] = useState(0);
   // T9 — produto da Vitrine selecionado para o modal/carrossel (>1 foto).
   const [vitrineModal, setVitrineModal] = useState<VitrineCardData | null>(null);
@@ -606,6 +606,7 @@ export default function Landing() {
             linkUrl: "/anuncie",
             ctaLabel: "Anuncie Agora",
             businessId: null as number | null,
+            requestedBy: null as string | null,
           };
           const slides = homeBanners.length > 0 ? homeBanners : [defaultBanner];
           const current = slides[Math.min(bannerIdx, slides.length - 1)];
@@ -646,19 +647,28 @@ export default function Landing() {
                     loading="lazy"
                   />
                 ))}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
-                <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 max-w-2xl">
-                  {current.title && (
+                {/* Banner de LOJISTA (requestedBy === "lojista") é a arte do
+                    próprio anunciante: não sobrepomos nome/subtítulo nem
+                    escurecemos a imagem — só o botão "Saiba mais". Banners do
+                    admin/Hub (requestedBy "admin" ou default) mantêm
+                    título/subtítulo sobre o gradiente, pois aí o texto é copy
+                    intencional. NÃO usar businessId aqui: banners do admin
+                    também têm businessId preenchido. */}
+                {current.requestedBy !== "lojista" && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+                )}
+                <div className={`absolute inset-0 flex flex-col px-6 md:px-12 max-w-2xl ${current.requestedBy !== "lojista" ? "justify-center" : "justify-end pb-5 md:pb-7"}`}>
+                  {current.requestedBy !== "lojista" && current.title && (
                     <h3 className="text-white font-black text-2xl md:text-4xl leading-tight drop-shadow-lg">
                       {current.title}
                     </h3>
                   )}
-                  {current.subtitle && (
+                  {current.requestedBy !== "lojista" && current.subtitle && (
                     <p className="text-white/90 text-sm md:text-lg mt-2 md:mt-3 max-w-xl drop-shadow">
                       {current.subtitle}
                     </p>
                   )}
-                  <span className="mt-4 md:mt-5 inline-flex items-center gap-2 self-start bg-[#FF9800] hover:bg-[#f57c00] text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg">
+                  <span className={`inline-flex items-center gap-2 self-start bg-[#FF9800] hover:bg-[#f57c00] text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg ${current.requestedBy !== "lojista" ? "mt-4 md:mt-5" : ""}`}>
                     {current.ctaLabel || "Saiba mais"} <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>

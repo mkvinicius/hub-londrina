@@ -662,6 +662,7 @@ router.get("/home-banners", async (_req: Request, res: Response) => {
       imageUrl: homeBannersTable.imageUrl,
       linkUrl: homeBannersTable.linkUrl,
       ctaLabel: homeBannersTable.ctaLabel,
+      requestedBy: homeBannersTable.requestedBy,
     })
     .from(homeBannersTable)
     .leftJoin(businessesTable, eq(homeBannersTable.businessId, businessesTable.id))

@@ -6,6 +6,14 @@
 
 ## 2026-06-08
 
+### Banner da Home do lojista mostra só a arte + botão "Saiba mais" (sem nome da empresa por cima)
+
+**Problema (reportado pelo dono, com print)**: o banner que o lojista sobe (arte própria 1200×280) vinha com o **nome do negócio** e um **gradiente escuro** sobrepostos pela plataforma — dependendo da imagem do anunciante, isso poluía a propaganda dele.
+
+**Correção** (`landing.tsx` + `/home-banners`): a distinção é por **`requestedBy`**, não por `businessId`. Banner de **lojista** (`requestedBy === "lojista"`) agora renderiza **só a arte limpa** + botão "Saiba mais" no canto inferior, **sem** título/subtítulo e **sem** o gradiente escuro. Banners do **admin/Hub** (`requestedBy === "admin"` ou o banner padrão "Anuncie aqui") **mantêm** título/subtítulo sobre o gradiente, pois nesses o texto é copy intencional. **Atenção (achado do code review)**: NÃO usar `businessId` para distinguir — o create do admin (`POST /api/admin/home-banners`) também grava `businessId` (e `title: biz.name`), então a regra por nullability quebraria os banners do admin. O endpoint público `/home-banners` passou a retornar `requestedBy`.
+
+**Prova**: screenshots da home pública com 2 banners de teste — (1) `requestedBy='lojista'`: arte limpa, só selo "Publicidade" + botão "Saiba mais", sem o nome; (2) `requestedBy='admin'` ("Promo do Admin"): título + subtítulo + gradiente preservados. Banners de teste removidos após a prova.
+
 ### Banner da Home agora é COMPRA ÚNICA (ativo 30 dias, depois expira) — antes era assinatura mensal
 
 **Pedido do dono**: o banner da Home deve ser pago **uma vez**, ficar **ativo por 30 dias a contar da data de pagamento** e depois **expirar** — sem cobrança automática no cartão. Para continuar, o lojista compra de novo. (Confirmado por ele via escolha explícita "Compra ÚNICA".)

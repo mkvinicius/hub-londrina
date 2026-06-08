@@ -205,6 +205,7 @@ imageUrl    text NOT NULL
 linkUrl     text
 active      boolean DEFAULT true
 status      text  (paid_awaiting_upload | active | pending_review[legado] | rejected | expired)
+requestedBy text  (lojista | admin) — quem criou o banner; controla a renderização na home
 endsAt      timestamp (auto-desativado pelo job)
 createdAt   timestamp DEFAULT now()
 ```
@@ -224,6 +225,12 @@ status segue `active`, mantém a vaga dos máx. 2 lojistas, sem downtime). UI: b
 (banner sai da Home na hora). NÃO apaga a linha nem mexe no `endsAt`: o lojista **continua dentro dos 30 dias já pagos**
 e pode reenviar imagem sem pagar de novo (recompra segue bloqueada enquanto `endsAt >= NOW()`). UI: botão "Excluir banner"
 (com confirmação) no bloco ativo.
+**Renderização na home (2026-06-08)**: banner de **lojista** (`requestedBy='lojista'`) é a arte do próprio anunciante —
+`landing.tsx` mostra **só a imagem + botão "Saiba mais"** (canto inferior), SEM sobrepor `title`/`subtitle` nem o gradiente
+escuro (senão a plataforma polui a propaganda; o `title` do banner de lojista é o nome do negócio). Banner de **admin/Hub**
+(`requestedBy='admin'` ou o default "Anuncie aqui") **mantém** título/subtítulo sobre o gradiente (copy intencional do admin).
+A distinção é por `requestedBy`, **NÃO** por `businessId` — o create do admin (`POST /admin/home-banners`) também grava
+`businessId` + `title=biz.name`, então usar nullability esconderia o texto dos banners do admin. `/home-banners` retorna `requestedBy`.
 UI (Task #64): o texto de dimensões aceitas (`1200×280px · 4:1 · JPG/PNG/WebP · máx 10 MB · recorte automático`)
 tem fonte única `BANNER_SPECS_LINE` em `LojistaBoost.tsx`, exibido ANTES da compra e no bloco de upload (sem
 divergir do backend). O gate Premium da UI não rebaixa `planType` para `free` se `GET /lojista/profile` falhar
