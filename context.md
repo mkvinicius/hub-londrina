@@ -214,10 +214,16 @@ Fluxo (Task #56): pagamento Stripe → status=`paid_awaiting_upload`, imageUrl="
 **Trocar arte (2026-06-08)**: o mesmo `POST /home-banner/upload` também aceita banners `active` — enquanto o plano
 estiver ativo o lojista troca a imagem quantas vezes quiser; a nova arte substitui a anterior NO LUGAR (mesma linha,
 status segue `active`, mantém a vaga dos máx. 2 lojistas, sem downtime). UI: botão "Trocar arte do banner" no bloco ativo.
+**Compra ÚNICA + 30 dias (2026-06-08)**: o banner da Home **NÃO é mais assinatura** — é **compra única** R$299 via
+`mode:payment` com `price_data` inline (sem `STRIPE_HOME_BANNER_PRICE_ID`). No pagamento grava-se `endsAt = agora + 30 dias`
+(insert em `stripe.ts` sync ~265 e webhook ~973). O banner fica ativo **30 dias a contar do pagamento** e depois **expira**
+(sem renovação automática). Para continuar, o lojista compra de novo. A query pública `/home-banners` já esconde na hora
+(`endsAt IS NULL OR endsAt >= NOW()`); o job `expireHomeBanners` marca `status='expired'`/`active=false`. O checkout
+**libera recompra** quando o banner está expirado (guard `ends_at >= NOW()` no `existing`).
 **Excluir banner (2026-06-08)**: `POST /home-banner/delete` (JWT) — limpa a arte e volta o status para `paid_awaiting_upload`
-(banner sai da Home na hora). NÃO apaga a linha nem cancela a assinatura R$299/mês: a vaga paga é preservada (recompra
-segue bloqueada → sem cobrança dupla) e o lojista pode reenviar imagem. UI: botão "Excluir banner" (com confirmação)
-no bloco ativo. Encerrar a cobrança de vez = cancelar a assinatura (outro fluxo).
+(banner sai da Home na hora). NÃO apaga a linha nem mexe no `endsAt`: o lojista **continua dentro dos 30 dias já pagos**
+e pode reenviar imagem sem pagar de novo (recompra segue bloqueada enquanto `endsAt >= NOW()`). UI: botão "Excluir banner"
+(com confirmação) no bloco ativo.
 UI (Task #64): o texto de dimensões aceitas (`1200×280px · 4:1 · JPG/PNG/WebP · máx 10 MB · recorte automático`)
 tem fonte única `BANNER_SPECS_LINE` em `LojistaBoost.tsx`, exibido ANTES da compra e no bloco de upload (sem
 divergir do backend). O gate Premium da UI não rebaixa `planType` para `free` se `GET /lojista/profile` falhar
@@ -582,7 +588,7 @@ POST /api/auth/reset-password    Valida token + salva nova senha (bcrypt)
 **Intervalo:** 1 hora (roda imediatamente ao iniciar)
 1. **expireBoosts()** — marca como `expired` os `search_boosts` do tipo `avulso` com `expiresAt < NOW()`
 2. **expireDirectBoosts()** — limpa `businesses.boostedUntil` vencidos
-3. **expireHomeBanners()** — desativa `home_banners` com `endsAt < NOW()`
+3. **expireHomeBanners()** — expira `home_banners` com `endsAt < NOW()` e `status IN ('active','paid_awaiting_upload')` → `status='expired'`, `active=false` (banner de compra única vence 30 dias após o pagamento)
 4. **promoteWaitlist()** — para cada contexto/zona (zone por zona + home_search), conta vagas ativas (max 6). Se houver vaga, promove o mais antigo do waitlist: status→active, startsAt=now, expiresAt=+30d. Envia email `boostAtivado`.
 
 ### Job 2 — Documentation Job (`documentation-job.ts`)
@@ -645,7 +651,7 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 | STRIPE_BASE_ANNUAL_PRICE_ID    | destaque  | anual   | secret  |
 | STRIPE_PREMIUM_PRICE_ID        | premium   | mensal  | secret  |
 | STRIPE_PREMIUM_ANNUAL_PRICE_ID | premium   | anual   | secret  |
-| STRIPE_HOME_BANNER_PRICE_ID    | banner home | avulso | secret |
+| ~~STRIPE_HOME_BANNER_PRICE_ID~~ | banner home | **não usado** (compra única usa `price_data` inline R$299) | — |
 | STRIPE_ZONE_BOOST_PRICE_ID     | boost zona | 30d=R$79 | env var shared |
 | STRIPE_HOME_BOOST_PRICE_ID     | boost home/busca | 30d=R$149 | env var shared |
 
@@ -655,7 +661,7 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 - **Boost Avulso** (`boostContext=search`, `boostType=avulso`): 7/15/30 dias (R$29/R$49/R$79). Lojista solicita via WhatsApp e admin adiciona manualmente em `/admin/impulsionamento`.
 - **Destaque Home + Busca** (`boostContext=home_search`): 6 slots globais com 3 posições numeradas. Aparece no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente. Price ID: `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`.
 - **Destaque de Zona** (`boostContext=zone`): destaque na página da zona por 30 dias (R$79). Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
-- **Banner na Home** (`home_banners`): R$299/mês, máx. 2 lojistas simultâneos. Exclusivo Premium. Sem fila de aprovação desde a Task #56 — após pagamento o lojista faz upload da imagem e o Sharp processa (1200×280) e ativa automaticamente. Gate de plano (`PLAN_REQUIRED`) é checado ANTES do estado do negócio (`BUSINESS_INACTIVE`) em `POST /api/lojista/home-banner/checkout`. As dimensões aceitas (1200×280 · 4:1 · JPG/PNG/WebP · máx 10 MB) aparecem ANTES da compra (Task #64, fonte única `BANNER_SPECS_LINE`).
+- **Banner na Home** (`home_banners`): R$299 **compra única** (`mode:payment`, `price_data` inline — NÃO é assinatura), ativo **30 dias a contar do pagamento** e depois **expira** (sem renovação; para continuar, compra de novo). Máx. 2 lojistas simultâneos. Exclusivo Premium. Sem fila de aprovação desde a Task #56 — após pagamento o lojista faz upload da imagem e o Sharp processa (1200×280) e ativa automaticamente. Gate de plano (`PLAN_REQUIRED`) é checado ANTES do estado do negócio (`BUSINESS_INACTIVE`) em `POST /api/lojista/home-banner/checkout`. As dimensões aceitas (1200×280 · 4:1 · JPG/PNG/WebP · máx 10 MB) aparecem ANTES da compra (Task #64, fonte única `BANNER_SPECS_LINE`).
 - **Boost Direto Admin** (`businesses.boostedUntil`): admin define período sem cobrança (cortesia/promoção interna). Sobrescreve `boostedUntil` direto no negócio.
 
 **UX de bloqueio (regra R12):** todo card de impulsionamento em `LojistaBoost.tsx` exibe:

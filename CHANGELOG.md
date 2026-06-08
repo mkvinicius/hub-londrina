@@ -6,6 +6,21 @@
 
 ## 2026-06-08
 
+### Banner da Home agora é COMPRA ÚNICA (ativo 30 dias, depois expira) — antes era assinatura mensal
+
+**Pedido do dono**: o banner da Home deve ser pago **uma vez**, ficar **ativo por 30 dias a contar da data de pagamento** e depois **expirar** — sem cobrança automática no cartão. Para continuar, o lojista compra de novo. (Confirmado por ele via escolha explícita "Compra ÚNICA".)
+
+**O que existia antes**: checkout `mode:"subscription"` (cobrança mensal recorrente) e o insert do banner **não** setava `endsAt` → o banner **nunca expirava**.
+
+**Correção**:
+- `stripe.ts` `/lojista/home-banner/checkout`: `mode:"payment"` (compra única) com `price_data` inline (BRL, R$299, "Banner na Home — 30 dias"). Removida a dependência de `STRIPE_HOME_BANNER_PRICE_ID` (preço recorrente) e o guard `PRICE_NOT_CONFIGURED`.
+- Inserts do banner (sync + webhook): gravam `endsAt = pagamento + 30 dias`.
+- `boost-expiration.ts` `expireHomeBanners`: ao vencer marca `status='expired'` + `active=false` (antes só `active=false`), cobrindo `active` e `paid_awaiting_upload`.
+- Checkout: guard de recompra agora exige `endsAt >= NOW()` → banner **expirado libera nova compra** (não bloqueia mais).
+- Front (`LojistaBoost.tsx`): mostra "Válido até DD/MM/AAAA (30 dias a contar do pagamento)" nos blocos ativo/aguardando; botão "Comprar banner — R$299 (30 dias)"; textos de exclusão ajustados ("dentro dos 30 dias pagos", sem falar em assinatura).
+
+**Provas** (SQL/curl): banner com `endsAt` no passado some da query pública `/api/home-banners` e **libera** recompra; banner com `endsAt` futuro aparece e **bloqueia** recompra; `expireHomeBanners` (UPDATE) marca só o vencido como `expired/false`. `lojista-rules` e `doc-expired` verdes (R1 home-banner segue bloqueando free).
+
 ### Lojista pode EXCLUIR o banner da Home (subiu errado e não conseguia remover)
 
 **Problema**: depois que o banner ficava `active`, o lojista não tinha **nenhuma** opção de remover/limpar a arte — se subisse a imagem errada, ficava preso.

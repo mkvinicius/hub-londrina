@@ -14,7 +14,7 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 | Boost zona | Destaque | `POST /api/lojista/boosts/checkout` (boostContext=zone) | `LojistaBoost.tsx` card Zona |
 | Boost home+busca | Premium | `POST /api/lojista/boosts/checkout` (boostContext=home_search) | `LojistaBoost.tsx` card Home+Busca |
 | Boost categoria | Premium | `POST /api/lojista/boosts/category-checkout` | `LojistaBoost.tsx` tabela categoria |
-| Banner Home R$299 | Premium | `POST /api/lojista/home-banner/checkout` | `LojistaBoost.tsx` card Banner Home |
+| Banner Home R$299 (compra única, 30 dias) | Premium | `POST /api/lojista/home-banner/checkout` | `LojistaBoost.tsx` card Banner Home |
 | Logo / Banner upload | Destaque | `POST /api/lojista/upload/{logo,banner}` (`requirePlan("destaque")`) | `LojistaPerfil.tsx` / `LojistaProdutos.tsx` (aviso "Exclusivo Base/Destaque" + botões disabled) |
 | Instagram / Website | Destaque | `PATCH /api/lojista/profile` | `LojistaPerfil.tsx` (LockedFeature) |
 | Vídeo vitrine | Premium | `PATCH /api/lojista/profile` (videoUrl) | `LojistaPerfil.tsx` (LockedFeature) |
@@ -162,7 +162,7 @@ Bloco "Vitrine de Produtos" em `landing.tsx` segue regras estritas:
 
 **Aprovação admin**: todo vídeo novo entra com `status="pending"` e só aparece após admin aprovar em `/admin/vitrine`.
 
-**Nota**: home banners (R$299/mês) NÃO passam mais por fila de aprovação desde a Task #56 — ativação automática após upload.
+**Nota**: home banners (R$299 **compra única**, ativo **30 dias** a contar do pagamento, depois **expira** sem renovação) NÃO passam mais por fila de aprovação desde a Task #56 — ativação automática após upload. O banner é `mode:payment` (não assinatura): grava `endsAt = pagamento + 30d`; `expireHomeBanners` derruba (`status='expired'`) ao vencer; a query pública e o checkout (recompra) respeitam `endsAt >= NOW()`.
 
 **Endpoint público**: `GET /api/vitrine` retorna até 12 cards (4 fixos + 8 aleatórios) com `{productId, businessId, name, price, videoUrl, photoUrl, whatsapp, businessName}`. **Não cacheia em CDN** — randomização precisa rodar a cada request.
 

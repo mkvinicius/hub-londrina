@@ -88,7 +88,7 @@ export default function LojistaBoost() {
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ type: "success" | "info" | "error"; msg: string } | null>(null);
-  const [homeBanner, setHomeBanner] = useState<{ id: number; status: string; rejectionReason: string | null; createdAt: string } | null>(null);
+  const [homeBanner, setHomeBanner] = useState<{ id: number; status: string; rejectionReason: string | null; createdAt: string; endsAt: string | null } | null>(null);
   const [bannerCheckoutLoading, setBannerCheckoutLoading] = useState(false);
   const [catPositions, setCatPositions] = useState<CategoryPositionsResponse | null>(null);
   const [catCheckoutLoading, setCatCheckoutLoading] = useState<number | null>(null);
@@ -124,15 +124,15 @@ export default function LojistaBoost() {
   async function handleBannerDelete() {
     const ok = window.confirm(
       "Excluir a arte do banner da Home?\n\n" +
-      "O banner sai do ar na hora. Seu plano de Banner na Home continua ativo " +
-      "(a vaga paga é mantida) e você pode enviar uma nova imagem quando quiser."
+      "O banner sai do ar na hora. Você continua dentro dos 30 dias já pagos " +
+      "e pode enviar uma nova imagem quando quiser, sem pagar de novo."
     );
     if (!ok) return;
     setBannerDeleting(true);
     setBanner(null);
     try {
       await deleteHomeBanner();
-      setBanner({ type: "info", msg: "Banner excluído. Envie uma nova imagem quando quiser — seu plano continua ativo." });
+      setBanner({ type: "info", msg: "Banner excluído. Envie uma nova imagem quando quiser — você ainda está dentro dos 30 dias pagos." });
       await loadAll();
     } catch (err: any) {
       setBanner({ type: "error", msg: err?.message || "Erro ao excluir o banner." });
@@ -339,6 +339,11 @@ export default function LojistaBoost() {
   const zoneSlug = availability?.zone || "centro";
   const zoneColor = ZONE_COLORS[zoneSlug] || "#d97706";
   const zoneLabel = ZONE_LABELS[zoneSlug] || zoneSlug;
+
+  // Banner com janela de 30 dias vencida: o backend já libera nova compra assim
+  // que endsAt passa (não espera o cron horário virar status='expired'). A UI
+  // espelha isso para não bloquear a recompra por até 1h após o vencimento.
+  const bannerExpired = !!(homeBanner?.endsAt && new Date(homeBanner.endsAt).getTime() < Date.now());
 
   return (
     <LojistaLayout>
@@ -607,12 +612,17 @@ export default function LojistaBoost() {
           </p>
 
           {/* Status: aguardando upload de imagem */}
-          {homeBanner && homeBanner.status === "paid_awaiting_upload" && (
+          {homeBanner && homeBanner.status === "paid_awaiting_upload" && !bannerExpired && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-blue-800 mb-2">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                 Pagamento confirmado! Agora envie a imagem do banner.
               </div>
+              {homeBanner.endsAt && (
+                <p className="text-xs font-semibold text-blue-800 mb-2">
+                  Seu banner fica ativo por 30 dias — até {new Date(homeBanner.endsAt).toLocaleDateString("pt-BR")}.
+                </p>
+              )}
               <p className="text-xs text-blue-700 mb-3">
                 {BANNER_SPECS_LINE}
               </p>
@@ -645,14 +655,19 @@ export default function LojistaBoost() {
           )}
 
           {/* Status: ativo — pode trocar a arte quantas vezes quiser enquanto o plano estiver ativo */}
-          {homeBanner && homeBanner.status === "active" && (
+          {homeBanner && homeBanner.status === "active" && !bannerExpired && (
             <div className="mb-3">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-2 flex items-center gap-2 text-sm text-emerald-800">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                 Seu banner está ativo na Home!
               </div>
+              {homeBanner.endsAt && (
+                <p className="text-xs font-semibold text-emerald-700 mb-2">
+                  Válido até {new Date(homeBanner.endsAt).toLocaleDateString("pt-BR")} (30 dias a contar do pagamento).
+                </p>
+              )}
               <p className="text-xs text-gray-600 mb-2">
-                Enquanto seu plano de Banner na Home estiver ativo, você pode trocar a arte quantas vezes quiser. A nova imagem é tratada (1200×280, recorte automático) e entra no ar na hora, substituindo a anterior.
+                Dentro dos 30 dias pagos você pode trocar a arte quantas vezes quiser. A nova imagem é tratada (1200×280, recorte automático) e entra no ar na hora, substituindo a anterior. Ao fim dos 30 dias o banner expira e some da Home.
               </p>
               <input
                 type="file"
@@ -682,7 +697,7 @@ export default function LojistaBoost() {
                   : <><Trash2 className="w-4 h-4" /> Excluir banner</>}
               </button>
               <p className="text-[11px] text-gray-500 mt-1.5 text-center">
-                Ao excluir, o banner sai da Home na hora. Seu plano continua ativo e você pode enviar uma nova imagem depois.
+                Ao excluir, o banner sai da Home na hora. Você continua dentro dos 30 dias pagos e pode enviar uma nova imagem depois, sem pagar de novo.
               </p>
             </div>
           )}
@@ -716,7 +731,7 @@ export default function LojistaBoost() {
           )}
 
           {/* Sem banner ou expirado — botão de compra */}
-          {(!homeBanner || homeBanner.status === "expired") && (
+          {(!homeBanner || homeBanner.status === "expired" || bannerExpired) && (
             planLoadError ? (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 Não foi possível carregar o seu plano agora.{" "}
@@ -736,7 +751,7 @@ export default function LojistaBoost() {
                   title="Exclusivo para o plano Premium"
                   className="w-full bg-gray-200 text-gray-500 font-bold px-4 py-2.5 rounded-xl text-sm cursor-not-allowed opacity-70 flex items-center justify-center gap-2"
                 >
-                  Comprar banner — R$299/mês
+                  Comprar banner — R$299 (30 dias)
                 </button>
                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
                   Exclusivo para o plano <strong>Premium</strong>.{" "}
@@ -760,7 +775,7 @@ export default function LojistaBoost() {
                 disabled={bannerCheckoutLoading}
                 className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${BTN_ELEVATION}`}
               >
-                {bannerCheckoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Comprar banner — R$299/mês</>}
+                {bannerCheckoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Comprar banner — R$299 (30 dias)</>}
               </button>
             )
           )}

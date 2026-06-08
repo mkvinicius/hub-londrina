@@ -55,8 +55,8 @@ async function expireHomeBanners() {
   try {
     const cleared = await db
       .update(homeBannersTable)
-      .set({ active: false })
-      .where(sql`${homeBannersTable.active} = true AND ${homeBannersTable.endsAt} IS NOT NULL AND ${homeBannersTable.endsAt} < NOW()`)
+      .set({ active: false, status: "expired" })
+      .where(sql`${homeBannersTable.endsAt} IS NOT NULL AND ${homeBannersTable.endsAt} < NOW() AND ${homeBannersTable.status} IN ('active','paid_awaiting_upload')`)
       .returning({ id: homeBannersTable.id });
 
     if (cleared.length > 0) {

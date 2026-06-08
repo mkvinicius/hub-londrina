@@ -268,6 +268,7 @@ router.post("/lojista/boosts/sync", async (req: Request, res: Response) => {
         status: "paid_awaiting_upload",
         requestedBy: "lojista",
         stripeSessionId: session.id,
+        endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
       logger.info(`[Boost Sync] Home banner paid_awaiting_upload criado para biz ${lojista.businessId}`);
       return res.json({ ok: true, type: "home_banner", status: "paid_awaiting_upload" });
@@ -602,19 +603,14 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
   res.json({ url: session.url });
 });
 
-// Modelo C: lojista compra banner da Home → Stripe Checkout → webhook cria
-// banner com status='pending_review' → admin aprova/rejeita no painel.
+// Banner da Home — COMPRA ÚNICA (não assinatura): paga R$299 uma vez via Stripe
+// Checkout (mode=payment); webhook/sync cria o banner com status
+// 'paid_awaiting_upload' e endsAt = pagamento + 30 dias. O lojista envia a imagem
+// (vira 'active') e o banner vence sozinho ao fim dos 30 dias (endsAt). Para
+// continuar, compra de novo. Preço inline (price_data) — sem price ID recorrente.
 router.post("/lojista/home-banner/checkout", async (req: Request, res: Response) => {
   const lojista = getLojistaFromToken(req);
   if (!lojista) return res.status(401).json({ error: "Não autorizado" });
-
-  const HOME_BANNER_PRICE_ID = process.env.STRIPE_HOME_BANNER_PRICE_ID;
-  if (!HOME_BANNER_PRICE_ID) {
-    return res.status(503).json({
-      error: "Pagamento de banner da Home ainda não configurado. Fale com o admin.",
-      code: "PRICE_NOT_CONFIGURED",
-    });
-  }
 
   const { homeBannersTable } = await import("@workspace/db/schema");
 
@@ -642,7 +638,9 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
     });
   }
 
-  // Não permite comprar se já tem banner ativo, aguardando upload ou em análise
+  // Não permite comprar se já tem banner VIGENTE (ativo, aguardando upload ou em
+  // análise) dentro da janela de 30 dias. Banner expirado (endsAt no passado) ou
+  // sem registro NÃO bloqueia — o lojista pode comprar de novo.
   const existing = await db.select().from(homeBannersTable).where(
     and(
       eq(homeBannersTable.businessId, lojista.businessId),
@@ -650,6 +648,10 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
         eq(homeBannersTable.status, "active"),
         eq(homeBannersTable.status, "paid_awaiting_upload"),
         eq(homeBannersTable.status, "pending_review"),
+      )!,
+      or(
+        isNull(homeBannersTable.endsAt),
+        sql`${homeBannersTable.endsAt} >= NOW()`,
       )!,
     )
   );
@@ -678,15 +680,19 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
-    mode: "subscription",
+    mode: "payment",
     payment_method_types: ["card"],
-    line_items: [{ price: HOME_BANNER_PRICE_ID, quantity: 1 }],
+    line_items: [{
+      price_data: {
+        currency: "brl",
+        product_data: { name: "Banner na Home — 30 dias" },
+        unit_amount: 29900,
+      },
+      quantity: 1,
+    }],
     success_url: `${FRONTEND_URL}/lojista/boost?banner=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${FRONTEND_URL}/lojista/boost?banner=cancelled`,
     metadata: { businessId: String(lojista.businessId), kind: "home_banner_request" },
-    subscription_data: {
-      metadata: { businessId: String(lojista.businessId), kind: "home_banner_request" },
-    },
     locale: "pt-BR",
   });
 
@@ -970,7 +976,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                     status: "paid_awaiting_upload",
                     requestedBy: "lojista",
                     stripeSessionId: session.id,
-                    stripeSubscriptionId: session.subscription ? String(session.subscription) : null,
+                    endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                   });
                   logger.info(`[Stripe Webhook] Banner Home paid_awaiting_upload criado para biz ${bizId}`);
                 }
