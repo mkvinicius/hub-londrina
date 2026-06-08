@@ -53,7 +53,7 @@ function DocumentationBanner() {
   if (isExpired) {
     bg = "bg-red-50 border-red-200 text-red-800";
     icon = "⚠️";
-    message = "Sua loja está temporariamente offline. Regularize sua documentação para voltar a aparecer.";
+    message = "Sua loja está offline: a documentação expirou. Ela some do site e seus impulsionamentos (inclusive o Banner na Home, mesmo pago) não aparecem até a aprovação dos 3 documentos.";
     cta = "Regularizar agora →";
   } else if (isRejected) {
     bg = "bg-orange-50 border-orange-200 text-orange-900";

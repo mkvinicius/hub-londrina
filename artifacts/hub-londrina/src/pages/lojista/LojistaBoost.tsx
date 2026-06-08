@@ -98,6 +98,12 @@ export default function LojistaBoost() {
   const [bannerImageUploading, setBannerImageUploading] = useState(false);
   const [bannerDeleting, setBannerDeleting] = useState(false);
   const [planLoadError, setPlanLoadError] = useState(false);
+  // Loja offline porque a documentação expirou (R2): mesmo com banner pago/ativo,
+  // a loja inteira sai do ar (isVisible=false) e o banner some da Home. Sinal vem
+  // de GET /lojista/profile (_documentationStatus === "expired").
+  // Tri-state: true = expirada (offline), false = ok, null = status desconhecido
+  // (ex.: o fetch de profile falhou) — nesse caso NÃO afirmamos "ativo na Home".
+  const [docExpired, setDocExpired] = useState<boolean | null>(null);
   const bannerImageRef = useRef<HTMLInputElement>(null);
 
   async function handleBannerImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -112,7 +118,14 @@ export default function LojistaBoost() {
     setBanner(null);
     try {
       await uploadHomeBanner(file);
-      setBanner({ type: "success", msg: "Imagem enviada! Seu banner está ativo na Home agora." });
+      setBanner(
+        docExpired === true
+          ? {
+              type: "info",
+              msg: "Imagem enviada e tratada. Atenção: sua loja está offline porque a documentação expirou, então o banner só aparecerá na Home após a aprovação dos 3 documentos.",
+            }
+          : { type: "success", msg: "Imagem enviada! Seu banner está ativo na Home agora." }
+      );
       await loadAll();
     } catch (err: any) {
       setBanner({ type: "error", msg: err?.message || "Erro ao enviar a imagem." });
@@ -166,9 +179,12 @@ export default function LojistaBoost() {
       const profile = await lojistaFetch("/lojista/profile");
       setBoost(profile._boost || null);
       setPlanType(profile.planType || "free");
+      setDocExpired(profile._documentationStatus === "expired");
       setPlanLoadError(false);
     } catch {
       setPlanLoadError(true);
+      // Status documental desconhecido: não afirmar "ativo na Home" por engano.
+      setDocExpired(null);
     }
     try {
       const [posData, avail, hb, cats, hs] = await Promise.all([
@@ -657,13 +673,38 @@ export default function LojistaBoost() {
           {/* Status: ativo — pode trocar a arte quantas vezes quiser enquanto o plano estiver ativo */}
           {homeBanner && homeBanner.status === "active" && !bannerExpired && (
             <div className="mb-3">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-2 flex items-center gap-2 text-sm text-emerald-800">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                Seu banner está ativo na Home!
-              </div>
+              {docExpired === true ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2">
+                  <div className="flex items-start gap-2 text-sm font-semibold text-red-800">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>Seu banner está pago, mas <u>não aparece na Home</u>: sua loja está offline.</span>
+                  </div>
+                  <p className="text-xs text-red-700 mt-2">
+                    Como o prazo da documentação expirou, sua loja inteira saiu do ar — e o banner some junto, mesmo pago e dentro dos 30 dias. Para o banner voltar a aparecer, regularize a documentação: a loja só religa <strong>após a aprovação dos 3 documentos</strong> pela nossa equipe.
+                  </p>
+                  <Link
+                    href="/lojista/documentacao"
+                    className="inline-flex items-center gap-1 mt-2 text-sm font-bold text-red-800 underline hover:no-underline"
+                  >
+                    Regularizar documentação →
+                  </Link>
+                </div>
+              ) : docExpired === false ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-2 flex items-center gap-2 text-sm text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  Seu banner está ativo na Home!
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-2 flex items-start gap-2 text-sm text-gray-600">
+                  <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  Não foi possível confirmar agora se sua loja está no ar. Atualize a página para ver o status do banner na Home.
+                </div>
+              )}
               {homeBanner.endsAt && (
-                <p className="text-xs font-semibold text-emerald-700 mb-2">
-                  Válido até {new Date(homeBanner.endsAt).toLocaleDateString("pt-BR")} (30 dias a contar do pagamento).
+                <p className={`text-xs font-semibold mb-2 ${docExpired === false ? "text-emerald-700" : "text-gray-500"}`}>
+                  {docExpired === true
+                    ? `Seus 30 dias pagos seguem correndo (até ${new Date(homeBanner.endsAt).toLocaleDateString("pt-BR")}), mesmo com o banner fora do ar.`
+                    : `Válido até ${new Date(homeBanner.endsAt).toLocaleDateString("pt-BR")} (30 dias a contar do pagamento).`}
                 </p>
               )}
               <p className="text-xs text-gray-600 mb-2">
