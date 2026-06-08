@@ -1421,6 +1421,46 @@ router.post("/lojista/home-banner/upload", memoryUpload.single("file"), async (r
   }
 });
 
+// ─── POST /api/lojista/home-banner/delete ─────────────────────────────────────
+// Lojista exclui a arte do banner da Home (ex.: subiu a imagem errada).
+// IMPORTANTE: NÃO apaga a linha nem cancela a assinatura paga (R$299/mês).
+// A imagem é removida e o status volta para `paid_awaiting_upload`:
+//   • o banner sai imediatamente da Home (não aparece mais);
+//   • a VAGA PAGA é preservada (o checkout continua bloqueando recompra, então
+//     o lojista NÃO corre risco de pagar de novo);
+//   • o lojista pode enviar uma nova imagem quando quiser pelo upload.
+// Para encerrar de vez a cobrança o caminho é cancelar a assinatura (outro fluxo).
+// ──────────────────────────────────────────────────────────────────────────────
+router.post("/lojista/home-banner/delete", async (req: Request, res: Response) => {
+  const lojista = (req as any).lojista as LojistaPayload;
+  if (!lojista) { res.status(401).json({ error: "Não autorizado" }); return; }
+
+  const [existing] = await db.select()
+    .from(homeBannersTable)
+    .where(and(
+      eq(homeBannersTable.businessId, lojista.businessId),
+      or(
+        eq(homeBannersTable.status, "active"),
+        eq(homeBannersTable.status, "rejected"),
+        eq(homeBannersTable.status, "paid_awaiting_upload"),
+      ),
+    ))
+    .orderBy(desc(homeBannersTable.createdAt))
+    .limit(1);
+
+  if (!existing) {
+    res.status(404).json({ error: "Você não tem um banner para excluir." });
+    return;
+  }
+
+  await db.update(homeBannersTable)
+    .set({ imageUrl: "", status: "paid_awaiting_upload", active: false, rejectionReason: null })
+    .where(eq(homeBannersTable.id, existing.id));
+
+  logger.info(`[HomeBanner] Arte excluída pelo lojista biz ${lojista.businessId}, id=${existing.id} (vaga paga preservada, status→paid_awaiting_upload)`);
+  res.json({ ok: true, status: "paid_awaiting_upload" });
+});
+
 // ─── Sprint 4.3 — DELETE /api/lojista/account (LGPD: anonimização) ───────────
 router.delete("/lojista/account", csrfProtection, async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista as LojistaPayload;

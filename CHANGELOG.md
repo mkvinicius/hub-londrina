@@ -6,6 +6,18 @@
 
 ## 2026-06-08
 
+### Lojista pode EXCLUIR o banner da Home (subiu errado e não conseguia remover)
+
+**Problema**: depois que o banner ficava `active`, o lojista não tinha **nenhuma** opção de remover/limpar a arte — se subisse a imagem errada, ficava preso.
+
+**Por que NÃO fazer hard delete da linha**: o banner da Home é uma **assinatura Stripe própria (R$299/mês)**, separada do plano. O checkout (`stripe.ts`) bloqueia recompra enquanto existir banner `active`/`paid_awaiting_upload`/`pending_review` do mesmo negócio. Apagar a linha deixaria a assinatura paga **sem banner** e ainda permitiria o lojista **pagar de novo** (cobrança dupla).
+
+**Correção** (exclusão segura, sem perder a vaga paga):
+- Backend (`routes/lojista.ts`): novo `POST /api/lojista/home-banner/delete` (JWT). Acha o banner do próprio negócio e faz `UPDATE` → `imageUrl=''`, `status='paid_awaiting_upload'`, `active=false`, `rejectionReason=null`. **Não** apaga a linha e **não** cancela a assinatura. Resultado: o banner sai da Home na hora, a vaga paga é preservada (recompra segue bloqueada) e o lojista pode enviar uma nova imagem quando quiser. Para encerrar a cobrança de vez o caminho é cancelar a assinatura (outro fluxo).
+- Frontend (`LojistaBoost.tsx` + `lib/lojista-api.ts`): botão vermelho **"Excluir banner"** no bloco do banner ativo, com confirmação (`window.confirm`) e texto deixando claro que o plano continua ativo. Após excluir, a seção volta ao estado "aguardando upload" (botão "Escolher imagem do banner").
+
+**Provas (dev)**: (1) curl/SQL: banner `active` (aparecendo na Home) → `POST /home-banner/delete` → **200** `{ok:true,status:"paid_awaiting_upload"}` → SQL confirmou linha **preservada** (mesmo `stripe_session_id`), `image_url` vazio, `active=false`, status revertido; `/api/home-banners` deixou de listar; recompra `/home-banner/checkout` segue **400 ALREADY_PENDING** (sem risco de pagar duas vezes). (2) E2E Playwright: login premium → `/lojista/boost` → botão "Excluir banner" → confirma → UI muda para "aguardando upload" (**success**). (3) `validate-lojista-rules` (R1/R3/R11) **OK**; `validate-doc-expired` (R2) **OK**. (4) Code review (architect): **PASSA**, sem violações sérias de authz/tenant/billing.
+
 ### Lojista pode TROCAR a arte do Banner na Home com o plano ativo (sem perder a vaga)
 
 **Problema**: depois que o banner ficava `active`, o lojista não tinha como mudar a imagem. O endpoint `POST /api/lojista/home-banner/upload` só casava banners em `paid_awaiting_upload` ou `rejected`, e o bloco "ativo" da UI (`LojistaBoost.tsx`) só exibia "Seu banner está ativo na Home!" — sem nenhuma ação. Quem queria atualizar a arte ficava travado.

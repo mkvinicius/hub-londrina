@@ -214,6 +214,10 @@ Fluxo (Task #56): pagamento Stripe → status=`paid_awaiting_upload`, imageUrl="
 **Trocar arte (2026-06-08)**: o mesmo `POST /home-banner/upload` também aceita banners `active` — enquanto o plano
 estiver ativo o lojista troca a imagem quantas vezes quiser; a nova arte substitui a anterior NO LUGAR (mesma linha,
 status segue `active`, mantém a vaga dos máx. 2 lojistas, sem downtime). UI: botão "Trocar arte do banner" no bloco ativo.
+**Excluir banner (2026-06-08)**: `POST /home-banner/delete` (JWT) — limpa a arte e volta o status para `paid_awaiting_upload`
+(banner sai da Home na hora). NÃO apaga a linha nem cancela a assinatura R$299/mês: a vaga paga é preservada (recompra
+segue bloqueada → sem cobrança dupla) e o lojista pode reenviar imagem. UI: botão "Excluir banner" (com confirmação)
+no bloco ativo. Encerrar a cobrança de vez = cancelar a assinatura (outro fluxo).
 UI (Task #64): o texto de dimensões aceitas (`1200×280px · 4:1 · JPG/PNG/WebP · máx 10 MB · recorte automático`)
 tem fonte única `BANNER_SPECS_LINE` em `LojistaBoost.tsx`, exibido ANTES da compra e no bloco de upload (sem
 divergir do backend). O gate Premium da UI não rebaixa `planType` para `free` se `GET /lojista/profile` falhar

@@ -124,6 +124,12 @@ export async function uploadBanner(file: File) {
   return lojistaFetch("/lojista/upload/banner", { method: "POST", body: formData });
 }
 
+// Exclui a arte do banner da Home (mantém a vaga/assinatura paga; volta para
+// "aguardando upload" para o lojista poder enviar uma nova imagem).
+export async function deleteHomeBanner() {
+  return lojistaFetch("/lojista/home-banner/delete", { method: "POST", body: JSON.stringify({}) });
+}
+
 // Banner Home (R$299/mês) — upload pós-pagamento. Usa o helper centralizado
 // (token único + tratamento de 401) em vez de ler o localStorage direto (R4).
 export async function uploadHomeBanner(file: File) {

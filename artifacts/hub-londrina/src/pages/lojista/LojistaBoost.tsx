@@ -7,8 +7,9 @@ import {
   getHomeSearchBoostPositions,
   createHomeSearchBoostCheckout,
   uploadHomeBanner,
+  deleteHomeBanner,
 } from "@/lib/lojista-api";
-import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload } from "lucide-react";
+import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface CategoryPosition {
@@ -95,6 +96,7 @@ export default function LojistaBoost() {
   const [hsCheckoutLoading, setHsCheckoutLoading] = useState<number | null>(null);
   const [syncingPlan, setSyncingPlan] = useState(false);
   const [bannerImageUploading, setBannerImageUploading] = useState(false);
+  const [bannerDeleting, setBannerDeleting] = useState(false);
   const [planLoadError, setPlanLoadError] = useState(false);
   const bannerImageRef = useRef<HTMLInputElement>(null);
 
@@ -116,6 +118,26 @@ export default function LojistaBoost() {
       setBanner({ type: "error", msg: err?.message || "Erro ao enviar a imagem." });
     } finally {
       setBannerImageUploading(false);
+    }
+  }
+
+  async function handleBannerDelete() {
+    const ok = window.confirm(
+      "Excluir a arte do banner da Home?\n\n" +
+      "O banner sai do ar na hora. Seu plano de Banner na Home continua ativo " +
+      "(a vaga paga é mantida) e você pode enviar uma nova imagem quando quiser."
+    );
+    if (!ok) return;
+    setBannerDeleting(true);
+    setBanner(null);
+    try {
+      await deleteHomeBanner();
+      setBanner({ type: "info", msg: "Banner excluído. Envie uma nova imagem quando quiser — seu plano continua ativo." });
+      await loadAll();
+    } catch (err: any) {
+      setBanner({ type: "error", msg: err?.message || "Erro ao excluir o banner." });
+    } finally {
+      setBannerDeleting(false);
     }
   }
 
@@ -642,13 +664,26 @@ export default function LojistaBoost() {
               <button
                 type="button"
                 onClick={() => bannerImageRef.current?.click()}
-                disabled={bannerImageUploading}
+                disabled={bannerImageUploading || bannerDeleting}
                 className="w-full border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {bannerImageUploading
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
                   : <><Upload className="w-4 h-4" /> Trocar arte do banner</>}
               </button>
+              <button
+                type="button"
+                onClick={handleBannerDelete}
+                disabled={bannerImageUploading || bannerDeleting}
+                className="w-full mt-2 border border-red-300 text-red-600 hover:bg-red-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {bannerDeleting
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Excluindo...</>
+                  : <><Trash2 className="w-4 h-4" /> Excluir banner</>}
+              </button>
+              <p className="text-[11px] text-gray-500 mt-1.5 text-center">
+                Ao excluir, o banner sai da Home na hora. Seu plano continua ativo e você pode enviar uma nova imagem depois.
+              </p>
             </div>
           )}
 
