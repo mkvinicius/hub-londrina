@@ -622,11 +622,33 @@ export default function LojistaBoost() {
             </div>
           )}
 
-          {/* Status: ativo */}
+          {/* Status: ativo — pode trocar a arte quantas vezes quiser enquanto o plano estiver ativo */}
           {homeBanner && homeBanner.status === "active" && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 flex items-center gap-2 text-sm text-emerald-800">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-              Seu banner está ativo na Home!
+            <div className="mb-3">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-2 flex items-center gap-2 text-sm text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                Seu banner está ativo na Home!
+              </div>
+              <p className="text-xs text-gray-600 mb-2">
+                Enquanto seu plano de Banner na Home estiver ativo, você pode trocar a arte quantas vezes quiser. A nova imagem é tratada (1200×280, recorte automático) e entra no ar na hora, substituindo a anterior.
+              </p>
+              <input
+                type="file"
+                ref={bannerImageRef}
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleBannerImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => bannerImageRef.current?.click()}
+                disabled={bannerImageUploading}
+                className="w-full border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {bannerImageUploading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
+                  : <><Upload className="w-4 h-4" /> Trocar arte do banner</>}
+              </button>
             </div>
           )}
 

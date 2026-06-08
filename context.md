@@ -211,6 +211,9 @@ createdAt   timestamp DEFAULT now()
 Fluxo (Task #56): pagamento Stripe → status=`paid_awaiting_upload`, imageUrl="" → lojista faz upload via
 `POST /api/lojista/home-banner/upload` → Sharp resize 1200×280 gravity:attention → status=`active` automático.
 `pending_review` mantido apenas para banners legados (criados antes da Task #56).
+**Trocar arte (2026-06-08)**: o mesmo `POST /home-banner/upload` também aceita banners `active` — enquanto o plano
+estiver ativo o lojista troca a imagem quantas vezes quiser; a nova arte substitui a anterior NO LUGAR (mesma linha,
+status segue `active`, mantém a vaga dos máx. 2 lojistas, sem downtime). UI: botão "Trocar arte do banner" no bloco ativo.
 UI (Task #64): o texto de dimensões aceitas (`1200×280px · 4:1 · JPG/PNG/WebP · máx 10 MB · recorte automático`)
 tem fonte única `BANNER_SPECS_LINE` em `LojistaBoost.tsx`, exibido ANTES da compra e no bloco de upload (sem
 divergir do backend). O gate Premium da UI não rebaixa `planType` para `free` se `GET /lojista/profile` falhar

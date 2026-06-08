@@ -1352,7 +1352,13 @@ router.get("/lojista/subscriptions", async (req: Request, res: Response) => {
 });
 
 // ─── POST /api/lojista/home-banner/upload ─────────────────────────────────────
-// Lojista que já pagou (status=paid_awaiting_upload) sobe a imagem do banner.
+// Lojista sobe (ou TROCA) a imagem do banner da Home pelo mesmo endpoint:
+//   • paid_awaiting_upload → primeiro upload (ativa o banner)
+//   • rejected             → reenvio após desativação do admin
+//   • active               → troca de arte: enquanto o plano estiver ativo o
+//                            lojista pode trocar a imagem quantas vezes quiser;
+//                            a nova arte substitui a anterior NO LUGAR (mantém a
+//                            vaga paga e o banner segue no ar, sem downtime).
 // Sharp redimensiona para 1200×280px com recorte inteligente (gravity:attention).
 // Banner fica ativo imediatamente — sem aprovação manual do admin.
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1383,13 +1389,14 @@ router.post("/lojista/home-banner/upload", memoryUpload.single("file"), async (r
       or(
         eq(homeBannersTable.status, "paid_awaiting_upload"),
         eq(homeBannersTable.status, "rejected"),
+        eq(homeBannersTable.status, "active"),
       ),
     ))
     .orderBy(desc(homeBannersTable.createdAt))
     .limit(1);
 
   if (!existing) {
-    res.status(400).json({ error: "Você não tem um banner pendente de upload. Compre o banner primeiro." });
+    res.status(400).json({ error: "Você não tem um banner ativo ou pendente. Compre o banner primeiro." });
     return;
   }
 

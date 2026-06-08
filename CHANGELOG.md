@@ -4,7 +4,19 @@
 
 ---
 
-## 2026-06-04
+## 2026-06-08
+
+### Lojista pode TROCAR a arte do Banner na Home com o plano ativo (sem perder a vaga)
+
+**Problema**: depois que o banner ficava `active`, o lojista não tinha como mudar a imagem. O endpoint `POST /api/lojista/home-banner/upload` só casava banners em `paid_awaiting_upload` ou `rejected`, e o bloco "ativo" da UI (`LojistaBoost.tsx`) só exibia "Seu banner está ativo na Home!" — sem nenhuma ação. Quem queria atualizar a arte ficava travado.
+
+**Correção** (troca no lugar, sem downtime e sem perder a vaga paga — preferida a um "excluir" que liberaria a vaga dos máx. 2 lojistas):
+- Backend (`routes/lojista.ts`): o endpoint de upload agora também casa banners `active`, substituindo a imagem **no lugar** (status segue `active`, mesma linha em `home_banners`, mesma vaga). O processamento Sharp é o mesmo (resize 1200×280 `fit:cover` + `position:attention` recorte inteligente, `jpeg quality 85`).
+- Frontend (`LojistaBoost.tsx`): o bloco do banner ativo ganhou texto explicativo ("enquanto o plano estiver ativo, troque a arte quantas vezes quiser") + botão **"Trocar arte do banner"** (mesmo fluxo de upload, mesmo `bannerImageRef`).
+
+**Tratamento de imagem** (resposta à dúvida do dono): sim, há tratamento automático — Sharp redimensiona toda imagem enviada para **1200×280px** com **recorte inteligente** (`fit:cover`, `position:attention`, foca na região de maior saliência) e recomprime em **JPEG qualidade 85**. O lojista sobe JPG/PNG/WebP de qualquer dimensão (≤15 MB) e o sistema entrega a arte na proporção 4:1 correta.
+
+**Provas (dev)**: (1) E2E via curl/SQL: banner `active` (image antiga `OLD-placeholder.jpg`) → login lojista premium → `POST /home-banner/upload` (multipart, imagem real) → **200** `{ok:true, imageUrl:".../1-<ts>.jpg"}` → SQL confirmou `status='active'` + `image_url` trocada (substituição no lugar). (2) E2E de UI (Playwright): login premium → `/lojista/boost` → seção "Banner na Home" mostra "Seu banner está ativo na Home!" + botão "Trocar arte do banner" + texto explicativo (**success**). (3) `validate-lojista-rules` (R1/R3/R11) **OK** — gates de plano intactos.
 
 ### Config legal propaga em ~60s, não em 5 min: header HTTP alinhado ao cache interno (Task #78)
 
