@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { useLocation } from "wouter";
 import {
   Search, MapPin, SlidersHorizontal,
@@ -193,6 +193,20 @@ export default function Busca() {
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Separador de "Destaques desta zona" (Task #84): só na Busca filtrada por
+  // zona, na ordenação padrão (relevância), 1ª página e fora do "Perto de mim".
+  // Os patrocinados já vêm primeiro do backend; aqui só marcamos onde o bloco
+  // pago termina e começam os anúncios orgânicos. Sem alterar ordem/regra.
+  const isFeatured = (b: Business) =>
+    Boolean((b as any).boostInfo?.isActive) || Boolean((b as any)._boostBadge);
+  const zoneActive = !!zone && zone !== "todas";
+  const showZoneSplit = zoneActive && !nearbyMode && sort === "relevance" && page === 1;
+  const featuredCount = showZoneSplit ? paginated.filter(isFeatured).length : 0;
+  // Cabeçalho aparece sempre que houver patrocinados no contexto válido; a linha
+  // "Outros anúncios" só quando há patrocinados E orgânicos para separar.
+  const showZoneHeader = showZoneSplit && featuredCount > 0;
+  const showZoneDivider = showZoneHeader && featuredCount < paginated.length;
 
   useEffect(() => { setPage(1); }, [query, region, categoria, sort]);
 
@@ -615,11 +629,30 @@ export default function Busca() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {paginated.map((biz) => (
+                    {paginated.map((biz, idx) => (
                       // BusinessCard já renderiza Patrocinado/Impulsionado em bottom-3 left-3
                       // baseado em boostInfo/_boostBadge — não duplicamos overlay aqui (evita
                       // sobreposição com o rating "Novo" em top-3 left-3).
-                      <BusinessCard key={biz.id} business={biz} showDistance={nearbyMode} />
+                      <Fragment key={biz.id}>
+                        {showZoneHeader && idx === 0 && (
+                          <div className="col-span-full flex items-center gap-2">
+                            <Star className="h-4 w-4 text-[#FF9800] fill-[#FF9800]" />
+                            <span className="font-black text-sm uppercase tracking-wide text-[#6F4E37]">
+                              Destaques desta zona
+                            </span>
+                          </div>
+                        )}
+                        {showZoneDivider && idx === featuredCount && (
+                          <div className="col-span-full flex items-center gap-3 my-1">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-[#6F4E37]/25" />
+                            <span className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                              Outros anúncios
+                            </span>
+                            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#6F4E37]/25" />
+                          </div>
+                        )}
+                        <BusinessCard business={biz} showDistance={nearbyMode} />
+                      </Fragment>
                     ))}
                   </div>
 
