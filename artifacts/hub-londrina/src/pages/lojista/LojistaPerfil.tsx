@@ -91,9 +91,10 @@ export default function LojistaPerfil() {
         payload.instagram = profile.instagram;
         payload.website = profile.website;
       }
-      if (isPremium) {
-        payload.videoUrl = profile.videoUrl;
-      }
+      // NÃO enviar videoUrl no "Salvar" do perfil. O vídeo do card é gerenciado
+      // só pelos controles dedicados (upload .mp4 / remover), que já chamam a API.
+      // O PATCH /lojista/profile rejeita videoUrl não-vazio (VIDEO_UPLOAD_REQUIRED),
+      // então reenviar a URL aqui quebraria o salvamento do perfil para Premium.
       const result = await updateProfile(payload);
       setProfile(result);
       setMsg("Perfil salvo com sucesso!");
