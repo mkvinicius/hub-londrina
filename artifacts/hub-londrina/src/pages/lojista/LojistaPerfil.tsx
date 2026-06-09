@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { LojistaLayout } from "./LojistaLayout";
-import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken, uploadLogo, uploadBanner } from "@/lib/lojista-api";
+import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken, uploadLogo, uploadBanner, uploadBusinessVideo } from "@/lib/lojista-api";
 import { imgSrc } from "@/lib/utils";
 import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2, Upload } from "lucide-react";
 import { useLegalConfig } from "@/lib/legal-config";
@@ -33,6 +33,12 @@ export default function LojistaPerfil() {
   const [photoMsg, setPhotoMsg] = useState("");
   const logoFileRef = useRef<HTMLInputElement>(null);
   const bannerFileRef = useRef<HTMLInputElement>(null);
+
+  // Upload do vídeo do card (Premium) — arquivo .mp4, ≤50MB.
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoMsg, setVideoMsg] = useState("");
+  const videoFileRef = useRef<HTMLInputElement>(null);
+  const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "";
@@ -215,6 +221,53 @@ export default function LojistaPerfil() {
       setPhotoMsg(`Erro: ${err.message}`);
     } finally {
       setBannerUploading(false);
+    }
+  }
+
+  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (videoFileRef.current) videoFileRef.current.value = "";
+    if (!file) return;
+    const isMp4 = file.type === "video/mp4" || /\.mp4$/i.test(file.name);
+    if (!isMp4) {
+      setVideoMsg("Erro: envie um arquivo de vídeo .mp4.");
+      return;
+    }
+    if (file.size > VIDEO_MAX_BYTES) {
+      setVideoMsg("Erro: o vídeo deve ter até 50 MB.");
+      return;
+    }
+    setVideoUploading(true);
+    setVideoMsg("");
+    try {
+      const data = await uploadBusinessVideo(file);
+      setProfile((prev: any) => prev ? { ...prev, videoUrl: data.videoUrl } : prev);
+      setVideoMsg("Vídeo enviado! Ele já aparece no seu card.");
+      setTimeout(() => setVideoMsg(""), 4000);
+    } catch (err: any) {
+      const code = err?.code || err?.body?.code;
+      if (code === "PLAN_REQUIRED") {
+        setVideoMsg('Erro: o vídeo do card é exclusivo do plano Premium.');
+      } else {
+        setVideoMsg(`Erro: ${err.message}`);
+      }
+    } finally {
+      setVideoUploading(false);
+    }
+  }
+
+  async function handleRemoveVideo() {
+    setVideoUploading(true);
+    setVideoMsg("");
+    try {
+      const result = await updateProfile({ videoUrl: "" });
+      setProfile(result);
+      setVideoMsg("Vídeo removido. Seu card volta a mostrar a foto de capa.");
+      setTimeout(() => setVideoMsg(""), 4000);
+    } catch (err: any) {
+      setVideoMsg(`Erro: ${err.message}`);
+    } finally {
+      setVideoUploading(false);
     }
   }
 
@@ -544,21 +597,80 @@ export default function LojistaPerfil() {
             </div>
             <div className="md:col-span-2 relative">
               <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
-                URL do Vídeo
+                Vídeo do card
                 <span
                   className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold cursor-help"
-                  title="Cole o link do YouTube ou Vimeo. O vídeo aparece na vitrine da home (Premium). Duração recomendada: até 60 segundos."
-                  aria-label="Ajuda sobre URL do vídeo"
+                  title="Envie um arquivo de vídeo .mp4 (até 50 MB). Ele substitui a foto de capa na imagem grande do seu card na busca, na zona, na categoria e na home. Duração recomendada: até 30 segundos. O vídeo toca sozinho, sem som e em repetição."
+                  aria-label="Ajuda sobre o vídeo do card"
                 >?</span>
                 {!isPremium && <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Lock className="w-3 h-3" /> Premium</span>}
               </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Arquivo .mp4 · até 50 MB · duração recomendada até 30s. Aparece na imagem grande do seu card (toca sozinho, mudo e em loop).
+              </p>
+
               <input
-                value={profile.videoUrl || ""}
-                onChange={e => update("videoUrl", e.target.value)}
-                placeholder="https://youtube.com/... ou https://vimeo.com/..."
-                disabled={!isPremium}
-                className={!isPremium ? lockedInputCls : inputCls}
+                ref={videoFileRef}
+                type="file"
+                accept="video/mp4,.mp4"
+                onChange={handleVideoUpload}
+                disabled={!isPremium || videoUploading}
+                className="hidden"
               />
+
+              {isPremium && profile.videoUrl ? (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <video
+                    src={imgSrc(profile.videoUrl)}
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                    preload="metadata"
+                    className="w-40 h-24 object-cover rounded-xl border border-gray-200 bg-black flex-shrink-0"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => videoFileRef.current?.click()}
+                      disabled={videoUploading}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#6F4E37] text-white hover:bg-[#5a3f2d] disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {videoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      {videoUploading ? "Enviando..." : "Substituir vídeo"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveVideo}
+                      disabled={videoUploading}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => isPremium && videoFileRef.current?.click()}
+                  disabled={!isPremium || videoUploading}
+                  className={
+                    isPremium
+                      ? "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#6F4E37] text-white hover:bg-[#5a3f2d] disabled:opacity-60 disabled:cursor-not-allowed"
+                      : "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed opacity-70"
+                  }
+                >
+                  {videoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {videoUploading ? "Enviando..." : "Enviar vídeo .mp4"}
+                </button>
+              )}
+
+              {!isPremium && (
+                <p className="text-xs text-gray-500 mt-2">Recurso exclusivo do plano Premium.</p>
+              )}
+              {videoMsg && (
+                <p className={`text-xs mt-2 ${videoMsg.startsWith("Erro") ? "text-red-600" : "text-green-600"}`}>{videoMsg}</p>
+              )}
             </div>
           </div>
         </section>

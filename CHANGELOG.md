@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-09
+
+### Vídeo do card do negócio agora é UPLOAD de .mp4 (antes pedia link YouTube/Vimeo que não tocava)
+
+**Problema**: o campo "URL do Vídeo" no perfil do lojista pedia um link de YouTube/Vimeo, mas o player do card (`BusinessCard.tsx`) usa `<video>` nativo, que só toca arquivos **.mp4** diretos — links de YouTube/Vimeo nunca apareciam.
+
+**Correção**:
+- Novo endpoint `POST /api/lojista/upload/business-video` (`lojista.ts`): `requirePlan("premium")` + multer em memória **mp4-only ≤50MB**, `uploadBufferToGCS(...,"business-video",...,"video/mp4")`, grava direto em `businesses.videoUrl`, retorna `{videoUrl}`. Wrapper de erro do multer mapeia tipo inválido → **400** (mensagem clara) e tamanho → **413** (antes caíam no 500 genérico).
+- `lojista-api.ts`: `uploadBusinessVideo(file)`.
+- `LojistaPerfil.tsx`: campo de URL substituído por controle de **upload com preview** `<video>` + botões Substituir/Remover, gate Premium visual e textos corrigidos (.mp4 / 50MB / aparece na imagem grande do card). Remover chama `updateProfile({videoUrl:""})`.
+- **Decisão**: é o vídeo do **card** (`businesses.videoUrl`, sem aprovação admin) — distinto do vídeo de **vitrine/produto** (`products.videoStatus`, com aprovação). Ver RULES.md.
+
+**Prova** (curl pós-restart): Premium upload `.mp4` real → 200 `{"videoUrl":"/storage/objects/uploads/business-video/business-6-...mp4"}`; gravação confirmada no DB (`businesses.id=6`); free → **403 PLAN_REQUIRED**; arquivo não-mp4 → **400** "Apenas vídeos MP4 são aceitos para o card do negócio". Screenshots da busca `?categoria=academias` com o card "Academia Força Total" renderizando o elemento `<video>`. Dado de teste removido do seed após a prova. `lojista-rules` / `doc-expired-invariant` / `api-health` verdes ao rodar direto.
+
 ## 2026-06-08
 
 ### Banner da Home do lojista mostra só a arte + botão "Saiba mais" (sem nome da empresa por cima)

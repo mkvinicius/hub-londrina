@@ -124,6 +124,14 @@ export async function uploadBanner(file: File) {
   return lojistaFetch("/lojista/upload/banner", { method: "POST", body: formData });
 }
 
+// Vídeo do card do negócio (imagem grande do BusinessCard) — Premium-only, MP4 ≤50MB.
+// Grava direto em businesses.videoUrl e devolve a URL final. Sem aprovação do admin.
+export async function uploadBusinessVideo(file: File): Promise<{ videoUrl: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return lojistaFetch("/lojista/upload/business-video", { method: "POST", body: formData });
+}
+
 // Exclui a arte do banner da Home (mantém a vaga/assinatura paga; volta para
 // "aguardando upload" para o lojista poder enviar uma nova imagem).
 export async function deleteHomeBanner() {

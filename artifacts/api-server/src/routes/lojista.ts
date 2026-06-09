@@ -235,11 +235,18 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
     }
   }
 
-  // Apply sanitization to prevent XSS
-  updates.name = sanitizeText(updates.name as string || '');
-  updates.description = sanitizeText(updates.description as string || '');
-  updates.ownerName = sanitizeText(updates.ownerName as string || '');
-  updates.tags = Array.isArray(updates.tags) ? updates.tags.map(tag => sanitizeText(tag as string)) : sanitizeText(updates.tags as string || '');
+  // Apply sanitization to prevent XSS — SÓ nos campos realmente enviados.
+  // Sobrescrever incondicionalmente quebrava PATCH parcial: ex. {videoUrl:""}
+  // setava updates.tags="" (string) numa coluna ARRAY do Postgres → drizzle
+  // lançava "value.map is not a function" (500). Por isso só sanitiza se presente.
+  if (updates.name !== undefined) updates.name = sanitizeText(updates.name as string || '');
+  if (updates.description !== undefined) updates.description = sanitizeText(updates.description as string || '');
+  if (updates.ownerName !== undefined) updates.ownerName = sanitizeText(updates.ownerName as string || '');
+  if (updates.tags !== undefined) {
+    updates.tags = Array.isArray(updates.tags)
+      ? updates.tags.map(tag => sanitizeText(tag as string))
+      : [];
+  }
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "Nenhum campo para atualizar" });
@@ -278,6 +285,18 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
 
   if (plan !== "premium" && updates.videoUrl !== undefined) {
     res.status(403).json({ error: "Vídeo disponível apenas no plano Premium", code: "PLAN_REQUIRED", requiredPlan: "premium", currentPlan: plan });
+    return;
+  }
+
+  // O vídeo do card só pode ser DEFINIDO via upload de .mp4 em
+  // POST /api/lojista/upload/business-video. Aqui o PATCH só aceita LIMPAR
+  // (videoUrl === "") — qualquer URL arbitrária (ex.: link YouTube/Vimeo, que
+  // o player nativo do card não toca) é rejeitada. Ver RULES.md (Vídeo do card).
+  if (updates.videoUrl !== undefined && updates.videoUrl !== "") {
+    res.status(400).json({
+      error: "Para definir o vídeo do card, use o upload de arquivo .mp4 (não é aceito link).",
+      code: "VIDEO_UPLOAD_REQUIRED",
+    });
     return;
   }
 
@@ -1715,6 +1734,57 @@ router.post(
     }
     const filename = `vitrine-${businessId}-${Date.now()}.mp4`;
     const videoUrl = await uploadBufferToGCS(req.file.buffer, "vitrine", filename, "video/mp4");
+    res.json({ videoUrl });
+  },
+);
+
+// ────────────────────────────────────────────────────────────────────────
+// Vídeo do card do negócio (imagem grande do BusinessCard) — Premium-only.
+// Diferente do vídeo de vitrine/produto: NÃO passa por aprovação do admin;
+// é gravado direto em `businesses.videoUrl` e aparece automaticamente no card
+// (busca/zona/categoria/home). MP4 ≤50MB. Gate Premium ANTES do parse (R1).
+// ────────────────────────────────────────────────────────────────────────
+const BUSINESS_VIDEO_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+const businessVideoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: BUSINESS_VIDEO_MAX_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (file.mimetype === "video/mp4" && ext === ".mp4") {
+      cb(null, true);
+    } else {
+      cb(new Error("Apenas vídeos MP4 são aceitos para o card do negócio"));
+    }
+  },
+});
+
+const businessVideoUploadHandler = (req: Request, res: Response, next: NextFunction) =>
+  businessVideoUpload.single("file")(req, res, (err: unknown) => {
+    if (err) {
+      const code = (err as any)?.code;
+      if (code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({ error: "Vídeo muito grande. O limite é de 50 MB." });
+        return;
+      }
+      res.status(400).json({ error: (err as Error)?.message || "Arquivo de vídeo inválido. Envie um .mp4." });
+      return;
+    }
+    next();
+  });
+
+router.post(
+  "/lojista/upload/business-video",
+  requirePlan("premium"),
+  businessVideoUploadHandler,
+  async (req: Request, res: Response) => {
+    const { businessId } = (req as any).lojista as LojistaPayload;
+    if (!req.file) {
+      res.status(400).json({ error: "Nenhum arquivo enviado" });
+      return;
+    }
+    const filename = `business-${businessId}-${Date.now()}.mp4`;
+    const videoUrl = await uploadBufferToGCS(req.file.buffer, "business-video", filename, "video/mp4");
+    await db.update(businessesTable).set({ videoUrl }).where(eq(businessesTable.id, businessId));
     res.json({ videoUrl });
   },
 );

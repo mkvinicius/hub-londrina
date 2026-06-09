@@ -388,6 +388,7 @@ POST   /api/lojista/upload/banner        Banner
 POST   /api/lojista/upload/photo         Fotos adicionais
 DELETE /api/lojista/photos/:index        Remove foto por índice
 POST   /api/lojista/upload/product-media Mídia de produto
+POST   /api/lojista/upload/business-video Vídeo do card (Premium, mp4-only ≤50MB → businesses.videoUrl)
 ```
 
 **Produtos**
