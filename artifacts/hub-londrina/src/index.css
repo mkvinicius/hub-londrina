@@ -58,6 +58,39 @@
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
 
+  /* === Design Tokens Fase 2 — mapeamento para classes Tailwind === */
+  --color-laranja-50: var(--laranja-50);
+  --color-laranja-100: var(--laranja-100);
+  --color-laranja-200: var(--laranja-200);
+  --color-laranja-300: var(--laranja-300);
+  --color-laranja-400: var(--laranja-400);
+  --color-laranja-500: var(--laranja-500);
+  --color-laranja-600: var(--laranja-600);
+  --color-laranja-700: var(--laranja-700);
+  --color-laranja-800: var(--laranja-800);
+  --color-laranja-900: var(--laranja-900);
+
+  --color-cafe-50: var(--cafe-50);
+  --color-cafe-100: var(--cafe-100);
+  --color-cafe-200: var(--cafe-200);
+  --color-cafe-300: var(--cafe-300);
+  --color-cafe-500: var(--cafe-500);
+  --color-cafe-700: var(--cafe-700);
+  --color-cafe-800: var(--cafe-800);
+  --color-cafe-900: var(--cafe-900);
+  --color-cafe-950: var(--cafe-950);
+
+  --color-verde-conexao: var(--verde-conexao);
+  --color-verde-conexao-bg: var(--verde-conexao-bg);
+  --color-vermelho-alerta: var(--vermelho-alerta);
+  --color-vermelho-alerta-bg: var(--vermelho-alerta-bg);
+  --color-dourado-estrela: var(--dourado-estrela);
+  --color-dourado-estrela-bg: var(--dourado-estrela-bg);
+
+  /* Fontes Fase 2 — display (Playfair) e ui (Archivo). Não tocam --font-sans existente. */
+  --font-display: var(--app-font-display);
+  --font-ui: var(--app-font-ui);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -161,6 +194,47 @@
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: 'Playfair Display', Georgia, serif;
   --app-font-mono: Menlo, monospace;
+
+  /* === Design Tokens — Auditoria Fase 2 === */
+  /* Laranja Terra (ação) */
+  --laranja-50: #FDF6EE;
+  --laranja-100: #FAEAD7;
+  --laranja-200: #F4D2AC;
+  --laranja-300: #ECB377;
+  --laranja-400: #E2903F;
+  --laranja-500: #D97316;
+  --laranja-600: #BC5C0A;
+  --laranja-700: #9C470B;
+  --laranja-800: #7E3A10;
+  --laranja-900: #663012;
+
+  /* Café (neutros quentes) */
+  --cafe-50: #FAF6F0;
+  --cafe-100: #F1E9DD;
+  --cafe-200: #E8DECF;
+  --cafe-300: #C9BCAE;
+  --cafe-500: #94816F;
+  --cafe-700: #6B5440;
+  --cafe-800: #4A3826;
+  --cafe-900: #3E2B1B;
+  --cafe-950: #2B1D12;
+
+  /* Semânticas */
+  --verde-conexao: #1F7A4D;
+  --verde-conexao-bg: #E4F3EB;
+  --vermelho-alerta: #B3361E;
+  --vermelho-alerta-bg: #FBE9E4;
+  --dourado-estrela: #E2A30F;
+  --dourado-estrela-bg: #FCF0DB;
+
+  /* Espaçamento entre seções */
+  --section-gap-desktop: 96px;
+  --section-gap-mobile: 56px;
+
+  /* Famílias de fonte Fase 2 */
+  --app-font-display: 'Playfair Display', Georgia, serif;
+  --app-font-ui: 'Archivo', system-ui, sans-serif;
+
   --radius: .5rem;
   --shadow-2xs: 0px 1px 2px 0px rgba(111,78,55, 0.06);
   --shadow-xs: 0px 1px 3px 0px rgba(111,78,55, 0.08);
