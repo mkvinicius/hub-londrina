@@ -8,7 +8,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(pnpm build *)",
-      "Bash(git commit -m 'fix: acessibilidade viewport, badges de categoria formatados, alinhar contador lojistas/negócios *)"
+      "Bash(git commit -m 'fix: acessibilidade viewport, badges de categoria formatados, alinhar contador lojistas/negócios *)",
+      "Bash(git commit -m 'feat: declarar design tokens fase 2 \\(paleta laranja/café + fontes Archivo/Playfair\\) *)"
     ]
   }
 }
