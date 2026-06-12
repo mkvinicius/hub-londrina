@@ -18,6 +18,7 @@ import { csrfProtection } from "../middleware/csrf";
 import Stripe from "stripe";
 import { businessDocumentsTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
+import { z } from "zod/v4";
 import { sanitizeBusiness, sanitizeText } from "../lib/sanitize";
 import { validateMagicBytes } from "../lib/validateUpload";
 import { requirePlan } from "../middleware/checkPlan";

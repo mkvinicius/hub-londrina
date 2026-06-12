@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-06-12
+
+### Investigação: falha de publicação no autoscale ("not all artifact ports opened")
+
+**Sintoma (dono)**: "My deployment build failed to publish". Logs de produção da infra: `expected=[8080 22662] detected=1` · "a port configuration was specified but the required port was never opened" · healthchecks `/api` e `/` em 500 · SIGTERM nos dois processos.
+
+**Diagnóstico (com prova concreta)**:
+- **Não é erro de build/typecheck.** Cada artifact compila pelo seu próprio `[services.production.build]` (api-server via esbuild `build.mjs`; hub via `vite build` + SSR) — o `pnpm run build`/typecheck **do root NÃO roda no deploy** (confirmado em `.replit` + `artifact.toml`). Logo os ~60 erros de typecheck pré-existentes **não bloqueiam a publicação**.
+- **Reprodução local de produção = tudo OK** (não reproduz a falha):
+  - api-server: build prod EXIT=0 → `node dist/index.mjs PORT=8099 NODE_ENV=production` → `Server listening` em <1s, seed/views/jobs OK.
+  - hub: `vite build` (client+SSR) EXIT=0 → `node server.mjs PORT=22663` → `SSR server running` em <1s.
+  - `GET /api/healthz` via proxy → **200 `{"status":"ok"}`**.
+- **Secrets de produção presentes** (Stripe, JWT, DATABASE_URL, todos os price IDs) — não é secret faltando.
+- **Sem trava de module-load**: `app.ts` não tem await/IO no topo; `lib/db` usa Pool **lazy** (não conecta no import); o uso de `z` em `lojista.ts` é **dentro de handler** (não no topo), então a falta do import só daria 500 naquela rota, nunca impediria a porta de abrir.
+- **R14 confirmada**: `api-server/src/index.ts` abre a porta ANTES das tarefas de manutenção (provado pelo log "Server listening" antes de seed/jobs).
+- **Conclusão**: com o código atual a publicação está pronta (ambas as portas abrem, healthz 200). A falha original — não reproduzível e com logs de prod já expirados — é compatível com **timeout transitório de abertura de porta** no autoscale daquela tentativa. Recomendado **republicar**.
+
+### Correções type-only (não alteram comportamento — revisadas pelo architect)
+
+Feitas durante a investigação para reduzir o passivo de typecheck (5 arquivos). **Não corrigem o deploy** (que não roda typecheck) e **não mudam comportamento** de pagamento/webhook/gates:
+- `routes/stripe.ts`: `apiVersion ... as any` (cast só de tipo, string pinada inalterada); `jwt.verify(token, JWT_SECRET!)` (módulo já faz fail-fast); logger no formato objeto `{ err }`/template (sem perder campos); `return` explícito em handlers TS7030 (resposta já era a última instrução — sem short-circuit novo).
+- `routes/vitrine.ts`: `return` em handler TS7030.
+- `routes/lojista.ts`: `import { z } from "zod/v4"` — **única mudança funcional**: evita `ReferenceError` (500→normal) na rota de suporte que usa `z`.
+- `scripts/create-boost-products.ts`: `apiVersion ... as any`.
+- `hub-londrina/src/lib/icons.tsx`: `import type { SVGProps, JSX }`.
+
+**Prova**: validações verdes ao rodar em isolamento — `api-health` (200), `lojista-rules` (R1/R3/R11 ✓), `doc-expired-invariant` (R2 ✓). Architect: PASS (sem regressão de Stripe/authz/gates). O passivo restante de typecheck (admin.ts/auth.ts/businesses.ts: `req.query` `string|string[]` do Express 5, `unknown` de fetch) fica para tarefa de hygiene separada — **não** é bloqueador de deploy.
+
+> **Nota de flakiness**: as 3 validações rodam em paralelo pelo botão "Project" e colidem no `loginLimiter` (10/15min) → 429 esporádico. Rodadas em isolamento (`restart_workflow` individual) passam verdes de forma consistente.
+
 ## 2026-06-09
 
 ### Vídeo do card do negócio agora é UPLOAD de .mp4 (antes pedia link YouTube/Vimeo que não tocava)

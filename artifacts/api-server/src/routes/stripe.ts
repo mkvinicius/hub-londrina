@@ -29,7 +29,10 @@ const FRONTEND_URL = process.env.FRONTEND_URL
   || (process.env.REPLIT_DEPLOYMENT ? "https://www.hublondrina.com.br" : null)
   || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.hublondrina.com.br");
 
-const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" });
+// apiVersion fixado (basil) de propósito: o webhook/sync lê campos de período da
+// subscription com fallback dependente desta versão (ver comentário ~L903). Bump
+// muda comportamento → mantemos pinned e fazemos cast (SDK respeita em runtime).
+const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" as any });
 
 const PRICE_MAP: Record<string, { plan: "destaque" | "premium"; cycle: "monthly" | "annual" }> = {
   [process.env.STRIPE_BASE_PRICE_ID!]: { plan: "destaque", cycle: "monthly" },
@@ -43,7 +46,7 @@ function getLojistaFromToken(req: Request): { businessId: number; email: string 
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
+    const payload = jwt.verify(token, JWT_SECRET!) as any;
     if (payload.role !== "lojista") return null;
     return { businessId: payload.businessId, email: payload.email };
   } catch {
@@ -600,7 +603,7 @@ router.post("/stripe/checkout", async (req: Request, res: Response) => {
     locale: "pt-BR",
   });
 
-  res.json({ url: session.url });
+  return res.json({ url: session.url });
 });
 
 // Banner da Home — COMPRA ÚNICA (não assinatura): paga R$299 uma vez via Stripe
@@ -696,7 +699,7 @@ router.post("/lojista/home-banner/checkout", async (req: Request, res: Response)
     locale: "pt-BR",
   });
 
-  res.json({ url: session.url });
+  return res.json({ url: session.url });
 });
 
 router.get("/lojista/home-banner/status", async (req: Request, res: Response) => {
@@ -709,7 +712,7 @@ router.get("/lojista/home-banner/status", async (req: Request, res: Response) =>
     .orderBy(desc(homeBannersTable.createdAt))
     .limit(1);
 
-  res.json({ banner: rows[0] ?? null });
+  return res.json({ banner: rows[0] ?? null });
 });
 
 router.post("/stripe/portal", async (req: Request, res: Response) => {
@@ -730,7 +733,7 @@ router.post("/stripe/portal", async (req: Request, res: Response) => {
     return_url: `${FRONTEND_URL}/lojista/plano?portal_return=1`,
   });
 
-  res.json({ url: portal.url });
+  return res.json({ url: portal.url });
 });
 
 // Troca de plano direta via API (sem passar pelo portal Stripe).
@@ -810,7 +813,7 @@ router.get("/stripe/subscription", async (req: Request, res: Response) => {
 
   if (!sub) return res.json(null);
 
-  res.json({
+  return res.json({
     plan: sub.plan,
     status: sub.status,
     currentPeriodEnd: sub.currentPeriodEnd,
@@ -852,10 +855,10 @@ router.get("/stripe/invoices", async (req: Request, res: Response) => {
       periodStart: inv.period_start,
       periodEnd: inv.period_end,
     }));
-    res.json({ data });
+    return res.json({ data });
   } catch (err) {
     req.log?.error({ err }, "[Stripe] Falha ao listar faturas");
-    res.status(502).json({ error: "Não foi possível obter faturas" });
+    return res.status(502).json({ error: "Não foi possível obter faturas" });
   }
 });
 
@@ -953,7 +956,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        logger.info("[Stripe Webhook] checkout.session.completed — session:", session.id, "subscription:", session.subscription);
+        logger.info(`[Stripe Webhook] checkout.session.completed — session: ${session.id} subscription: ${session.subscription}`);
 
         // Modelo C: solicitação de banner Home pelo lojista → cria paid_awaiting_upload (lojista faz upload)
         if (session.metadata?.kind === "home_banner_request") {
@@ -982,7 +985,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
                 }
               }
             } catch (err) {
-              logger.error("[Stripe Webhook] Erro criando banner paid_awaiting_upload:", err);
+              logger.error({ err }, "[Stripe Webhook] Erro criando banner paid_awaiting_upload");
             }
           }
           break; // não cai no fluxo de subscription de plano
@@ -1049,7 +1052,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
               }
             }
           } catch (e) {
-            logger.error("[Stripe Webhook] Erro no pós-processamento checkout.session.completed:", e);
+            logger.error({ err: e }, "[Stripe Webhook] Erro no pós-processamento checkout.session.completed");
           }
         }
         break;
@@ -1463,7 +1466,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
           }
         } catch (emailErr) {
-          logger.error("[Stripe Webhook] Erro enviando email de boost:", emailErr);
+          logger.error({ err: emailErr }, "[Stripe Webhook] Erro enviando email de boost");
         }
         break;
       }
@@ -1477,7 +1480,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Webhook handler failed" });
   }
 
-  res.json({ received: true });
+  return res.json({ received: true });
 });
 
 export default router;

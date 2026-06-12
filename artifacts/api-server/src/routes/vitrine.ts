@@ -142,7 +142,7 @@ router.get("/vitrine", async (_req: Request, res: Response) => {
     return res.json({ cards: [], totalSlots: TOTAL_SLOTS, minToRender: MIN_TO_RENDER });
   }
 
-  res.json({ cards, totalSlots: TOTAL_SLOTS, fixedSlots: FIXED_SLOTS });
+  return res.json({ cards, totalSlots: TOTAL_SLOTS, fixedSlots: FIXED_SLOTS });
 });
 
 export default router;

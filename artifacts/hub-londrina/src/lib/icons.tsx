@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { SVGProps, JSX } from "react";
 import { Building2, type LucideIcon } from "lucide-react";
 import { imgSrc } from "@/lib/utils";
 
