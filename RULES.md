@@ -15,10 +15,10 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 | Boost home+busca | Premium | `POST /api/lojista/boosts/checkout` (boostContext=home_search) | `LojistaBoost.tsx` card Home+Busca |
 | Boost categoria | Premium | `POST /api/lojista/boosts/category-checkout` | `LojistaBoost.tsx` tabela categoria |
 | Banner Home R$299 (compra única, 30 dias) | Premium | `POST /api/lojista/home-banner/checkout` | `LojistaBoost.tsx` card Banner Home |
-| Logo / Banner upload | Destaque | `POST /api/lojista/upload/{logo,banner}` (`requirePlan("destaque")`) | `LojistaPerfil.tsx` / `LojistaProdutos.tsx` (aviso "Exclusivo Base/Destaque" + botões disabled) |
+| Logo / Banner upload | Gratuito (todos os planos) | `POST /api/lojista/upload/{logo,banner}` (sem gate de plano) | `LojistaPerfil.tsx` (upload disponível para todos, sem aviso de bloqueio) |
 | Instagram / Website | Destaque | `PATCH /api/lojista/profile` | `LojistaPerfil.tsx` (LockedFeature) |
 | Vídeo do card | Premium | `POST /api/lojista/upload/business-video` (`requirePlan("premium")`, multer memória **mp4-only ≤50MB**, grava `businesses.videoUrl`) | `LojistaPerfil.tsx` (upload + preview, LockedFeature). **NÃO** é vídeo de vitrine/produto (esse usa `products.videoStatus` com aprovação admin). O player do card só toca **.mp4** — por isso é upload, não link YouTube/Vimeo. |
-| Vitrine produtos | Destaque (6) / Premium (10) | `POST /api/lojista/products` | `LojistaProdutos.tsx` (LockedFeature) |
+| Vitrine produtos | Destaque (10) / Premium (ilimitado) | `POST /api/lojista/products` | `LojistaProdutos.tsx` (LockedFeature) |
 | Métricas | Destaque (números) / Premium (gráfico) | `GET /api/lojista/metrics` | `LojistaMetricas.tsx` (LockedFeature) |
 | Resposta a review | Destaque | `POST /api/lojista/reviews/:id/respond` | `LojistaAvaliacoes.tsx` |
 | Relatório PDF | Premium | endpoint dedicado | — |

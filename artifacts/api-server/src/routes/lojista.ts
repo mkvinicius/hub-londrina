@@ -317,10 +317,8 @@ router.patch("/lojista/profile", async (req: Request, res: Response) => {
   res.json(result[0]);
 });
 
-// Logo e foto de capa exigem plano Base/Destaque ou superior (Task #75 — decisão do
-// dono). Plano Gratuito NÃO envia identidade visual. Gate via requirePlan("destaque")
-// ANTES do parse do upload — o gate de plano vem primeiro (RULES.md R1).
-router.post("/lojista/upload/logo", requirePlan("destaque"), memoryUpload.single("file"), async (req: Request, res: Response) => {
+// Logo e foto de capa liberados para todos os planos, incluindo Gratuito.
+router.post("/lojista/upload/logo", memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
@@ -341,7 +339,7 @@ router.post("/lojista/upload/logo", requirePlan("destaque"), memoryUpload.single
   res.json({ logoUrl });
 });
 
-router.post("/lojista/upload/banner", requirePlan("destaque"), memoryUpload.single("file"), async (req: Request, res: Response) => {
+router.post("/lojista/upload/banner", memoryUpload.single("file"), async (req: Request, res: Response) => {
   const { businessId } = (req as any).lojista;
   if (!req.file) {
     res.status(400).json({ error: "Nenhum arquivo enviado" });
@@ -685,8 +683,8 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
     return;
   }
 
-  // Limites de produtos/vitrine por plano: Gratuito=0, Base/Destaque=6, Premium=10.
-  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
+  // Limites de produtos/vitrine por plano: Gratuito=0, Destaque=10, Premium=ilimitado.
+  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 10, premium: Infinity };
   const limit = PRODUCT_LIMITS[biz.planType] ?? 0;
   if (limit === 0) {
     res.status(403).json({ error: "Cadastro de produtos disponível nos planos Base e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz.planType });
@@ -699,9 +697,9 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
     .select({ count: sql<number>`count(*)::int` })
     .from(productsTable)
     .where(and(eq(productsTable.businessId, businessId), eq(productsTable.isActive, true)));
-  if (existing >= limit) {
+  if (limit !== Infinity && existing >= limit) {
     res.status(400).json({
-      error: `Limite de ${limit} produto(s) ativo(s) atingido para o plano ${biz.planType}. Faça upgrade para Premium para cadastrar mais.`,
+      error: `Limite de ${limit} produto(s) ativo(s) atingido para o plano ${biz.planType}. Faça upgrade para Premium para produtos ilimitados.`,
       code: "PRODUCT_LIMIT_REACHED",
       currentPlan: biz.planType,
       limit,

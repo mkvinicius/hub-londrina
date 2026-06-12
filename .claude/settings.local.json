@@ -6,7 +6,9 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\Documents\\\\CLAUDE\\\\hub-londrina\\\\artifacts\\\\api-server\" -Force | Where-Object {$_.Name -match \"^\\\\w\" -or $_.Name -match \"^\\\\.\"})",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(pnpm build *)",
+      "Bash(git commit -m 'fix: acessibilidade viewport, badges de categoria formatados, alinhar contador lojistas/negócios *)"
     ]
   }
 }

@@ -9,7 +9,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { imgSrc } from "@/lib/utils";
+import { imgSrc, formatCategorySlug } from "@/lib/utils";
 import type { Business } from "@workspace/api-client-react";
 import type { LucideIcon } from "lucide-react";
 import { getAutoBadges } from "@/lib/badges";
@@ -177,7 +177,7 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
             (Premium → Verificado → 1 selo automático). Mantém altura fixa. */}
         <div className="flex items-center justify-center gap-1.5 flex-wrap mt-2 min-h-[22px]">
           <span className="inline-block text-[10px] font-bold text-[#4CAF50] bg-[#4CAF50]/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-            {biz.categorySlug}
+            {formatCategorySlug(biz.categorySlug)}
           </span>
           {isPremium && (
             <Pill

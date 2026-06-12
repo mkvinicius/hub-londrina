@@ -539,9 +539,12 @@ router.get("/stats/public", async (_req: Request, res: Response) => {
       .from(zonesTable)
       .where(eq(zonesTable.active, true));
 
+    // Contar apenas lojistas cujo negócio está visível e ativo — mesma base de totalBusinesses.
     const [usersCount] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(businessUsersTable);
+      .from(businessUsersTable)
+      .innerJoin(businessesTable, eq(businessUsersTable.businessId, businessesTable.id))
+      .where(and(eq(businessesTable.isVisible, true), eq(businessesTable.status, "active")));
 
     res.json({
       totalBusinesses: businessCount?.count ?? 0,
