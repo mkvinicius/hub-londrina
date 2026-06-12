@@ -77,7 +77,7 @@ function VitrineDetailModal({
               ) : card.photoUrl ? (
                 <img src={imgSrc(card.photoUrl)} alt={card.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#6F4E37] to-[#d97706]" />
+                <div className="w-full h-full bg-gradient-to-br from-cafe-700 to-laranja-600" />
               )}
               {photos.length > 1 && (
                 <>
@@ -118,7 +118,7 @@ function VitrineDetailModal({
                     key={`${u}-${i}`}
                     type="button"
                     onClick={() => setPhotoIdx(i)}
-                    className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 ${i === photoIdx ? "border-[#d97706]" : "border-transparent opacity-70 hover:opacity-100"}`}
+                    className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 ${i === photoIdx ? "border-laranja-600" : "border-transparent opacity-70 hover:opacity-100"}`}
                   >
                     <img src={imgSrc(u)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
                   </button>
@@ -127,12 +127,12 @@ function VitrineDetailModal({
             )}
             <div className="p-6">
               <DialogHeader>
-                <span className="text-[10px] font-bold text-[#d97706] uppercase tracking-wider mb-1 block">{card.businessName}</span>
-                <DialogTitle className="text-xl font-black text-[#3a2512]">{card.name}</DialogTitle>
+                <span className="text-[10px] font-bold text-laranja-600 uppercase tracking-wider mb-1 block">{card.businessName}</span>
+                <DialogTitle className="text-xl font-black text-cafe-950">{card.name}</DialogTitle>
                 <DialogDescription className="sr-only">Detalhes do produto {card.name}</DialogDescription>
               </DialogHeader>
               {card.price && (
-                <p className="text-[#d97706] font-black text-2xl mt-2">R$ {card.price}</p>
+                <p className="text-laranja-600 font-black text-2xl mt-2">R$ {card.price}</p>
               )}
               <div className="mt-5 flex flex-col gap-2">
                 {card.whatsapp && (
@@ -147,7 +147,7 @@ function VitrineDetailModal({
                 <button
                   type="button"
                   onClick={() => { onClose(); onOpenBusiness(card.businessId); }}
-                  className="w-full flex items-center justify-center gap-2 border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border border-laranja-600 text-laranja-600 hover:bg-laranja-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Ver perfil do negócio
@@ -216,7 +216,7 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
       <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.08) 100%)" }} />
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
         <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider truncate">{p.businessName}</span>
-        {p.fixed && <span className="text-[9px] font-bold text-[#FF9800] uppercase tracking-wider">★ destaque</span>}
+        {p.fixed && <span className="text-[9px] font-bold text-laranja-500 uppercase tracking-wider">★ destaque</span>}
       </div>
       <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-2">
         <div>
@@ -418,7 +418,7 @@ export default function Landing() {
             >
               {/* Text input */}
               <div className="relative flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
-                <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
+                <Search className="h-5 w-5 text-laranja-600 flex-shrink-0" />
                 <input
                   type="text"
                   value={query}
@@ -499,7 +499,7 @@ export default function Landing() {
                     <button
                       type="button"
                       onClick={() => { setRegion(""); setRegionOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-[#FFF3E0] transition-colors ${!region ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-700"}`}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-laranja-50 transition-colors ${!region ? "text-laranja-600 bg-laranja-50" : "text-gray-700"}`}
                     >
                       Todas as regiões
                     </button>
@@ -512,13 +512,13 @@ export default function Landing() {
                         key={z.path}
                         type="button"
                         onClick={() => { setRegionOpen(false); navigate(z.path); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#FFF3E0] transition-colors flex items-center gap-2 ${region === z.label ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-800"}`}
+                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-laranja-50 transition-colors flex items-center gap-2 ${region === z.label ? "text-laranja-600 bg-laranja-50" : "text-gray-800"}`}
                       >
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor:
                           z.path === "/centro" ? "#dc2626" :
                           z.path === "/norte"  ? "#3d7a28" :
                           z.path === "/sul"    ? "#2563eb" :
-                          z.path === "/leste"  ? "#d97706" : "#7c3aed"
+                          z.path === "/leste"  ? "var(--laranja-600)" : "#7c3aed"
                         }} />
                         {z.label}
                       </button>
@@ -534,7 +534,7 @@ export default function Landing() {
                         key={r}
                         type="button"
                         onClick={() => { setRegion(r); setRegionOpen(false); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-[#FFF3E0] transition-colors ${region === r ? "text-[#d97706] bg-[#FFF3E0]" : "text-gray-700"}`}
+                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-laranja-50 transition-colors ${region === r ? "text-laranja-600 bg-laranja-50" : "text-gray-700"}`}
                       >
                         {r}
                       </button>
@@ -668,7 +668,7 @@ export default function Landing() {
                       {current.subtitle}
                     </p>
                   )}
-                  <span className={`inline-flex items-center gap-2 self-start bg-[#FF9800] hover:bg-[#f57c00] text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg ${current.requestedBy !== "lojista" ? "mt-4 md:mt-5" : ""}`}>
+                  <span className={`inline-flex items-center gap-2 self-start bg-laranja-500 hover:bg-laranja-600 text-white font-bold px-5 py-2.5 rounded-full text-sm md:text-base transition-colors shadow-lg ${current.requestedBy !== "lojista" ? "mt-4 md:mt-5" : ""}`}>
                     {current.ctaLabel || "Saiba mais"} <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>
@@ -697,8 +697,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-8 gap-4">
             <div>
-              <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Negócios do seu bairro, da sua cidade</span>
-              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Quando você compra local, Londrina cresce.</h2>
+              <span className="text-laranja-600 font-bold text-sm uppercase tracking-wider mb-1 block">Negócios do seu bairro, da sua cidade</span>
+              <h2 className="font-black text-3xl md:text-4xl text-cafe-950">Quando você compra local, Londrina cresce.</h2>
             </div>
           </div>
 
@@ -714,13 +714,13 @@ export default function Landing() {
                 <button
                   key={category.id}
                   onClick={() => navigate(`/busca?categoria=${category.slug}`)}
-                  className="cat-pills-row group inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white/80 hover:bg-white border border-white hover:border-[#d97706]/40 transition-all shadow-sm hover:shadow-md"
+                  className="cat-pills-row group inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white/80 hover:bg-white border border-white hover:border-laranja-600/40 transition-all shadow-sm hover:shadow-md"
                   data-testid={`pill-category-${category.slug}`}
                 >
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center ${colorClasses} group-hover:scale-110 transition-transform`}>
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span className="font-semibold text-sm text-[#3a2512] group-hover:text-[#d97706] transition-colors whitespace-nowrap">
+                  <span className="font-semibold text-sm text-cafe-950 group-hover:text-laranja-600 transition-colors whitespace-nowrap">
                     {category.name}
                   </span>
                 </button>
@@ -728,7 +728,7 @@ export default function Landing() {
             })}
             <button
               onClick={() => navigate("/categorias")}
-              className="cat-pills-row inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-[#6F4E37] hover:bg-[#5a3d2b] text-white transition-all shadow-sm hover:shadow-md"
+              className="cat-pills-row inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-cafe-700 hover:bg-cafe-800 text-white transition-all shadow-sm hover:shadow-md"
               data-testid="pill-category-ver-todos"
             >
               <span className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15">
@@ -746,8 +746,8 @@ export default function Landing() {
           <div className="max-w-7xl mx-auto px-4 md:px-8">
             <div className="flex items-end justify-between mb-10 gap-4">
               <div>
-                <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Direto pelo WhatsApp</span>
-                <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Vitrine de Produtos</h2>
+                <span className="text-laranja-600 font-bold text-sm uppercase tracking-wider mb-1 block">Direto pelo WhatsApp</span>
+                <h2 className="font-black text-3xl md:text-4xl text-cafe-950">Vitrine de Produtos</h2>
               </div>
             </div>
 
@@ -785,12 +785,12 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-end justify-between mb-10 gap-4">
             <div>
-              <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-1 block">Aprovados pela comunidade</span>
-              <h2 className="font-black text-3xl md:text-4xl text-[#3a2512]">Destaques da Semana</h2>
+              <span className="text-laranja-600 font-bold text-sm uppercase tracking-wider mb-1 block">Aprovados pela comunidade</span>
+              <h2 className="font-black text-3xl md:text-4xl text-cafe-950">Destaques da Semana</h2>
             </div>
             <button
               onClick={() => navigate("/busca")}
-              className="hidden md:flex items-center gap-2 text-sm font-bold text-[#d97706] hover:text-[#b45309] transition-colors whitespace-nowrap"
+              className="hidden md:flex items-center gap-2 text-sm font-bold text-laranja-600 hover:text-laranja-700 transition-colors whitespace-nowrap"
             >
               Ver todos <ArrowRight className="h-4 w-4" />
             </button>
@@ -811,7 +811,7 @@ export default function Landing() {
             <div className="flex flex-col lg:flex-row">
               {/* Left */}
               <div className="lg:w-5/12 p-10 lg:p-14 flex flex-col justify-center">
-                <span className="text-[#d97706] font-bold text-sm uppercase tracking-wider mb-3 block">Para Empreendedores</span>
+                <span className="text-laranja-600 font-bold text-sm uppercase tracking-wider mb-3 block">Para Empreendedores</span>
                 <h2 className="font-black text-3xl lg:text-4xl text-white mb-4 leading-tight">
                   Você construiu seu negócio em Londrina. Agora Londrina vai te encontrar.
                 </h2>
@@ -820,7 +820,7 @@ export default function Landing() {
                 </p>
                 <Button
                   onClick={() => navigate("/cadastro")}
-                  className="w-full sm:w-auto bg-[#d97706] hover:bg-[#b45309] text-white rounded-full px-8 h-12 font-bold text-sm shadow-none border-0 self-start"
+                  className="w-full sm:w-auto bg-laranja-600 hover:bg-laranja-700 text-white rounded-full px-8 h-12 font-bold text-sm shadow-none border-0 self-start"
                 >
                   Cadastrar meu negócio — é grátis
                 </Button>
@@ -844,21 +844,21 @@ export default function Landing() {
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="font-black text-3xl md:text-4xl text-[#3a2512] mb-3">Como funciona</h2>
+            <h2 className="font-black text-3xl md:text-4xl text-cafe-950 mb-3">Como funciona</h2>
             <p className="text-gray-500 text-base">Simples, rápido e totalmente gratuito para começar.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto relative">
-            <div className="hidden md:block absolute top-10 left-[17%] right-[17%] h-px border-t-2 border-dashed border-[#d97706]/30 z-0"></div>
+            <div className="hidden md:block absolute top-10 left-[17%] right-[17%] h-px border-t-2 border-dashed border-laranja-600/30 z-0"></div>
             {[
-              { n: "1", title: "Busque", desc: "Procure pelo que precisa ou explore as categorias disponíveis.", color: "bg-[#d97706]" },
+              { n: "1", title: "Busque", desc: "Procure pelo que precisa ou explore as categorias disponíveis.", color: "bg-laranja-600" },
               { n: "2", title: "Escolha", desc: "Veja fotos, avaliações e informações detalhadas de cada negócio.", color: "bg-[#4CAF50]" },
-              { n: "3", title: "Conecte", desc: "Entre em contato diretamente pelo WhatsApp ou telefone.", color: "bg-[#6F4E37]" },
+              { n: "3", title: "Conecte", desc: "Entre em contato diretamente pelo WhatsApp ou telefone.", color: "bg-cafe-700" },
             ].map((step) => (
               <div key={step.n} className="flex flex-col items-center text-center relative z-10">
                 <div className={`w-20 h-20 ${step.color} text-white rounded-full flex items-center justify-center text-3xl font-black shadow-lg mb-5`}>
                   {step.n}
                 </div>
-                <h3 className="font-black text-xl text-[#3a2512] mb-2">{step.title}</h3>
+                <h3 className="font-black text-xl text-cafe-950 mb-2">{step.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{step.desc}</p>
               </div>
             ))}
@@ -870,7 +870,7 @@ export default function Landing() {
 
 
       {/* ===== FINAL CTA ===== */}
-      <section className="py-14 bg-[#d97706]">
+      <section className="py-14 bg-laranja-600">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h2 className="font-black text-2xl md:text-3xl text-white mb-6">
             Seu negócio é de Londrina. Seu cliente também.
@@ -878,7 +878,7 @@ export default function Landing() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => navigate("/cadastro")}
-              className="bg-white hover:bg-gray-100 text-[#d97706] font-black text-base px-10 py-3.5 rounded-full shadow-lg transition-colors"
+              className="bg-white hover:bg-gray-100 text-laranja-600 font-black text-base px-10 py-3.5 rounded-full shadow-lg transition-colors"
             >
               Cadastrar meu negócio — é grátis
             </button>
