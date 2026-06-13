@@ -632,10 +632,15 @@ export async function runStartupSeed() {
 
     const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
+    const seedNow = new Date();
     const usersData = businesses.map((b) => ({
       businessId: b.id,
       email: b.ownerEmail!,
       passwordHash,
+      firstLoginAt: seedNow,
+      documentationRemainingDays: 10,
+      documentationStatus: "pending",
+      documentationTimerPaused: false,
     }));
 
     await db.insert(businessUsersTable).values(usersData);
