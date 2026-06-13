@@ -8,7 +8,7 @@ import {
   businessUsersTable,
   businessDocumentsTable,
 } from "@workspace/db/schema";
-import { eq, and, inArray, or } from "drizzle-orm";
+import { eq, and, inArray, or, sql } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "../lib/logger";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
@@ -507,6 +507,137 @@ router.patch(
       documentationStatus: sync.status,
       verified: sync.verified,
       adminApproved: sync.adminApproved,
+    });
+  },
+);
+
+// POST /api/admin/documents/override-all-unapproved — Task #105
+// APROVAÇÃO MANUAL EM MASSA (grandfathering). Aplica o override de documentação
+// (mesma semântica do endpoint individual acima) a TODAS as lojas já cadastradas
+// que ainda NÃO têm os 3 documentos reais aprovados e que ainda não possuem
+// override. Caso de uso: replicar a regra de "aprovação manual" para a base
+// existente, evitando que lojas caiam (ou tragam de volta as já `expired`) por
+// causa da exigência de documentação.
+//
+// NÃO cria caminho de escrita paralelo: para cada loja faz exatamente o que o
+// override individual faz — grava o flag `documentationAdminApproved` e delega
+// toda a derivação à fonte única (`syncDocumentationState` com
+// `reopenOnApproval:true`). Reversível loja a loja pelo override individual.
+// Idempotente: rodar de novo não afeta quem já tem override (filtra
+// `documentation_admin_approved = false`) nem quem realmente tem os 3 docs.
+router.post(
+  "/admin/documents/override-all-unapproved",
+  adminAuth,
+  async (req: Request, res: Response) => {
+    // Candidatas: lojas SEM override e SEM os 3 documentos reais aprovados.
+    // `allApproved` real é derivado de business_documents (não do status
+    // agregado, que pode já refletir um override). 3 tipos canônicos aprovados.
+    const candidates = await db
+      .select({ businessId: businessUsersTable.businessId })
+      .from(businessUsersTable)
+      .where(
+        and(
+          eq(businessUsersTable.documentationAdminApproved, false),
+          sql`(
+            SELECT count(DISTINCT bd.document_type)
+            FROM business_documents bd
+            WHERE bd.business_id = ${businessUsersTable.businessId}
+              AND bd.status = 'approved'
+              AND bd.document_type IN ('personal_id', 'cnpj_card', 'address_proof')
+          ) < 3`,
+        ),
+      );
+
+    const ids = candidates.map((c) => c.businessId);
+    const applied: number[] = [];
+    const failed: { businessId: number; error: string }[] = [];
+
+    // Processa cada loja de forma ISOLADA: uma falha numa loja NÃO aborta o lote
+    // (importante para backfill de produção — execução determinística e
+    // reprocessável). A escrita do flag + a derivação (`syncDocumentationState`)
+    // são o PAR CRÍTICO: a flag é gravada antes do sync, então se o sync falhar
+    // a loja ficaria com a flag `true` porém sem derivação concluída — e, como o
+    // seletor de candidatas exige `documentation_admin_approved = false`, ela
+    // NÃO seria reprocessada numa reexecução. Para preservar a reprocessabilidade,
+    // qualquer falha no par crítico dispara COMPENSAÇÃO: a flag é revertida
+    // (`false`/`null`) antes de registrar a loja em `failed`, garantindo que ela
+    // volte a ser candidata na próxima execução.
+    for (const businessId of ids) {
+      try {
+        await db
+          .update(businessUsersTable)
+          .set({
+            documentationAdminApproved: true,
+            documentationAdminApprovedAt: new Date(),
+          })
+          .where(eq(businessUsersTable.businessId, businessId));
+
+        let sync: Awaited<ReturnType<typeof syncDocumentationState>>;
+        try {
+          // Fonte única deriva status/verified/visibilidade e re-publica a loja
+          // (mesmo caminho da aprovação final dos 3 docs).
+          sync = await syncDocumentationState(businessId, {
+            reopenOnApproval: true,
+          });
+        } catch (syncErr) {
+          // COMPENSAÇÃO: reverte a flag para a loja voltar a ser candidata.
+          await db
+            .update(businessUsersTable)
+            .set({ documentationAdminApproved: false, documentationAdminApprovedAt: null })
+            .where(eq(businessUsersTable.businessId, businessId));
+          throw syncErr;
+        }
+
+        // a partir daqui a aprovação está consolidada (flag + derivação ok);
+        // efeitos colaterais abaixo nunca a revertem.
+        applied.push(businessId);
+
+        // Efeitos colaterais NÃO-críticos: email e auditoria nunca derrubam o
+        // lote nem revertem a aprovação já consolidada acima.
+        try {
+          const [biz] = await db
+            .select({ ownerName: businessesTable.ownerName, ownerEmail: businessesTable.ownerEmail })
+            .from(businessesTable)
+            .where(eq(businessesTable.id, businessId));
+          if (biz?.ownerEmail) {
+            const tpl = emails.documentacaoAprovada(biz.ownerName || "Lojista");
+            await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+          }
+        } catch (err) {
+          logger.error({ err, businessId }, "[Documents] Falha ao enviar email de aprovação manual em massa");
+        }
+
+        try {
+          await logAdminAction(
+            ADMIN_DEFAULT_ID,
+            "document.manual_approve",
+            "business",
+            businessId,
+            JSON.stringify({ businessId, status: sync.status, verified: sync.verified, bulk: true }),
+            getReqIp(req),
+          );
+        } catch (err) {
+          logger.error({ err, businessId }, "[Documents] Falha ao registrar auditoria da aprovação manual em massa");
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error({ err, businessId }, "[Documents] Falha ao aplicar override em massa nesta loja (lote continua)");
+        failed.push({ businessId, error: message });
+      }
+    }
+
+    logger.info(
+      { count: applied.length, businessIds: applied, failedCount: failed.length },
+      "[Documents] APROVAÇÃO MANUAL EM MASSA — override aplicado às lojas sem 3 docs aprovados",
+    );
+
+    // 207 quando há falhas parciais; 200 quando tudo certo. `ok` reflete
+    // ausência de falhas para o cliente decidir se reexecuta.
+    res.status(failed.length > 0 ? 207 : 200).json({
+      ok: failed.length === 0,
+      applied: applied.length,
+      businessIds: applied,
+      failed,
     });
   },
 );

@@ -6,6 +6,21 @@
 
 ## 2026-06-13
 
+### Aprovação manual em massa (grandfathering das lojas já cadastradas)
+
+**Pedido (dono)**: a regra de aprovação manual (override) já existia para lojas novas, mas as lojas **já cadastradas** sem os 3 docs aprovados continuavam pendentes/expiradas. Aplicar o override em **todas** elas de uma vez, trazendo as expiradas de volta ao ar.
+
+**Implementação**: novo endpoint `POST /api/admin/documents/override-all-unapproved` (adminAuth) — seleciona as lojas com `documentation_admin_approved=false` **e** menos de 3 docs reais aprovados (subquery `count distinct` em `business_documents`, não confia no status agregado) e, para cada uma, grava a flag + `syncDocumentationState(id, { reopenOnApproval:true })` + e-mail `documentacaoAprovada` + `logAdminAction("document.manual_approve", { bulk:true })`. Retorna `{ok, applied, businessIds}`. **Idempotente**. UI `AdminDocumentacao.tsx`: botão roxo "Aprovar todas manualmente" no topo, com `confirm` de "assumir responsabilidade" e alerta do total aplicado. **Produção**: o agente não escreve no DB de produção (réplica read-only) — o backfill roda **dentro do app**; o dono aciona o botão no painel admin de produção após publicar (em prod havia 19 pending + 4 expired sem os 3 docs).
+
+**Prova concreta (dev)**: estado inicial 15 approved + 1 expired (loja #9 forçada offline) + 4 pending →
+- **curl** `POST .../override-all-unapproved` → `{ok:true,applied:5,businessIds:[17,15,20,9,5]}`; **2ª chamada** → `{ok:true,applied:0,businessIds:[]}` (idempotência).
+- **SQL depois**: 20/20 approved, 5 override, 20 verified, 20 visíveis (loja #9 expirada voltou ao ar).
+- **Leitura pública**: loja #9 (era expired) **aparece** em `GET /api/businesses` após override e **some** ao revogar.
+- **Reversível** loja a loja pelo override individual; ambiente dev restaurado ao original (15 approved + 5 pending, 0 override).
+- **Validadores verdes**: `doc-expired-invariant` ✓ OK · `lojista-rules` ✓ OK.
+
+**Resiliência (achado de code review)**: o loop processa cada loja **isolada** em `try/catch` — uma falha não aborta o lote. O par crítico (gravar flag → `syncDocumentationState`) tem **compensação**: se o sync falha, a flag é revertida (`false`/`null`) e a loja entra em `failed[]` permanecendo **candidata** na próxima execução (preserva reprocessabilidade). `applied[]` só recebe a loja após sync OK; email/auditoria em `try/catch` internos não derrubam o lote nem revertem a aprovação. Resposta `200` (sem falhas) ou `207` + `failed[]` (parcial); UI orienta reexecutar.
+
 ### Aprovação manual de documentação pelo admin (override / "assumir responsabilidade")
 
 **Pedido (dono)**: o admin precisa poder aprovar a documentação de uma loja **mesmo sem os documentos enviados/corretos**, assumindo a responsabilidade. A loja deve ficar `approved`/`verified=true`/online, os alertas de documentação devem sumir e ela deve herdar os direitos de quem tem doc aprovada — com destaque no painel admin. (Caso citado: "Restaurante Estações Gastronomia".)

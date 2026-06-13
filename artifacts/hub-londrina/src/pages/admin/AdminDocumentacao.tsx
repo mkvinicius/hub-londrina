@@ -72,6 +72,7 @@ export default function AdminDocumentacao() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [manualLoading, setManualLoading] = useState<number | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -148,6 +149,41 @@ export default function AdminDocumentacao() {
     }
   }
 
+  async function runBulkOverride() {
+    const semDoc = items.filter(
+      (i) => i.documentationAdminApproved !== true && i.documentationStatus !== "approved",
+    ).length;
+    const ok = window.confirm(
+      "APROVAÇÃO MANUAL EM MASSA — assumir responsabilidade\n\n" +
+        `Você vai aprovar MANUALMENTE a documentação de TODAS as lojas que ainda não têm os 3 ` +
+        `documentos aprovados (estimado: ${semDoc} loja(s)), incluindo as que estão offline por ` +
+        "documentação expirada — elas voltam ao ar.\n\n" +
+        "Você ASSUME TOTAL RESPONSABILIDADE por essas aprovações. Lojas que já têm os 3 documentos " +
+        "aprovados não são afetadas. É reversível loja a loja (botão Revogar).\n\nConfirmar?",
+    );
+    if (!ok) return;
+    setBulkLoading(true);
+    try {
+      const r = (await adminFetch("/api/admin/documents/override-all-unapproved", {
+        method: "POST",
+      })) as { applied: number; failed?: { businessId: number }[] };
+      await load();
+      const failCount = r.failed?.length ?? 0;
+      if (failCount > 0) {
+        alert(
+          `Aprovação manual aplicada a ${r.applied} loja(s).\n` +
+            `${failCount} loja(s) falharam e NÃO foram aprovadas — rode novamente para reprocessá-las.`,
+        );
+      } else {
+        alert(`Aprovação manual aplicada a ${r.applied} loja(s).`);
+      }
+    } catch (e: any) {
+      alert(e.message || "Erro ao aplicar aprovação manual em massa");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="max-w-6xl">
@@ -160,6 +196,14 @@ export default function AdminDocumentacao() {
               ao ar quando os 3 documentos forem aprovados.
             </p>
           </div>
+          <button
+            onClick={runBulkOverride}
+            disabled={bulkLoading}
+            className="shrink-0 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+            title="Aprova manualmente todas as lojas sem os 3 documentos aprovados (assumir responsabilidade)"
+          >
+            {bulkLoading ? "Aplicando..." : "Aprovar todas manualmente"}
+          </button>
         </div>
 
         <div className="flex gap-2 mb-4 flex-wrap">
