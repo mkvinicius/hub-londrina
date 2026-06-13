@@ -6,6 +6,14 @@
 
 ## 2026-06-13
 
+### Botão "olho" (mostrar/ocultar senha) em todos os campos de senha
+
+**Pedido (dono)**: todo campo de senha precisa do ícone de olho para revelar o que está sendo digitado (print: login lojista com senha longa, sem como conferir).
+
+**Implementação**: novo componente reutilizável `src/components/PasswordInput.tsx` (input + botão de olho `Eye`/`EyeOff` lucide, alterna `type` password↔text, `tabIndex={-1}` p/ não atrapalhar o Tab, `aria-label`/`title` acessíveis). Aplicado em **todos** os campos de senha: `LojistaLogin`, `AdminLogin`, `NovaSenha` (nova + confirmar), `LojistaSenha` (atual/nova/confirmar + senha de exclusão de conta), `LojistaPerfil` (senha de exclusão) e `Cadastro` (confirmar senha — o campo principal já tinha o olho próprio). Adicionado `pr-10/pr-11` ao input para o texto não passar por baixo do ícone; espaçamento (`mb-4`) movido para `wrapperClassName` onde necessário.
+
+**Prova concreta**: screenshots de `/lojista/login` e `/admin/login` mostram o ícone de olho no campo Senha. Typecheck do front sem erros novos (os de `busca.tsx`/`negocio.tsx` são pré-existentes de tipos OpenAPI). Mudança puramente de UI — não toca Stripe/auth/gates/schema (W4 não se aplica).
+
 ### Imagens quebradas (FRENTE A) + Motor de 2 crops da capa (FRENTE B)
 
 **Sintoma (dono)**: capas/banners/vídeos apareciam quebrados em várias telas e a capa distorcia entre página do negócio (larga) e card de listagem.

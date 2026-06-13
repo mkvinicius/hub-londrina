@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import { CheckCircle2, ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Info, Star, Zap } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { csrfFetch } from "@/lib/csrf";
 import { useLegalConfig } from "@/lib/legal-config";
 
@@ -345,7 +346,7 @@ export default function Cadastro() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirmar senha *</label>
-                <input type="password" value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} placeholder="Repita a senha" className={inputClass} />
+                <PasswordInput value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} placeholder="Repita a senha" className={`${inputClass} pr-11`} />
                 {passwordConfirm && password !== passwordConfirm && (
                   <p className="text-xs text-red-500 mt-1">As senhas não coincidem</p>
                 )}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { login } from "@/lib/admin-api";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
@@ -32,12 +33,12 @@ export default function AdminLogin() {
         </div>
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-8 shadow-xl">
           <label className="block text-sm font-bold text-gray-700 mb-2">Senha de acesso</label>
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Digite a senha"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent mb-4"
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent"
+            wrapperClassName="mb-4"
             autoFocus
           />
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}

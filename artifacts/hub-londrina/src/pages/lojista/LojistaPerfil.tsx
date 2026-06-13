@@ -3,6 +3,7 @@ import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken, uploadLogo, uploadBanner, uploadBusinessVideo } from "@/lib/lojista-api";
 import { imgSrc } from "@/lib/utils";
 import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2, Upload } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { useLegalConfig } from "@/lib/legal-config";
 import { csrfFetch } from "@/lib/csrf";
 
@@ -793,12 +794,11 @@ function LgpdSection() {
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <input
-                    type="password"
+                  <PasswordInput
                     placeholder="Sua senha atual"
                     value={deletePassword}
                     onChange={e => setDeletePassword(e.target.value)}
-                    className="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                    className="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-red-400"
                     data-testid="input-delete-password"
                   />
                   <input

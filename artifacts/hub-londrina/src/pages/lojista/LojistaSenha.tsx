@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { LojistaLayout } from "./LojistaLayout";
 import { changePassword, deleteAccount, clearToken } from "@/lib/lojista-api";
 import { Lock, AlertTriangle, X } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default function LojistaSenha() {
   const [, navigate] = useLocation();
@@ -86,15 +87,15 @@ export default function LojistaSenha() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Senha atual</label>
-              <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className={inputCls} />
+              <PasswordInput value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className={`${inputCls} pr-11`} />
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Nova senha</label>
-              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className={inputCls} />
+              <PasswordInput value={newPassword} onChange={e => setNewPassword(e.target.value)} className={`${inputCls} pr-11`} />
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Confirmar nova senha</label>
-              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={inputCls} />
+              <PasswordInput value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={`${inputCls} pr-11`} />
             </div>
           </div>
 
@@ -157,11 +158,10 @@ export default function LojistaSenha() {
               </ul>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Senha atual</label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={deletePwd}
                   onChange={e => setDeletePwd(e.target.value)}
-                  className={inputCls}
+                  className={`${inputCls} pr-11`}
                   disabled={deleting}
                   autoFocus
                 />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { lojistaLogin } from "@/lib/lojista-api";
 
 const verified = new URLSearchParams(window.location.search).get("verified") === "1";
@@ -61,12 +62,12 @@ export default function LojistaLogin() {
             autoFocus
           />
           <label className="block text-sm font-bold text-gray-700 mb-2">Senha</label>
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Sua senha"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent mb-4"
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent"
+            wrapperClassName="mb-4"
           />
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
           <button

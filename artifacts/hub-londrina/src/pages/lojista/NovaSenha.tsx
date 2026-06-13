@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { PasswordInput } from "@/components/PasswordInput";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -87,24 +88,24 @@ export default function NovaSenha() {
               <p className="text-sm text-gray-500 mb-5">A senha deve ter pelo menos 8 caracteres.</p>
 
               <label className="block text-sm font-bold text-gray-700 mb-2">Nova senha</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder="Mínimo 8 caracteres"
                 required
                 autoFocus
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent mb-4"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent"
+                wrapperClassName="mb-4"
               />
 
               <label className="block text-sm font-bold text-gray-700 mb-2">Confirmar senha</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="Repita a nova senha"
                 required
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent mb-4"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#d97706] focus:border-transparent"
+                wrapperClassName="mb-4"
               />
 
               {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
