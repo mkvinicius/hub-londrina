@@ -604,7 +604,7 @@ POST /api/auth/reset-password    Valida token + salva nova senha (bcrypt)
 **Intervalo:** 24 horas (roda imediatamente ao iniciar)
 1. **tickDocumentationTimers()** — timer com **banco de dias (banking)**: para cada lojista com `firstLoginAt`, `documentationTimerPaused=false`, status ∈ {`pending`,`rejected`} e `remainingDays > 0`:
    - decrementa 1 dia (só conta dias **ativos**; envio dos 3 docs/aprovação pausa, rejeição retoma — pausa controlada por `syncDocumentationState`)
-   - email de countdown `documentacaoPendente(nome, dias)` **só nos marcos {7, 3, 1}** (não 1/dia)
+   - email de countdown `documentacaoPendente(nome, dias)` **a cada 2 dias pares restantes {8, 6, 4, 2}** (não 1/dia)
    - ao chegar a 0: status→`expired` e `businesses.isVisible=false` **para QUALQUER plano** (free, base/destaque, premium), envia `documentacaoExpirada(nome)`. Republicação só via aprovação dos 3 docs — pagamento/heal não religam (ver RULES.md R2).
 2. **tickFreePlanExpiration()** — planos free com `firstLoginAt < hoje-30d` e `isVisible=true` → `isVisible=false`, envia `planoGratuitoExpirando`
 

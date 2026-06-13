@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, subscriptionsTable } from "@workspace/db/schema";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { enforceProductLimitForBusiness, getProductLimitForPlan } from "./enforce-product-limits";
 import { productsTable } from "@workspace/db/schema";
@@ -210,5 +210,33 @@ export async function healDocumentationConsistency() {
     }
   } catch (err) {
     logger.error({ err }, "[StartupHeal] Falha ao reconciliar documentação");
+  }
+}
+
+/**
+ * Task #106 — Backfill idempotente de `first_login_at`.
+ *
+ * O timer de documentação só corre em lojistas com `firstLoginAt` preenchido.
+ * Antes desta task, o campo era setado apenas no PRIMEIRO LOGIN, então lojas
+ * cadastradas mas não logadas nunca tinham o timer iniciado. Com a task #106,
+ * `firstLoginAt` é preenchido já no CADASTRO (auth.ts). Para lojas existentes
+ * (produção) sem o campo preenchido, este backfill usa `created_at` como
+ * data de início do timer — data conservadora que mantém o comportamento
+ * esperado sem criar lojas já "expiradas" artificialmente.
+ *
+ * Idempotente: só toca rows com `first_login_at IS NULL`.
+ */
+export async function backfillFirstLoginAt() {
+  try {
+    const result = await db
+      .update(businessUsersTable)
+      .set({ firstLoginAt: sql`${businessUsersTable.createdAt}` })
+      .where(isNull(businessUsersTable.firstLoginAt));
+    const count = result.rowCount ?? 0;
+    if (count > 0) {
+      logger.info(`[StartupHeal] Backfill first_login_at: ${count} lojista(s) atualizados`);
+    }
+  } catch (err) {
+    logger.error({ err }, "[StartupHeal] Falha no backfill de first_login_at");
   }
 }

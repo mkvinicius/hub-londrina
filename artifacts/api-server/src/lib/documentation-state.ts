@@ -174,7 +174,7 @@ export async function syncDocumentationState(
     // continua no ar) e nunca republicam — só a aprovação final do admin religa.
     await db
       .update(businessesTable)
-      .set(status === "expired" ? { verified: false, isVisible: false } : { verified: false })
+      .set(status === "expired" ? { verified: false, isVisible: false, planFrozen: true } : { verified: false })
       .where(eq(businessesTable.id, businessId));
   }
 

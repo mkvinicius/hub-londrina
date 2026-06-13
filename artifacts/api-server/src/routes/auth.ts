@@ -264,18 +264,20 @@ router.post("/auth/register", registerLimiter, csrfProtection, async (req: Reque
 
   const passwordHash = await bcrypt.hash(password, 10);
   const verifyToken = randomBytes(32).toString("hex");
+  const now = new Date();
   const [newUser] = await db.insert(businessUsersTable).values({
     email: normalizedEmail,
     passwordHash,
     businessId: business.id,
     emailVerificationToken: verifyToken,
-    documentationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+    firstLoginAt: now,
+    documentationDeadline: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
     documentationRemainingDays: 10,
     documentationStatus: "pending",
     documentationTimerPaused: false,
     consentTermsVersion: currentTermsVersion,
-    consentTermsAt: new Date(),
-    consentPrivacyAt: new Date(),
+    consentTermsAt: now,
+    consentPrivacyAt: now,
   }).returning();
 
   try {

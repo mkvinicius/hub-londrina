@@ -8,9 +8,11 @@ import { syncDocumentationState } from "./documentation-state";
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
-// Task #63 — só envia o email de contagem regressiva nestes marcos para não
-// floodar a caixa do lojista com um email por dia durante 10 dias.
-const COUNTDOWN_EMAIL_DAYS = new Set([7, 3, 1]);
+// Task #106 — emails de contagem regressiva a cada 2 dias nos dias pares
+// (8, 6, 4, 2) para não floodar a caixa do lojista.
+function isCountdownEmailDay(remaining: number): boolean {
+  return remaining > 0 && remaining <= 8 && remaining % 2 === 0;
+}
 
 async function tickDocumentationTimers() {
   try {
@@ -53,7 +55,7 @@ async function tickDocumentationTimers() {
           .set({ documentationRemainingDays: newRemaining })
           .where(eq(businessUsersTable.id, u.userId));
 
-        if (u.ownerEmail && COUNTDOWN_EMAIL_DAYS.has(newRemaining)) {
+        if (u.ownerEmail && isCountdownEmailDay(newRemaining)) {
           try {
             const tpl = emails.documentacaoPendente(u.ownerName || "Lojista", newRemaining);
             await sendEmail(u.ownerEmail, tpl.subject, tpl.html);
