@@ -79,8 +79,9 @@ export function BusinessCard({ business: biz, size = "md", showDistance = false 
   const isPatrocinado = (biz as any).boostInfo?.isActive === true;
   const isImpulsionado = !isPatrocinado && (biz as any)._boostBadge === "Impulsionado";
 
-  // Capa: prioriza bannerUrl (subido em "Fotos" do painel), cai em photoUrl.
-  const cardImg = imgSrc((biz as any).bannerUrl || biz.photoUrl);
+  // Capa do card: prioriza o derivado 4:3 (cardImageUrl, gerado pelo motor de
+  // imagem no upload do banner), cai em bannerUrl (legado/3:1) e por fim photoUrl.
+  const cardImg = imgSrc((biz as any).cardImageUrl || (biz as any).bannerUrl || biz.photoUrl);
   const logoImg = imgSrc((biz as any).logoUrl);
   // Vídeo no card: exclusivo Premium (decisão de produto: grátis pro Premium,
   // sem add-on cobrado por enquanto). Cai pra foto se não houver vídeo.

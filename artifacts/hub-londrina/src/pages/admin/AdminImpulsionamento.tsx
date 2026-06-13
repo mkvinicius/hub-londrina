@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch, getAdminVitrinePending, getAdminVitrineBoosts, approveVitrineVideo, rejectVitrineVideo, type AdminVitrinePending, type AdminVitrineBoost } from "@/lib/admin-api";
 import { Zap, RefreshCw, Crown, Flame, Trash2, Plus, X, Clock, Users, Rocket, Home, Video, Check, AlertTriangle, ChevronDown, Info, MapPin, Image as ImageIcon } from "lucide-react";
+import { imgSrc } from "@/lib/utils";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
 
@@ -150,7 +151,7 @@ function AdminVitrineSection() {
                     </div>
                   </div>
                   {p.videoUrl && (
-                    <video src={p.videoUrl} controls muted className="w-full max-h-48 rounded-lg bg-black mb-2" />
+                    <video src={imgSrc(p.videoUrl)} controls muted className="w-full max-h-48 rounded-lg bg-black mb-2" />
                   )}
                   <div className="flex items-center gap-2">
                     <button

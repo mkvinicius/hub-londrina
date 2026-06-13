@@ -97,7 +97,8 @@ ownerName               text
 ownerEmail              text
 ownerPhone              text
 logoUrl                 text
-bannerUrl               text
+bannerUrl               text       (capa 3:1 1200×400 — usada na página do negócio)
+cardImageUrl            text       (capa 4:3 800×600 — usada no BusinessCard; nullable, fallback p/ legado)
 photos                  text[] DEFAULT []
 cep / street / number / neighborhood / city / state
 lat / lng               numeric (para geolocalização Haversine)

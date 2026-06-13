@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-06-13
+
+### Imagens quebradas (FRENTE A) + Motor de 2 crops da capa (FRENTE B)
+
+**Sintoma (dono)**: capas/banners/vídeos apareciam quebrados em várias telas e a capa distorcia entre página do negócio (larga) e card de listagem.
+
+**FRENTE A — causa raiz da mídia quebrada (prova concreta)**: 5 pontos usavam URL crua de storage (`/storage/objects/...`) **sem** o prefixo `/api`. Sem `/api` o proxy entrega o `index.html` do SSR (`Content-Type: text/html`) em vez do arquivo. Provado: mesma URL retorna `image/jpeg` **com** `/api` e `text/html` **sem**. Corrigido trocando `src` cru por `imgSrc()` (que prefixa `VITE_API_URL`+`/api`) em: `landing.tsx` (banner home + vídeo da vitrine), `LojistaProdutos.tsx`, `AdminHomeBanners.tsx`, `AdminImpulsionamento.tsx` (+ import `imgSrc`).
+
+**FRENTE B — 2 crops da capa**: nova coluna nullable `businesses.cardImageUrl`. No `POST /api/lojista/upload/banner` o Sharp passa a gerar **dois** derivados do mesmo upload — banner **1200×400 (3:1)** para a página do negócio e card **800×600 (4:3)** para o `BusinessCard` — ambos `cover`/`position:attention`, jpeg 85. Grava `bannerUrl`+`cardImageUrl` e retorna ambos. `BusinessCard` usa `cardImageUrl || bannerUrl || photoUrl` (fallback p/ lojistas antigos). `lojista-api.uploadBanner` tipado e `LojistaPerfil` atualiza ambos no estado.
+
+**Prova concreta**: upload real (lojista `contato@sabordosul.com.br`) de imagem propositalmente distorcida **2400×600 (4:1)** → derivados medidos via Sharp metadata = **1200×400** + **800×600**. Logs da API: `POST /api/lojista/upload/banner` 200 + `GET` dos 2 derivados 200. Dado de teste do negócio #1 limpo (banner/card → NULL) após screenshot. Validações verdes em isolamento: `api-health` (200), `doc-expired-invariant` (R2 ✓ — loja expirada continua oculta), `lojista-rules` (login free 200). Architect: PASS, sem regressão (R5 storage / R6 15MB intactos; `cardImageUrl` exposto via denylist `stripPrivateBusinessFields`, sem vazamento).
+
+**Nota**: a saída pública não usa Zod parse (usa denylist), então `cardImageUrl` flui ao front sem mexer em OpenAPI/codegen. Padronizar `cardImageUrl` no contrato OpenAPI fica como follow-up (não bloqueante).
+
 ## 2026-06-12
 
 ### Investigação: falha de publicação no autoscale ("not all artifact ports opened")

@@ -214,8 +214,8 @@ export default function LojistaPerfil() {
     setBannerUploading(true);
     setPhotoMsg("");
     try {
-      const data: { bannerUrl: string } = await uploadBanner(file);
-      setProfile((prev: any) => prev ? { ...prev, bannerUrl: data.bannerUrl } : prev);
+      const data = await uploadBanner(file);
+      setProfile((prev: any) => prev ? { ...prev, bannerUrl: data.bannerUrl, cardImageUrl: data.cardImageUrl } : prev);
       setPhotoMsg("Foto de capa atualizada!");
       setTimeout(() => setPhotoMsg(""), 4000);
     } catch (err: any) {

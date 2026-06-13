@@ -118,7 +118,7 @@ export async function uploadLogo(file: File) {
   return lojistaFetch("/lojista/upload/logo", { method: "POST", body: formData });
 }
 
-export async function uploadBanner(file: File) {
+export async function uploadBanner(file: File): Promise<{ bannerUrl: string; cardImageUrl: string }> {
   const formData = new FormData();
   formData.append("file", file);
   return lojistaFetch("/lojista/upload/banner", { method: "POST", body: formData });

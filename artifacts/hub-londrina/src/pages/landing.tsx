@@ -211,7 +211,7 @@ function VitrineCard({ p, onClick }: { p: VitrineCardData; onClick: () => void }
         preload="auto"
         className="absolute inset-0 w-full h-full object-cover"
       >
-        <source src={p.videoUrl} type="video/mp4" />
+        <source src={imgSrc(p.videoUrl)} type="video/mp4" />
       </video>
       <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.08) 100%)" }} />
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
@@ -641,7 +641,7 @@ export default function Landing() {
                 {slides.map((banner, idx) => (
                   <img
                     key={banner.id}
-                    src={banner.imageUrl}
+                    src={imgSrc(banner.imageUrl)}
                     alt={banner.title || ""}
                     className={`w-full h-[220px] md:h-[280px] object-cover transition-opacity duration-700 ${idx === bannerIdx % slides.length ? "opacity-100" : "opacity-0 absolute inset-0"}`}
                     loading="lazy"

@@ -354,11 +354,25 @@ router.post("/lojista/upload/banner", memoryUpload.single("file"), async (req: R
     return;
   }
 
-  const ext = path.extname(req.file.originalname) || ".jpg";
-  const filename = `banner-${Date.now()}${ext}`;
-  const bannerUrl = await uploadBufferToGCS(req.file.buffer, "banners", filename, req.file.mimetype);
-  await db.update(businessesTable).set({ bannerUrl }).where(eq(businessesTable.id, businessId));
-  res.json({ bannerUrl });
+  // Motor de tratamento de imagem: a partir do MESMO arquivo enviado, o Sharp
+  // gera DOIS derivados com recorte inteligente (gravity:attention), evitando que
+  // a mesma imagem fique distorcida em superfícies de proporção diferente:
+  //  - bannerUrl    → 1200×400 (3:1): página do negócio + editor do lojista
+  //  - cardImageUrl →  800×600 (4:3): cards de listagem / "Destaques da Semana"
+  try {
+    const ts = Date.now();
+    const [bannerBuf, cardBuf] = await Promise.all([
+      sharp(req.file.buffer).resize(1200, 400, { fit: "cover", position: "attention" }).jpeg({ quality: 85 }).toBuffer(),
+      sharp(req.file.buffer).resize(800, 600, { fit: "cover", position: "attention" }).jpeg({ quality: 85 }).toBuffer(),
+    ]);
+    const bannerUrl = await uploadBufferToGCS(bannerBuf, "banners", `banner-${ts}.jpg`, "image/jpeg");
+    const cardImageUrl = await uploadBufferToGCS(cardBuf, "banners", `card-${ts}.jpg`, "image/jpeg");
+    await db.update(businessesTable).set({ bannerUrl, cardImageUrl }).where(eq(businessesTable.id, businessId));
+    res.json({ bannerUrl, cardImageUrl });
+  } catch (err: any) {
+    logger.error("[UploadBanner] Erro processando imagem:", err.message);
+    res.status(500).json({ error: "Erro ao processar a imagem. Tente novamente." });
+  }
 });
 
 router.post("/lojista/upload/photo", memoryUpload.single("file"), async (req: Request, res: Response) => {

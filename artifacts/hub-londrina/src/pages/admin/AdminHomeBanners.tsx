@@ -345,7 +345,7 @@ export default function AdminHomeBanners() {
             <div key={banner.id} className={`bg-white rounded-2xl border ${banner.status === "active" && banner.active ? "border-[#d97706] shadow-md" : "border-gray-100"} overflow-hidden shadow-sm`}>
               <div className="relative h-40 bg-gray-100">
                 {banner.imageUrl ? (
-                  <img src={banner.imageUrl} alt={banner.title || ""} className="w-full h-full object-cover" />
+                  <img src={imgSrc(banner.imageUrl)} alt={banner.title || ""} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-300">
                     <ImageIcon className="w-12 h-12" />

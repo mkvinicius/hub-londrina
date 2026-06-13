@@ -1126,7 +1126,7 @@ export default function LojistaProdutos() {
           {products.map(p => (
             <div key={p.id} className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center gap-4 ${!p.isActive ? "opacity-60" : ""}`}>
               {p.mediaUrl && p.mediaType === "image" && (
-                <img src={p.mediaUrl} alt={p.name} className="w-16 h-16 rounded-xl object-cover border border-gray-200 flex-shrink-0" />
+                <img src={imgSrc(p.mediaUrl)} alt={p.name} className="w-16 h-16 rounded-xl object-cover border border-gray-200 flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-gray-800 truncate">{p.name}</h3>

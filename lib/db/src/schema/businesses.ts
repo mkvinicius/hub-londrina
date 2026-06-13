@@ -47,6 +47,9 @@ export const businessesTable = pgTable(
     ownerPhone: text("owner_phone"),
     logoUrl: text("logo_url"),
     bannerUrl: text("banner_url"),
+    // Derivado 4:3 da capa, gerado por Sharp no upload do banner. Usado nos
+    // cards de listagem/destaques; bannerUrl (3:1) fica para a página do negócio.
+    cardImageUrl: text("card_image_url"),
     photos: text("photos").array().default([]),
     cep: text("cep"),
     street: text("street"),
