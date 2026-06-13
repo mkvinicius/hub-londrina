@@ -13,7 +13,12 @@ export type DocumentationStatus =
 
 export interface DocumentationSyncResult {
   status: DocumentationStatus;
+  /** true sse os 3 documentos REAIS estão aprovados (não inclui override do admin) */
   allApproved: boolean;
+  /** Task #104 — true quando o admin aprovou manualmente (override) a documentação */
+  adminApproved: boolean;
+  /** true quando a loja é tratada como aprovada (3 docs reais OU override do admin) */
+  effectiveApproved: boolean;
   anyRejected: boolean;
   verified: boolean;
   /** true quando esta sincronização trouxe a loja de volta ao ar (isVisible false→true por aprovação) */
@@ -37,10 +42,13 @@ export interface DocumentationSyncResult {
  *  - faltam docs                 → `pending`   (timer corre)
  *  - pending/rejected E sem dias → `expired`   (timer zerado → loja offline)
  *
- * Regras de `verified` (selo público): ESTRITAMENTE derivado dos documentos —
- *  `verified = true` se e somente se os 3 docs estão aprovados; qualquer outro
- *  estado (pending/submitted/rejected/expired) força `verified = false`. Não há
- *  selo manual/legado: o heal de reconciliação corrige divergências históricas.
+ * Regras de `verified` (selo público): derivado de `effectiveApproved`
+ *  (`allApproved || documentationAdminApproved`) — `verified = true` se e somente
+ *  se os 3 docs estão aprovados OU o admin aprovou manualmente (override / Task
+ *  #104); qualquer outro estado (pending/submitted/rejected/expired) força
+ *  `verified = false`. Não há selo manual de UI/legado: o único "manual" é o flag
+ *  `documentationAdminApproved` (admin assume responsabilidade), e o heal de
+ *  reconciliação corrige divergências históricas.
  *
  * Visibilidade: a RE-PUBLICAÇÃO da loja (isVisible=true, status=active,
  * planFrozen=false) na aprovação completa é OPT-IN via `reopenOnApproval` e só
@@ -83,14 +91,25 @@ export async function syncDocumentationState(
   const allApproved = VALID_DOC_TYPES.every((t) => byType.get(t) === "approved");
 
   const [user] = await db
-    .select({ remaining: businessUsersTable.documentationRemainingDays })
+    .select({
+      remaining: businessUsersTable.documentationRemainingDays,
+      adminApproved: businessUsersTable.documentationAdminApproved,
+    })
     .from(businessUsersTable)
     .where(eq(businessUsersTable.businessId, businessId));
   const remaining = user?.remaining ?? DOCUMENTATION_DAYS;
 
+  // Task #104 — Override do admin: quando o admin assume a responsabilidade e
+  // aprova manualmente, a loja é tratada exatamente como se os 3 docs reais
+  // estivessem aprovados (status `approved`, selo `verified`, escapa da
+  // expiração e herda a re-publicação no caminho `reopenOnApproval`). NÃO é um
+  // caminho de escrita paralelo: continua tudo derivado por esta fonte única.
+  const adminApproved = user?.adminApproved ?? false;
+  const effectiveApproved = allApproved || adminApproved;
+
   let status: DocumentationStatus;
   let paused: boolean;
-  if (allApproved) {
+  if (effectiveApproved) {
     status = "approved";
     paused = true;
   } else if (anyRejected) {
@@ -109,8 +128,8 @@ export async function syncDocumentationState(
   // admin. Reenviar/completar os documentos (`submitted`) NÃO tira do estado
   // expirado — senão `isDocumentationExpired` voltaria a false e o pagamento/
   // heal republicariam a loja sem aprovação (ver RULES.md R2). Só `allApproved`
-  // escapa da expiração.
-  if (!allApproved && remaining <= 0) {
+  // (ou o override manual do admin) escapa da expiração.
+  if (!effectiveApproved && remaining <= 0) {
     status = "expired";
     paused = false;
   }
@@ -122,7 +141,7 @@ export async function syncDocumentationState(
 
   let cameOnline = false;
 
-  if (allApproved) {
+  if (effectiveApproved) {
     if (reopenOnApproval) {
       // Caminho de APROVAÇÃO FINAL do admin: além do selo, re-publica a loja.
       const [biz] = await db
@@ -159,7 +178,15 @@ export async function syncDocumentationState(
       .where(eq(businessesTable.id, businessId));
   }
 
-  return { status, allApproved, anyRejected, verified: allApproved, cameOnline };
+  return {
+    status,
+    allApproved,
+    adminApproved,
+    effectiveApproved,
+    anyRejected,
+    verified: effectiveApproved,
+    cameOnline,
+  };
 }
 
 /**

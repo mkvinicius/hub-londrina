@@ -6,6 +6,22 @@
 
 ## 2026-06-13
 
+### Aprovação manual de documentação pelo admin (override / "assumir responsabilidade")
+
+**Pedido (dono)**: o admin precisa poder aprovar a documentação de uma loja **mesmo sem os documentos enviados/corretos**, assumindo a responsabilidade. A loja deve ficar `approved`/`verified=true`/online, os alertas de documentação devem sumir e ela deve herdar os direitos de quem tem doc aprovada — com destaque no painel admin. (Caso citado: "Restaurante Estações Gastronomia".)
+
+**Implementação (sem caminho de escrita paralelo)**: nova flag `business_users.documentationAdminApproved` (boolean notNull default false) + `documentationAdminApprovedAt` (timestamp) — **única** escrita nova; toda derivação continua na fonte única `lib/documentation-state.ts`. O helper passa a calcular `effectiveApproved = allApproved || documentationAdminApproved` e usa esse valor em **todos** os pontos onde antes usava `allApproved` (resolução de status, escape de `expired`, `verified`, visibilidade). `allApproved` (3 docs reais) é preservado só para a lógica de e-mail em `documents.ts`. Novo endpoint `PATCH /api/admin/documents/business/:businessId/override` body `{approved:boolean}` → grava a flag → `syncDocumentationState(id, { reopenOnApproval:approved })` → e-mail no approve → `logAdminAction` `document.manual_approve`/`manual_revoke`. O GET `/admin/documents` agora também lista lojas **sem** docs porém com override (`WHERE ... OR documentationAdminApproved=true`). UI `AdminDocumentacao.tsx`: badge roxo "Aprovada manualmente" no cabeçalho + painel com botões "Aprovar manualmente"/"Revogar aprovação manual" e filtro "manual". **Reversível**: revogar limpa a flag e a fonte única re-deriva do estado real dos docs (loja fora do prazo volta a `expired`/offline).
+
+**Prova concreta** (loja #9 "Mini Mercado Família" forçada a `expired`/offline, depois restaurada):
+- **SQL**: estado inicial `expired`/`isVisible=false`/`verified=false`/`adminApproved=false` → `PATCH .../override {approved:true}` → `approved`/`isVisible=true`/`verified=true`/`adminApproved=true` + timestamp; **revogar** `{approved:false}` → volta a `expired`/`isVisible=false`/`verified=false`/`adminApproved=false` (reversibilidade comprovada).
+- **curl**: endpoint retorna `{ok:true,documentationStatus:"approved",verified:true,adminApproved:true}` no approve e `{...:"expired",verified:false,adminApproved:false}` no revoke.
+- **Leitura pública**: com override ativo a loja **aparece** em `GET /api/businesses` (free escapando do `expired`); sem override **some**.
+- **Lojista**: `GET /api/lojista/profile` retorna `verified=true`/`_documentationStatus=approved`/`isVisible=true` mesmo no plano free.
+- **E2E (Playwright)**: admin `/admin/documentacao` mostra o pill roxo "Aprovada manualmente" + botão "Revogar aprovação manual" no card expandido; dashboard do lojista sem banner de documentação (o overlay de erro de métricas do plano Destaque é ruído pré-existente, não da task).
+- **Validadores verdes**: `doc-expired-invariant` (R2 intacto — override não republica loja expirada sem aprovação) e `lojista-rules` (gates de plano intactos).
+
+**W4**: toca schema + invariante R2 → architect com `includeGitDiff:true` antes de concluir.
+
 ### Botão "olho" (mostrar/ocultar senha) em todos os campos de senha
 
 **Pedido (dono)**: todo campo de senha precisa do ícone de olho para revelar o que está sendo digitado (print: login lojista com senha longa, sem como conferir).

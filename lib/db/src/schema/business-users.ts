@@ -28,6 +28,16 @@ export const businessUsersTable = pgTable(
     documentationStatus: text("documentation_status").default("pending"),
     documentationRemainingDays: integer("documentation_remaining_days").default(10),
     documentationTimerPaused: boolean("documentation_timer_paused").default(false),
+    // Task #104 — APROVAÇÃO MANUAL DO ADMIN (override de documentação). Quando
+    // true, o admin assumiu a responsabilidade de aprovar a documentação mesmo
+    // sem os 3 docs reais. Funciona como ESCAPE na fonte única
+    // (`syncDocumentationState`): equivale a `allApproved` para fins de
+    // status/`verified`/visibilidade, sem criar caminho de escrita paralelo.
+    // Reversível: revogar volta a derivar do estado real dos documentos.
+    documentationAdminApproved: boolean("documentation_admin_approved")
+      .notNull()
+      .default(false),
+    documentationAdminApprovedAt: timestamp("documentation_admin_approved_at"),
     // LGPD — consentimento explícito (Lei 13.709/2018, art. 8º).
     consentTermsVersion: text("consent_terms_version"),
     consentTermsAt: timestamp("consent_terms_at"),

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminLayout } from "./AdminLayout";
 import { adminFetch } from "@/lib/admin-api";
-import { CheckCircle2, XCircle, Clock, Loader2, FileText, AlertTriangle, ChevronDown, Eye } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Loader2, FileText, AlertTriangle, ChevronDown, Eye, ShieldCheck, RotateCcw } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -29,6 +29,8 @@ interface AdminItem {
   documentationTimerPaused: boolean | null;
   documentationDeadline: string | null;
   firstLoginAt: string | null;
+  documentationAdminApproved?: boolean | null;
+  documentationAdminApprovedAt?: string | null;
   documents: AdminDoc[];
 }
 
@@ -38,6 +40,7 @@ const FILTERS: { key: string; label: string }[] = [
   { key: "submitted", label: "Submetidos" },
   { key: "rejected", label: "Rejeitados" },
   { key: "expired", label: "Expirados" },
+  { key: "manual", label: "Aprov. manual" },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -68,6 +71,7 @@ export default function AdminDocumentacao() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [manualLoading, setManualLoading] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -87,6 +91,7 @@ export default function AdminDocumentacao() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return items;
+    if (filter === "manual") return items.filter((i) => i.documentationAdminApproved === true);
     return items.filter((i) => i.documentationStatus === filter);
   }, [items, filter]);
 
@@ -108,6 +113,38 @@ export default function AdminDocumentacao() {
       alert(e.message || "Erro ao processar");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function setManualApproval(item: AdminItem, approved: boolean) {
+    if (approved) {
+      const ok = window.confirm(
+        `APROVAÇÃO MANUAL — "${item.businessName}"\n\n` +
+          "Você está aprovando a documentação MANUALMENTE, mesmo sem os 3 documentos enviados/corretos, " +
+          "e ASSUME TOTAL RESPONSABILIDADE por isso.\n\n" +
+          "A loja será tratada como documentação aprovada: volta ao ar, recebe o selo Verificado, " +
+          "deixa de expirar e os alertas somem.\n\nConfirmar?",
+      );
+      if (!ok) return;
+    } else {
+      const ok = window.confirm(
+        `REVOGAR APROVAÇÃO MANUAL — "${item.businessName}"\n\n` +
+          "O estado da documentação voltará a ser derivado dos documentos reais. " +
+          "Se os 3 documentos não estiverem aprovados e o prazo já tiver estourado, a loja ficará offline (expirada).\n\nConfirmar?",
+      );
+      if (!ok) return;
+    }
+    setManualLoading(item.businessId);
+    try {
+      await adminFetch(`/api/admin/documents/business/${item.businessId}/override`, {
+        method: "PATCH",
+        body: JSON.stringify({ approved }),
+      });
+      await load();
+    } catch (e: any) {
+      alert(e.message || "Erro ao processar aprovação manual");
+    } finally {
+      setManualLoading(null);
     }
   }
 
@@ -171,6 +208,12 @@ export default function AdminDocumentacao() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-gray-900 truncate">{item.businessName}</h3>
                         {statusChip(item.documentationStatus)}
+                        {item.documentationAdminApproved && (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full ring-1 ring-purple-300">
+                            <ShieldCheck className="w-3 h-3" />
+                            Aprovada manualmente
+                          </span>
+                        )}
                         {!item.isVisible && (
                           <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
                             Offline
@@ -221,6 +264,56 @@ export default function AdminDocumentacao() {
 
                   {isOpen && (
                     <div className="border-t border-gray-100 p-4 bg-gray-50">
+                      {/* Task #104 — Aprovação manual do admin (override) */}
+                      <div className="mb-4 rounded-xl border border-purple-200 bg-purple-50 p-3">
+                        {item.documentationAdminApproved ? (
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-start gap-2 text-sm text-purple-900">
+                              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-purple-700" />
+                              <span>
+                                <strong>Documentação aprovada manualmente pelo admin.</strong> A loja é
+                                tratada como verificada e está no ar, independente dos documentos enviados.
+                              </span>
+                            </div>
+                            <button
+                              disabled={manualLoading === item.businessId}
+                              onClick={() => setManualApproval(item, false)}
+                              className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-purple-700 border border-purple-300 hover:bg-purple-100 disabled:opacity-50"
+                            >
+                              {manualLoading === item.businessId ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              )}
+                              Revogar aprovação manual
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-start gap-2 text-sm text-purple-900">
+                              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-purple-700" />
+                              <span>
+                                <strong>Aprovação manual (assumir responsabilidade).</strong> Aprova a
+                                documentação mesmo sem os 3 documentos: a loja volta ao ar, recebe o selo
+                                Verificado e deixa de expirar.
+                              </span>
+                            </div>
+                            <button
+                              disabled={manualLoading === item.businessId}
+                              onClick={() => setManualApproval(item, true)}
+                              className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                            >
+                              {manualLoading === item.businessId ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                              )}
+                              Aprovar manualmente
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       {item.documents.length === 0 ? (
                         <p className="text-sm text-gray-500">Nenhum documento enviado ainda.</p>
                       ) : (

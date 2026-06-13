@@ -8,7 +8,7 @@ import {
   businessUsersTable,
   businessDocumentsTable,
 } from "@workspace/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, or } from "drizzle-orm";
 import { sendEmail, emails } from "../services/email";
 import { logger } from "../lib/logger";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
@@ -255,16 +255,25 @@ router.get("/admin/documents", adminAuth, async (_req: Request, res: Response) =
       documentationTimerPaused: businessUsersTable.documentationTimerPaused,
       documentationDeadline: businessUsersTable.documentationDeadline,
       firstLoginAt: businessUsersTable.firstLoginAt,
+      // Task #104 — destaca lojas aprovadas manualmente pelo admin
+      documentationAdminApproved: businessUsersTable.documentationAdminApproved,
+      documentationAdminApprovedAt: businessUsersTable.documentationAdminApprovedAt,
     })
     .from(businessUsersTable)
     .innerJoin(businessesTable, eq(businessesTable.id, businessUsersTable.businessId))
     .where(
-      inArray(businessUsersTable.documentationStatus, [
-        "pending",
-        "submitted",
-        "rejected",
-        "expired",
-      ]),
+      // Task #104 — além das pendências de documentação, inclui lojas com
+      // APROVAÇÃO MANUAL ativa (status já `approved`), para o admin poder vê-las
+      // destacadas e revogar o override quando quiser.
+      or(
+        inArray(businessUsersTable.documentationStatus, [
+          "pending",
+          "submitted",
+          "rejected",
+          "expired",
+        ]),
+        eq(businessUsersTable.documentationAdminApproved, true),
+      ),
     );
 
   const businessIds = rows.map((r) => r.businessId);
@@ -389,6 +398,118 @@ router.patch("/admin/documents/:id", adminAuth, async (req: Request, res: Respon
 
   res.json({ ok: true });
 });
+
+// PATCH /api/admin/documents/business/:businessId/override — Task #104
+// APROVAÇÃO MANUAL do admin (override de documentação). O admin assume a
+// responsabilidade de aprovar a documentação mesmo SEM os 3 documentos enviados
+// ou corretos: a loja passa a ser tratada exatamente como uma com documentação
+// aprovada (status `approved`, selo `verified`, escapa da expiração, volta ao ar
+// e some dos alertas), herdando todos os direitos de quem tem doc aprovada.
+//
+// NÃO cria caminho de escrita paralelo: grava apenas o flag
+// `documentationAdminApproved` e delega TODA a derivação à fonte única
+// (`syncDocumentationState`), com `reopenOnApproval` no approve para re-publicar.
+// É reversível: revogar zera o flag e re-deriva o estado dos documentos reais
+// (uma loja sem os 3 docs e fora do prazo volta a `expired`/offline).
+router.patch(
+  "/admin/documents/business/:businessId/override",
+  adminAuth,
+  async (req: Request, res: Response) => {
+    const businessId = parseInt(String(req.params.businessId), 10);
+    if (isNaN(businessId) || businessId <= 0) {
+      res.status(400).json({ error: "businessId inválido" });
+      return;
+    }
+
+    const { approved } = req.body as { approved?: boolean };
+    if (typeof approved !== "boolean") {
+      res.status(400).json({ error: "approved deve ser boolean" });
+      return;
+    }
+
+    const [user] = await db
+      .select({
+        id: businessUsersTable.id,
+        current: businessUsersTable.documentationAdminApproved,
+      })
+      .from(businessUsersTable)
+      .where(eq(businessUsersTable.businessId, businessId));
+    if (!user) {
+      res.status(404).json({ error: "Lojista não encontrado para este negócio" });
+      return;
+    }
+
+    // Idempotência: se o flag já está no valor solicitado, não regrava (evita
+    // sobrescrever `documentationAdminApprovedAt`), não reenvia e-mail nem loga
+    // ação de mudança. Apenas re-deriva o estado atual e retorna.
+    if (user.current === approved) {
+      const sync = await syncDocumentationState(businessId, {
+        reopenOnApproval: approved,
+      });
+      res.json({
+        ok: true,
+        documentationStatus: sync.status,
+        verified: sync.verified,
+        adminApproved: approved,
+        unchanged: true,
+      });
+      return;
+    }
+
+    await db
+      .update(businessUsersTable)
+      .set({
+        documentationAdminApproved: approved,
+        documentationAdminApprovedAt: approved ? new Date() : null,
+      })
+      .where(eq(businessUsersTable.businessId, businessId));
+
+    // Fonte única deriva status/verified/visibilidade. No approve usamos
+    // `reopenOnApproval:true` (mesmo caminho da aprovação final dos 3 docs) para
+    // re-publicar a loja; no revoke, reconcilia a partir dos documentos reais.
+    const sync = await syncDocumentationState(businessId, {
+      reopenOnApproval: approved,
+    });
+
+    if (approved) {
+      const [biz] = await db
+        .select({ ownerName: businessesTable.ownerName, ownerEmail: businessesTable.ownerEmail })
+        .from(businessesTable)
+        .where(eq(businessesTable.id, businessId));
+      if (biz?.ownerEmail) {
+        try {
+          const tpl = emails.documentacaoAprovada(biz.ownerName || "Lojista");
+          await sendEmail(biz.ownerEmail, tpl.subject, tpl.html);
+        } catch (err) {
+          logger.error({ err }, "[Documents] Falha ao enviar email de aprovação manual");
+        }
+      }
+    }
+
+    await logAdminAction(
+      ADMIN_DEFAULT_ID,
+      approved ? "document.manual_approve" : "document.manual_revoke",
+      "business",
+      businessId,
+      JSON.stringify({ businessId, status: sync.status, verified: sync.verified }),
+      getReqIp(req),
+    );
+
+    logger.info(
+      { businessId, approved, status: sync.status },
+      approved
+        ? "[Documents] APROVAÇÃO MANUAL do admin — loja tratada como documentação aprovada"
+        : "[Documents] Override de documentação REVOGADO — estado re-derivado dos documentos",
+    );
+
+    res.json({
+      ok: true,
+      documentationStatus: sync.status,
+      verified: sync.verified,
+      adminApproved: sync.adminApproved,
+    });
+  },
+);
 
 // GET /api/documents/signed/:token — download autenticado via JWT temporário
 router.get("/documents/signed/:token", async (req: Request, res: Response) => {
