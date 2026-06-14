@@ -142,10 +142,12 @@ export default function Busca() {
       .catch(() => {});
   }, []);
 
-  // Fuzzy fallback: quando o backend retornou 0 resultados exatos mas encontrou
-  // sugestões por trigramas, exibe banner amarelo com link clicável.
+  // Fuzzy fallback: dois cenários distintos do backend.
+  //   fuzzyUsed=true  → backend retornou resultados fuzzy no mesmo escopo (banner sobre resultados)
+  //   didYouMean=str  → 0 resultados mesmo com fuzzy, mas existe sugestão global (banner no estado vazio)
   const fuzzyUsed = !nearbyMode && (searchData as any)?.fuzzyUsed === true;
   const normalizedQuery: string | undefined = (searchData as any)?.normalizedQuery;
+  const didYouMean: string | undefined = !nearbyMode ? (searchData as any)?.didYouMean : undefined;
 
   const results: Business[] = nearbyMode && nearbyResults !== null
     ? nearbyResults
@@ -514,7 +516,21 @@ export default function Busca() {
                 <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
                   <Search className="h-14 w-14 text-gray-300 mx-auto mb-4" />
                   <h3 className="font-black text-xl text-[#3a2512] mb-2">Nenhum resultado</h3>
-                  <p className="text-gray-500 mb-6 text-sm">Tente buscar com outros termos ou remover filtros.</p>
+                  {didYouMean ? (
+                    <p className="text-gray-500 mb-4 text-sm">
+                      Nenhum negócio encontrado para{" "}
+                      <strong>"{query}"</strong>
+                      {" "}neste filtro.{" "}
+                      <button
+                        onClick={() => handleSelectSuggestion(didYouMean)}
+                        className="text-[#d97706] underline font-bold"
+                      >
+                        Você quis dizer "{didYouMean}"?
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="text-gray-500 mb-6 text-sm">Tente buscar com outros termos ou remover filtros.</p>
+                  )}
                   <button
                     onClick={clearFilters}
                     className={`border border-gray-200 text-[#3a2512] rounded-xl px-6 py-2.5 text-sm font-bold ${BTN_ELEVATION}`}

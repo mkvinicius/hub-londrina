@@ -264,39 +264,67 @@ router.get("/search", searchLimiter, async (req, res) => {
   }
 
   // Fuzzy fallback: quando a busca exata retorna 0, tenta trigramas (pg_trgm).
-  // Threshold 0.2 é permissivo o suficiente para "restarante" → "restaurante"
-  // sem retornar resultados completamente irrelevantes.
+  //
+  // Dois comportamentos distintos:
+  //   1. fuzzyUsed=true  → buscamos fuzzy NO MESMO ESCOPO (zone/region/category) e
+  //      encontramos resultados. Retornamos esses resultados diretamente.
+  //   2. didYouMean=str  → busca exata + fuzzy no escopo ambos retornaram 0, mas há
+  //      um negócio similar globalmente (sem filtros). Retornamos lista vazia +
+  //      sugestão, para que o frontend mostre "Você quis dizer?" no estado vazio.
   if (total === 0 && q && q.trim().length >= 3) {
     const qNorm = stripAccents(q.toLowerCase().trim()).slice(0, 100);
     try {
-      const fuzzyRows = await db
+      // Condições base de visibilidade (reutilizadas em ambas as queries)
+      const baseConditions = [
+        ne(businessesTable.isVisible, false),
+        eq(businessesTable.status, "active"),
+        NOT_DOCUMENTATION_EXPIRED,
+        sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm}) > 0.2`,
+      ] as const;
+
+      // Query 1: fuzzy NO ESCOPO (respeita zone/region/category do usuário)
+      const scopeConditions = [...baseConditions] as any[];
+      if (zone) scopeConditions.push(eq(businessesTable.zone, zone));
+      if (region) scopeConditions.push(eq(businessesTable.region, region));
+      if (category) scopeConditions.push(eq(businessesTable.categorySlug, category));
+
+      const fuzzyRowsScoped = await db
         .select()
         .from(businessesTable)
-        .where(
-          and(
-            ne(businessesTable.isVisible, false),
-            eq(businessesTable.status, "active"),
-            NOT_DOCUMENTATION_EXPIRED,
-            sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm}) > 0.2`,
-          )
-        )
-        .orderBy(
-          desc(sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm})`),
-        )
+        .where(and(...scopeConditions))
+        .orderBy(desc(sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm})`))
         .limit(8);
 
-      if (fuzzyRows.length > 0) {
-        // Melhor sugestão = nome mais similar ao que foi digitado
-        const bestMatch = fuzzyRows[0]!.name;
+      if (fuzzyRowsScoped.length > 0) {
+        // Encontrou resultados fuzzy no mesmo escopo → retorna como fuzzyUsed
         const fuzzyResult = {
-          data: fuzzyRows.map(b => ({ ...stripPrivateBusinessFields(b), boostInfo: null })),
-          total: fuzzyRows.length,
+          data: fuzzyRowsScoped.map(b => ({ ...stripPrivateBusinessFields(b), boostInfo: null })),
+          total: fuzzyRowsScoped.length,
           fuzzyUsed: true,
-          normalizedQuery: bestMatch,
+          normalizedQuery: fuzzyRowsScoped[0]!.name,
         };
         setSearchCache(cacheKey, fuzzyResult);
         res.json(fuzzyResult);
         return;
+      }
+
+      // Query 2 (quando tinha filtros): fuzzy GLOBAL para gerar sugestão "Você quis dizer?"
+      // Só executa se havia algum filtro; busca sem filtros já faria full scan global.
+      if (zone || region || category) {
+        const [globalSuggestion] = await db
+          .select({ name: businessesTable.name })
+          .from(businessesTable)
+          .where(and(...baseConditions))
+          .orderBy(desc(sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm})`))
+          .limit(1);
+
+        if (globalSuggestion) {
+          // Retorna 0 resultados mas com sugestão para o estado vazio da UI
+          const emptyWithHint = { data: [], total: 0, didYouMean: globalSuggestion.name };
+          setSearchCache(cacheKey, emptyWithHint);
+          res.json(emptyWithHint);
+          return;
+        }
       }
     } catch {
       // pg_trgm indisponível ou outro erro — retorna resultado vazio normalmente

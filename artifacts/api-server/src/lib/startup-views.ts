@@ -66,11 +66,26 @@ export async function ensureViews(): Promise<void> {
 // Task #111 — pg_trgm é necessário para fuzzy search (similarity()).
 // Idempotente: não falha se já existir. Roda em startup para garantir
 // que esteja disponível antes de qualquer consulta de busca fuzzy.
+// PLAIN/ACCENTED: mesmas constantes de search.ts (centralizadas aqui para o índice).
+const TRGM_ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
+const TRGM_PLAIN    = "aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
+
 export async function ensurePgTrgm(): Promise<void> {
   try {
     await db.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pg_trgm"));
     logger.info("Extensão pg_trgm garantida");
+
+    // Índice GIN trigram sobre o nome normalizado (sem acentos).
+    // Acelera as consultas similarity() do fuzzy fallback em /api/search.
+    // CREATE INDEX IF NOT EXISTS é idempotente; não usa CONCURRENTLY para
+    // compatibilidade com o startup síncrono (índice criado apenas uma vez).
+    await db.execute(sql.raw(`
+      CREATE INDEX IF NOT EXISTS businesses_name_trgm_idx
+      ON businesses
+      USING gin (translate(lower(name), '${TRGM_ACCENTED}', '${TRGM_PLAIN}') gin_trgm_ops)
+    `));
+    logger.info("Índice trigram businesses_name_trgm_idx garantido");
   } catch (err) {
-    logger.warn({ err }, "Não foi possível criar extensão pg_trgm — fuzzy search desativado");
+    logger.warn({ err }, "Não foi possível criar extensão pg_trgm ou índice trigram — fuzzy search desativado");
   }
 }
