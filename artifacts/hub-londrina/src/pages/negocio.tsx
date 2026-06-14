@@ -841,7 +841,7 @@ export default function Negocio() {
             {/* Logo flutuante na borda inferior esquerda — alinhado com o
                 container max-w-7xl do conteúdo abaixo via inner wrapper. */}
             <div className="absolute -bottom-12 left-4 md:left-8 lg:left-[max(2rem,calc((100vw-80rem)/2+2rem))] z-10">
-              <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white shadow-md flex items-center justify-center border-[3px] border-white overflow-hidden">
+              <div className="w-32 h-32 md:w-40 md:h-40 lg:w-44 lg:h-44 rounded-full bg-white shadow-md flex items-center justify-center border-4 border-white overflow-hidden">
                 {(business as any).logoUrl ? (
                   <img
                     src={imgSrc((business as any).logoUrl)}
