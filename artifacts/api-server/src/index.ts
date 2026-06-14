@@ -65,7 +65,7 @@ app.listen(port, (err) => {
   // Pentest fix — confirma no startup que os limiters estão registrados
   // (express-rate-limit é em memória; o log facilita auditar reset após deploy).
   logger.info(
-    "Rate limiters ativos: admin/login, lojista/login, register, review, csrf-token, business-view, cnpj, reset-senha",
+    "Rate limiters ativos: admin/login, lojista/login, register, review, csrf-token, business-view, cnpj, reset-senha, search, autocomplete",
   );
 
   void runStartupTasks();

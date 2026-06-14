@@ -5,6 +5,8 @@ import { or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
 import { SearchQueryParams } from "@workspace/api-zod";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
+import { searchLimiter } from "../middleware/rateLimiter";
+import { makeSearchCacheKey, getSearchCache, setSearchCache } from "../lib/search-cache";
 
 const router: IRouter = Router();
 
@@ -108,13 +110,28 @@ async function getActiveBoosts(): Promise<Map<number, { position: number | null;
   return map;
 }
 
-router.get("/search", async (req, res) => {
+router.get("/search", searchLimiter, async (req, res) => {
+  // Rejeita queries absurdamente longas antes de qualquer processamento (defesa contra ReDoS e scraping criativo).
+  const rawQ = req.query.q;
+  if (typeof rawQ === "string" && rawQ.length > 300) {
+    res.status(400).json({ error: "Termo de busca muito longo (máx. 300 caracteres).", code: "QUERY_TOO_LONG" });
+    return;
+  }
+
   const parsed = SearchQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: "Parâmetros inválidos" });
     return;
   }
   const { q, region, category, zone } = parsed.data;
+
+  // Cache em memória (60s TTL) — queries repetidas não batem no banco.
+  const cacheKey = makeSearchCacheKey(q, region, category, zone);
+  const cached = getSearchCache(cacheKey);
+  if (cached) {
+    res.json(cached);
+    return;
+  }
 
   // Task #77 — defesa em profundidade (RULES.md R2): exclui `expired` além de `isVisible`.
   const conditions = [ne(businessesTable.isVisible, false), eq(businessesTable.status, "active"), NOT_DOCUMENTATION_EXPIRED];
@@ -233,7 +250,9 @@ router.get("/search", async (req, res) => {
   destaque.sort(sortFallback);
   free.sort(sortFallback);
 
-  res.json({ data: [...monthlyBoosted, ...avulsoBoosted, ...directBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 });
+  const result = { data: [...monthlyBoosted, ...avulsoBoosted, ...directBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 };
+  setSearchCache(cacheKey, result);
+  res.json(result);
 });
 
 export default router;

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { reviewLimiter, businessViewLimiter } from "../middleware/rateLimiter";
+import { reviewLimiter, businessViewLimiter, autocompleteLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { csrfProtection } from "../middleware/csrf";
 import { validateId } from "../middleware/validateId";
@@ -558,7 +558,7 @@ router.get("/stats/public", async (_req: Request, res: Response) => {
 });
 
 // ─── AUTOCOMPLETE ────────────────────────────────────────────────────────────
-router.get("/autocomplete", async (req: Request, res: Response) => {
+router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Response) => {
   const q = ((req.query.q as string) || "").trim();
   if (!q || q.length < 2) return res.json({ sponsored: [], suggestions: [] });
 

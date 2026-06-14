@@ -79,3 +79,29 @@ export const cnpjLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// 30 req/min/IP — cobre uso humano normal (≤ 1 busca a cada 2s) e bloqueia
+// scrapers que varrem o catálogo iterando letras do alfabeto.
+export const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: {
+    error: "Muitas buscas. Aguarde um momento e tente novamente.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 60 req/min/IP — cobre digitação rápida no autocomplete (cada tecla = 1 req)
+// sem bloquear uso legítimo; bots precisariam de > 1 req/s para enumerar nomes.
+export const autocompleteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: {
+    error: "Muitas requisições. Aguarde um momento.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
