@@ -129,6 +129,15 @@ router.get("/search", searchLimiter, async (req, res) => {
   const cacheKey = makeSearchCacheKey(q, region, category, zone);
   const cached = getSearchCache(cacheKey);
   if (cached) {
+    // Analytics para cache hits: usa resultsCount da resposta cacheada.
+    // Assim TODA chamada não-vazia gera exatamente um registro de analytics.
+    if (q) {
+      void db.insert(searchAnalyticsTable).values({
+        term: q.trim().toLowerCase().slice(0, 200),
+        resultsCount: (cached as any).total ?? 0,
+        zone: zone ?? null,
+      }).catch(() => {});
+    }
     res.json(cached);
     return;
   }
@@ -252,9 +261,9 @@ router.get("/search", searchLimiter, async (req, res) => {
 
   const total = countResult[0]?.count ?? 0;
 
-  // Analytics — fire-and-forget (sem await, erro silencioso).
-  // Registra apenas chamadas que chegam ao banco (não cache hits).
-  // Sem IP, sem usuário: somente o termo, zona e contagem.
+  // Analytics para DB hits: resultsCount real (pós-query).
+  // Junto com o analytics de cache hits acima, TODA chamada não-vazia
+  // gera exatamente um registro de analytics.
   if (q) {
     void db.insert(searchAnalyticsTable).values({
       term: q.trim().toLowerCase().slice(0, 200),
@@ -275,11 +284,14 @@ router.get("/search", searchLimiter, async (req, res) => {
     const qNorm = stripAccents(q.toLowerCase().trim()).slice(0, 100);
     try {
       // Condições base de visibilidade (reutilizadas em ambas as queries)
+      // Threshold 0.3 — equilibra permissividade (captura erros de digitação comuns
+      // como "restarante" → "restaurante") e precisão (evita sugestões irrelevantes).
+      // Valor alinhado com a especificação do produto (Task #111).
       const baseConditions = [
         ne(businessesTable.isVisible, false),
         eq(businessesTable.status, "active"),
         NOT_DOCUMENTATION_EXPIRED,
-        sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm}) > 0.2`,
+        sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm}) > 0.3`,
       ] as const;
 
       // Query 1: fuzzy NO ESCOPO (respeita zone/region/category do usuário)

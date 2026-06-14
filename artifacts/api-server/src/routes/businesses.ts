@@ -620,12 +620,20 @@ router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Respo
 
   const matchById = new Map(allMatches.map(b => [b.id, b]));
 
-  // Conjunto de IDs que têm boost de categoria e correspondem à query atual
+  // Conjunto de IDs que têm boost de categoria E a query coincide com o
+  // categorySlug do negócio (não apenas com o nome).
+  // Sem esta condição, um negócio com nome "Pizza Max" cujo slug="restaurantes"
+  // apareceria como patrocinado ao buscar "pizza" via boost de categoria,
+  // o que seria incorreto — o boost de categoria só é válido quando a busca
+  // corresponde especificamente àquela categoria.
   const categoryBoostedIds = new Set(
     categoryBoosts
       .filter(b => {
         const biz = matchById.get(b.businessId);
-        return biz !== undefined; // negócio está nos resultados da query atual
+        if (!biz) return false;
+        // Normaliza o categorySlug do negócio e verifica se a query bate
+        const normalizedCat = biz.categorySlug.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return normalizedCat.includes(qNorm);
       })
       .map(b => b.businessId)
   );
