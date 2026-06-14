@@ -4,7 +4,7 @@ import { PartnersSection } from "@/components/PartnersSection";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, ArrowRight, ArrowLeft,
-  ChevronDown, Zap, ExternalLink
+  Zap, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandButton } from "@/components/BrandButton";
@@ -246,8 +246,6 @@ export default function Landing() {
     jsonLd: HOME_JSON_LD,
   });
   const [query, setQuery] = useState("");
-  const [region, setRegion] = useState("");
-  const [regionOpen, setRegionOpen] = useState(false);
   const [, navigate] = useLocation();
 
   const [homeBanners, setHomeBanners] = useState<{ id: number; title: string | null; subtitle: string | null; imageUrl: string; linkUrl: string | null; ctaLabel: string | null; businessId: number | null; requestedBy: string | null }[]>([]);
@@ -280,13 +278,7 @@ export default function Landing() {
   });
   const vitrineCards = vitrineData?.cards ?? [];
 
-  const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
-
   useEffect(() => {
-    fetch(`${BASE}/api/regions`)
-      .then(r => r.json())
-      .then(d => setDynamicRegions(d.data || []))
-      .catch(() => {});
     fetch(`${BASE}/api/home-banners`)
       .then(r => r.json())
       .then(d => setHomeBanners(d.data || []))
@@ -299,32 +291,9 @@ export default function Landing() {
     return () => clearInterval(t);
   }, [homeBanners.length]);
 
-  const regions = ["Todas as regiões", ...dynamicRegions];
-
-  const ZONE_REDIRECT: Record<string, string> = {
-    "Centro": "/centro",
-    "Zona Norte": "/norte",
-    "Zona Sul": "/sul",
-    "Zona Leste": "/leste",
-    "Zona Oeste": "/oeste",
-  };
-
-  const ZONE_OPTIONS = [
-    { label: "Centro", path: "/centro" },
-    { label: "Zona Norte", path: "/norte" },
-    { label: "Zona Sul", path: "/sul" },
-    { label: "Zona Leste", path: "/leste" },
-    { label: "Zona Oeste", path: "/oeste" },
-  ];
-
   function handleSearch() {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    if (region && region !== "Todas as regiões" && !ZONE_REDIRECT[region]) params.set("regiao", region);
-    if (region && ZONE_REDIRECT[region]) {
-      navigate(ZONE_REDIRECT[region]);
-      return;
-    }
     navigate(`/busca?${params.toString()}`);
   }
 
@@ -364,9 +333,7 @@ export default function Landing() {
   function selectAcItem(name: string) {
     setQuery(name);
     setAcOpen(false);
-    const params = new URLSearchParams({ q: name });
-    if (region && region !== "Todas as regiões" && !ZONE_REDIRECT[region]) params.set("regiao", region);
-    navigate(`/busca?${params.toString()}`);
+    navigate(`/busca?${new URLSearchParams({ q: name }).toString()}`);
   }
 
   return (
@@ -481,67 +448,6 @@ export default function Landing() {
                   <div className="h-2" />
                 </div>
               )}
-
-              {/* Region dropdown */}
-              <div className="relative flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setRegionOpen(!regionOpen)}
-                  className="flex items-center gap-3 px-5 py-3 text-base font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full"
-                >
-                  <span className="text-sm">{region || "Selecione a Região"}</span>
-                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${regionOpen ? "rotate-180" : ""}`} />
-                </button>
-                {regionOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl min-w-[220px] py-2 overflow-hidden overflow-y-auto max-h-80"
-                    style={{ boxShadow: "var(--shadow-dropdown)", zIndex: 9999 }}>
-                    {/* Opção todas */}
-                    <button
-                      type="button"
-                      onClick={() => { setRegion(""); setRegionOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-laranja-50 transition-colors ${!region ? "text-laranja-600 bg-laranja-50" : "text-gray-700"}`}
-                    >
-                      Todas as regiões
-                    </button>
-                    {/* Separador — Zonas */}
-                    <div className="px-4 pt-2 pb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Explorar por zona</span>
-                    </div>
-                    {ZONE_OPTIONS.map((z) => (
-                      <button
-                        key={z.path}
-                        type="button"
-                        onClick={() => { setRegionOpen(false); navigate(z.path); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-semibold hover:bg-laranja-50 transition-colors flex items-center gap-2 ${region === z.label ? "text-laranja-600 bg-laranja-50" : "text-gray-800"}`}
-                      >
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor:
-                          z.path === "/centro" ? "#dc2626" :
-                          z.path === "/norte"  ? "#3d7a28" :
-                          z.path === "/sul"    ? "#2563eb" :
-                          z.path === "/leste"  ? "var(--laranja-600)" : "#7c3aed"
-                        }} />
-                        {z.label}
-                      </button>
-                    ))}
-                    {/* Separador — Bairros */}
-                    {dynamicRegions.length > 0 && (
-                      <div className="px-4 pt-2 pb-1 border-t border-gray-50 mt-1">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Por bairro</span>
-                      </div>
-                    )}
-                    {dynamicRegions.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => { setRegion(r); setRegionOpen(false); }}
-                        className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-laranja-50 transition-colors ${region === r ? "text-laranja-600 bg-laranja-50" : "text-gray-700"}`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               {/* Buscar button */}
               <BrandButton onClick={handleSearch} size="lg" className="flex-shrink-0 gap-2 w-full sm:w-auto">

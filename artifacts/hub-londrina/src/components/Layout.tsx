@@ -1,9 +1,17 @@
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Menu, X, ChevronDown } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useLegalConfig } from "@/lib/legal-config";
 import { BrandButton } from "@/components/BrandButton";
+
+const ZONES = [
+  { label: "Centro",     path: "/centro", color: "#dc2626" },
+  { label: "Zona Norte", path: "/norte",  color: "#3d7a28" },
+  { label: "Zona Sul",   path: "/sul",    color: "#2563eb" },
+  { label: "Zona Leste", path: "/leste",  color: "#FF9800" },
+  { label: "Zona Oeste", path: "/oeste",  color: "#7c3aed" },
+];
 
 function Logo() {
   return (
@@ -30,12 +38,24 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [zoneOpen, setZoneOpen] = useState(false);
+  const [mobileZoneOpen, setMobileZoneOpen] = useState(false);
   const [location, navigate] = useLocation();
   const LEGAL_CONFIG = useLegalConfig();
+  const zoneRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (zoneRef.current && !zoneRef.current.contains(e.target as Node)) {
+        setZoneOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const navLinks = [
     { href: "/", label: "Início" },
-    { href: "/categorias", label: "Categorias" },
     { href: "/busca", label: "Busca" },
     { href: "/anuncie", label: "Anuncie" },
   ];
@@ -61,6 +81,38 @@ export function Layout({ children }: LayoutProps) {
                 {link.label}
               </Link>
             ))}
+
+            {/* Zonas dropdown */}
+            <div ref={zoneRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setZoneOpen(!zoneOpen)}
+                className={`text-sm font-semibold transition-colors flex items-center gap-1 ${
+                  zoneOpen ? "text-[#d97706]" : "text-[#4a3020] hover:text-[#d97706]"
+                }`}
+              >
+                Zonas
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${zoneOpen ? "rotate-180" : ""}`} />
+              </button>
+              {zoneOpen && (
+                <div
+                  className="absolute top-full left-0 mt-2 bg-white border border-gray-100 rounded-xl min-w-[160px] py-2 overflow-hidden"
+                  style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12)", zIndex: 100 }}
+                >
+                  {ZONES.map((z) => (
+                    <Link
+                      key={z.path}
+                      href={z.path}
+                      onClick={() => setZoneOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-amber-50 hover:text-[#d97706] transition-colors"
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: z.color }} />
+                      {z.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -85,7 +137,7 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden bg-background border-t border-border px-4 py-4 flex flex-col gap-4">
+          <div className="md:hidden bg-background border-t border-border px-4 py-4 flex flex-col gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -98,13 +150,41 @@ export function Layout({ children }: LayoutProps) {
                 {link.label}
               </Link>
             ))}
+
+            {/* Zonas mobile expandable */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setMobileZoneOpen(!mobileZoneOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold py-2 text-[#4a3020] hover:text-[#d97706] transition-colors"
+              >
+                Zonas
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${mobileZoneOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mobileZoneOpen && (
+                <div className="pl-3 flex flex-col gap-0.5 mb-1">
+                  {ZONES.map((z) => (
+                    <Link
+                      key={z.path}
+                      href={z.path}
+                      onClick={() => { setMenuOpen(false); setMobileZoneOpen(false); }}
+                      className="flex items-center gap-2.5 py-2 text-sm font-medium text-gray-700 hover:text-[#d97706] transition-colors"
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: z.color }} />
+                      {z.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => { navigate("/lojista/login"); setMenuOpen(false); }}
               className="w-full text-left text-sm font-semibold py-2 text-[#6F4E37] hover:text-[#d97706] transition-colors"
             >
               Área do Lojista
             </button>
-            <BrandButton onClick={() => { navigate("/anuncie"); setMenuOpen(false); }} className="w-full">
+            <BrandButton onClick={() => { navigate("/anuncie"); setMenuOpen(false); }} className="w-full mt-2">
               Anuncie Aqui
             </BrandButton>
           </div>
