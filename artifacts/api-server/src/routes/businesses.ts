@@ -9,6 +9,7 @@ import { eq, ilike, or, and, desc, asc, sql, ne, isNotNull, gte, inArray } from 
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 import { sanitizeBusiness } from "../lib/sanitize";
 import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
+import { buildMatchCondition, buildRelevanceScore } from "../lib/search-engine";
 import { z } from "zod";
 import {
   ListBusinessesQueryParams,
@@ -558,33 +559,34 @@ router.get("/stats/public", async (_req: Request, res: Response) => {
 });
 
 // ─── AUTOCOMPLETE ────────────────────────────────────────────────────────────
-// PLAIN/ACCENTED são os mesmos usados em search.ts para garantir consistência
-// no tratamento de acentos entre autocomplete e busca completa.
-const AUTOCOMPLETE_ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
-const AUTOCOMPLETE_PLAIN    = "aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
-
+// Usa o MESMO motor de busca (lib/search-engine.ts) que /api/search: 6 campos
+// (name/description/categorySlug/address/region/tags) + variantes + ranking de
+// relevância (nome exato > contém > categoria > tags > descrição). Antes o
+// autocomplete buscava só name+categorySlug, divergindo dos resultados da /busca.
 router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Response) => {
   const q = ((req.query.q as string) || "").trim();
   if (!q || q.length < 2) return res.json({ sponsored: [], suggestions: [] });
 
-  // Usa translate() como o motor de busca principal para consistência de acentos.
-  // Antes usava ilike nativo o que causava divergência quando o usuário digitava
-  // variantes de acento (ex: "cafe" vs "café").
+  // qNorm normaliza acentos para a checagem de boost de categoria abaixo.
   const qNorm = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const pattern = `%${qNorm}%`;
+
+  // Task #77 / RULES.md R2: defesa em profundidade — exclui lojas `expired` além
+  // do filtro de isVisible, alinhado com /api/search e /api/businesses.
   const activeVisible = and(
     eq(businessesTable.status, "active"),
     eq(businessesTable.isVisible, true),
+    NOT_DOCUMENTATION_EXPIRED,
   );
 
-  const nameMatch = sql`translate(lower(${businessesTable.name}), ${AUTOCOMPLETE_ACCENTED}, ${AUTOCOMPLETE_PLAIN}) like ${pattern}`;
-  const catMatch  = sql`translate(lower(${businessesTable.categorySlug}), ${AUTOCOMPLETE_ACCENTED}, ${AUTOCOMPLETE_PLAIN}) like ${pattern}`;
+  const match = buildMatchCondition(q);
+  const relevanceScore = buildRelevanceScore(q);
+  const whereClause = match ? and(activeVisible, match) : activeVisible;
 
   const [allMatches, homeSearchBoosts, categoryBoosts] = await Promise.all([
     db.select({ id: businessesTable.id, name: businessesTable.name, categorySlug: businessesTable.categorySlug })
       .from(businessesTable)
-      .where(and(activeVisible, or(nameMatch, catMatch)!))
-      .orderBy(desc(businessesTable.rating))
+      .where(whereClause)
+      .orderBy(desc(relevanceScore), desc(businessesTable.rating))
       .limit(12),
     // Boosts home_search — ordenados por posição numerada (#1 → #2 → #3 → legacy NULL)
     db.select({

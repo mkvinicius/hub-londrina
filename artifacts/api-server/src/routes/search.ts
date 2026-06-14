@@ -7,6 +7,11 @@ import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields
 import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
 import { searchLimiter } from "../middleware/rateLimiter";
 import { makeSearchCacheKey, getSearchCache, setSearchCache } from "../lib/search-cache";
+import {
+  stripAccents,
+  buildMatchCondition,
+  buildRelevanceScore,
+} from "../lib/search-engine";
 
 const router: IRouter = Router();
 
@@ -22,73 +27,6 @@ const COMPLETENESS = sql<number>`(
   CASE WHEN ${businessesTable.description} != '' THEN 1 ELSE 0 END +
   CASE WHEN ${businessesTable.address} != '' THEN 1 ELSE 0 END
 )`;
-
-// PLAIN must have exactly the same length as ACCENTED (48 chars).
-// Bug anterior: extra 'i' entre os o's e u's causava ç→'u' e quebrava toda busca com cedilha.
-const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
-const PLAIN    = "aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
-
-const CATEGORY_SYNONYMS: Record<string, string[]> = {
-  "restaurantes": ["restaurante", "comida", "almoço", "almoco", "jantar", "refeição", "refeicao", "gastronomia", "churrascaria", "cantina", "lanchonete"],
-  "saloes": ["salao", "salão", "saloes", "salões", "cabeleireiro", "cabeleireira", "cabelo", "corte", "beleza", "barbearia", "barbeiro", "manicure"],
-  "academias": ["academia", "ginasio", "ginásio", "gym", "musculação", "musculacao", "fitness", "treino", "crossfit"],
-  "mercados": ["mercado", "supermercado", "mercearia", "hortifruti", "feira", "açougue", "acougue"],
-  "cafeterias": ["cafeteria", "cafe", "café", "coffee", "padaria", "confeitaria", "doceria", "bolo", "lanche"],
-  "pet-shops": ["pet", "petshop", "pet-shop", "veterinario", "veterinário", "veterinaria", "veterinária", "animal", "cachorro", "gato", "banho", "tosa"],
-  "farmacias": ["farmacia", "farmácia", "drogaria", "remedio", "remédio", "medicamento"],
-  "padarias": ["padaria", "pao", "pão", "confeitaria", "bolo", "panificadora"],
-  "saude": ["saude", "saúde", "clinica", "clínica", "medico", "médico", "dentista", "odonto", "consultorio", "consultório", "hospital", "fisioterapia"],
-  "servicos": ["servico", "serviço", "servicos", "serviços", "mecanica", "mecânica", "mecanico", "mecânico", "eletricista", "encanador", "pintor", "conserto"],
-};
-
-function stripAccents(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function generateSearchVariants(term: string): string[] {
-  const t = stripAccents(term.toLowerCase().trim());
-  const variants = new Set<string>();
-  variants.add(t);
-
-  if (t.endsWith("s")) variants.add(t.slice(0, -1));
-  else variants.add(t + "s");
-
-  if (t.endsWith("ao")) {
-    variants.add(t.slice(0, -2) + "oes");
-    variants.add(t.slice(0, -2) + "aes");
-  }
-  if (t.endsWith("oes") || t.endsWith("aes")) {
-    variants.add(t.slice(0, -3) + "ao");
-  }
-  if (t.endsWith("cao")) {
-    variants.add(t.slice(0, -3) + "coes");
-  }
-  if (t.endsWith("coes")) {
-    variants.add(t.slice(0, -4) + "cao");
-  }
-  if (t.endsWith("al")) {
-    variants.add(t.slice(0, -2) + "ais");
-  } else if (t.endsWith("ais")) {
-    variants.add(t.slice(0, -3) + "al");
-  }
-  if (t.endsWith("el")) {
-    variants.add(t.slice(0, -2) + "eis");
-  } else if (t.endsWith("eis")) {
-    variants.add(t.slice(0, -3) + "el");
-  }
-
-  for (const [slug, synonyms] of Object.entries(CATEGORY_SYNONYMS)) {
-    if (synonyms.some(syn => stripAccents(syn) === t || stripAccents(syn).includes(t) || t.includes(stripAccents(syn)))) {
-      variants.add(slug);
-    }
-  }
-
-  return [...variants];
-}
-
-function unaccentLike(column: any, pattern: string) {
-  return sql`translate(lower(${column}), ${ACCENTED}, ${PLAIN}) like ${pattern}`;
-}
 
 async function getActiveBoosts(): Promise<Map<number, { position: number | null; boostType: string; monthlyBid: string }>> {
   // Zone boosts pertencem à página da zona, NÃO à busca geral.
@@ -148,33 +86,11 @@ router.get("/search", searchLimiter, async (req, res) => {
   if (zone) conditions.push(eq(businessesTable.zone, zone));
 
   if (q) {
-    const words = q.trim().split(/\s+/).filter(Boolean);
-    const wordConditions: any[] = [];
-
-    for (const word of words) {
-      const variants = generateSearchVariants(word);
-      const variantConditions: any[] = [];
-
-      for (const v of variants) {
-        const pattern = `%${v}%`;
-        variantConditions.push(
-          unaccentLike(businessesTable.name, pattern),
-          unaccentLike(businessesTable.description, pattern),
-          unaccentLike(businessesTable.categorySlug, pattern),
-          unaccentLike(businessesTable.address, pattern),
-          unaccentLike(businessesTable.region, pattern),
-          sql`translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) like ${pattern}`,
-        );
-      }
-
-      wordConditions.push(or(...variantConditions));
-    }
-
-    // OR entre palavras: pelo menos UMA palavra deve ser encontrada.
-    // Antes era AND (todas deviam coincidir), o que falhava com nomes
-    // multi-palavra quando algum campo não continha todas as palavras.
-    // O ranking por relevância garante que matches completos apareçam primeiro.
-    conditions.push(or(...wordConditions)!);
+    // Motor de match compartilhado (fonte única em lib/search-engine.ts):
+    // 6 campos (name/description/categorySlug/address/region/tags) + variantes,
+    // OR entre palavras (≥1 palavra basta; ranking põe matches completos primeiro).
+    const match = buildMatchCondition(q);
+    if (match) conditions.push(match);
   }
 
   if (region) conditions.push(eq(businessesTable.region, region));
@@ -182,19 +98,8 @@ router.get("/search", searchLimiter, async (req, res) => {
 
   const where = and(...conditions);
 
-  // Relevance scoring: exact full-query name match > name contains full query >
-  // category/tag match > description match.
-  let relevanceScore = sql<number>`0::int`;
-  if (q) {
-    const qNorm = stripAccents(q.toLowerCase());
-    relevanceScore = sql<number>`(
-      CASE WHEN translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) = ${qNorm} THEN 100 ELSE 0 END +
-      CASE WHEN translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 50 ELSE 0 END +
-      CASE WHEN translate(lower(${businessesTable.categorySlug}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 8 ELSE 0 END +
-      CASE WHEN translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 6 ELSE 0 END +
-      CASE WHEN translate(lower(${businessesTable.description}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 5 ELSE 0 END
-    )`;
-  }
+  // Relevance scoring (fonte única): nome exato > nome contém > categoria > tags > descrição.
+  const relevanceScore = buildRelevanceScore(q);
 
   const [data, countResult, boostMap] = await Promise.all([
     db

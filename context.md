@@ -331,6 +331,9 @@ POST /api/businesses/:id/click-whatsapp  Incrementa whatsappClicks
 GET  /api/regions                 Lista de regiões distintas
 GET  /api/stats                   totalBusinesses, totalCategories, totalZones (SSR)
 GET  /api/autocomplete?q=         Patrocinados (boostContext=search) + sugestões
+     Sugestões usam o MESMO motor da busca (lib/search-engine.ts): 6 campos
+     (name/description/categorySlug/address/region/tags) + variantes + score
+     de relevância; exclui lojas com documentationStatus='expired' (R2)
 GET  /api/home-featured           Negócios em destaque na home (boostContext='home_search')
 GET  /api/zones/:slug/featured    Até 4 negócios da zona com boost ativo (boostContext='zone') — seção "Destaque para você" em /zona/:slug
 GET  /api/categories/:slug/featured  Até 3 negócios da categoria com boost ativo (boostContext='category')

@@ -119,6 +119,22 @@ async function main() {
       pass("R2 /api/search oculta loja expirada");
     }
 
+    // --- 2b. GET /api/autocomplete?q=<nome único> — expired ausente ---
+    const ac = await call("GET", `/api/autocomplete?q=${encodeURIComponent(expiredName)}`);
+    if (ac.status !== 200) {
+      fail("GET /api/autocomplete 200", `status=${ac.status}`);
+    } else {
+      const acIds = [
+        ...(Array.isArray(ac.json?.sponsored) ? ac.json.sponsored : []),
+        ...(Array.isArray(ac.json?.suggestions) ? ac.json.suggestions : []),
+      ].map((b: any) => b?.id);
+      if (acIds.includes(expiredId)) {
+        fail("R2 /api/autocomplete NÃO sugere loja expirada", `id=${expiredId} apareceu no autocomplete`);
+      } else {
+        pass("R2 /api/autocomplete oculta loja expirada");
+      }
+    }
+
     // --- 3. GET /api/zones/sul/businesses — expired ausente, control presente ---
     const zoneList = await call("GET", `/api/zones/${ZONE}/businesses`);
     if (zoneList.status !== 200) {

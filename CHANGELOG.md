@@ -6,6 +6,27 @@
 
 ## 2026-06-14
 
+### Autocomplete unificado com a busca completa + input da /busca limpo (Task #116)
+
+**Pedido (dono)**: as sugestões enquanto digita pareciam "menos inteligentes" que os resultados da página de busca, e o input da `/busca` ainda tinha o dropdown "Selecione a Região" dentro do campo (a Home não tem).
+
+**Causa raiz**: dois motores divergentes no backend. O autocomplete (`businesses.ts`) pesquisava só em **nome + categoria**; a busca completa (`search.ts`) pesquisava em **6 campos + variantes + score de relevância**. Termos presentes só em descrição/tags (ex.: `crossfit`, `vinhos`, `rodízio`, `nail art`) apareciam nos resultados mas **não** nas sugestões.
+
+**Correção**:
+- Novo `artifacts/api-server/src/lib/search-engine.ts` como **fonte única** do matching: `buildMatchCondition(q)` (6 campos `name/description/categorySlug/address/region/tags` + variantes/sinônimos/acentos, OR entre palavras) e `buildRelevanceScore(q)` (nome exato=100 → contém=50 → categoria=8 → tags=6 → descrição=5).
+- `search.ts` passa a importar esses helpers (remove defs locais duplicadas).
+- Autocomplete (`businesses.ts`) usa `buildMatchCondition` + ordena por `relevanceScore desc, rating desc` (limite 12). **Montagem de patrocinados/boost inalterada** (home_search #1→#3 + boosts de categoria continuam no topo). Decisão: o dropdown ordena por relevância (implementa "nome exato primeiro" do escopo); a re-bucketização por plano fica só na página de resultados.
+- Defesa em profundidade: autocomplete agora exclui explicitamente `documentationStatus='expired'` (R2 / Task #77), alinhado a `/api/businesses` e `/api/search`.
+- Frontend `busca.tsx`: removidos os props de filtro de região do `<SearchBar>` (input fica só campo + botão Buscar, igual à Home). **O filtro de região da barra lateral permanece intacto.**
+
+**Prova concreta (dev)**:
+- **curl autocomplete vs search** idênticos em campos antes invisíveis no dropdown: `crossfit`→[Academia Força Total, FitLife Academia]; `spinning`→[FitLife]; `vinhos`→[Supermercado Bom Preço]; `nail art`→5 negócios; `rodizio`→[Restaurante Sabor do Sul]. Acento `cafe`→encontra "Café Aroma & Arte".
+- **doc-expired-invariant** estendido com check de autocomplete → ✓ OK (loja `expired` não aparece em sponsored nem suggestions). `lojista-rules` → ✓ OK.
+- **screenshot** `/busca?q=academia`: input sem dropdown de região; sidebar "Filtros" com seção de categoria/região preservada.
+- Typecheck: delta **0** erros novos (baseline api-server tem 64 erros pré-existentes de Express 5 `string|string[]` + Stripe apiVersion; `search-engine.ts` limpo). `busca.tsx` sem erros (erros do frontend só em `negocio.tsx`, pré-existentes). api-server builda via esbuild.
+
+---
+
 ### Deploy travado: índice GIN trigram x extensão pg_trgm ausente em produção
 
 **Problema (dono, print do painel de Publishing)**: a publicação parava em "Migrations failed validation". A migration auto-gerada pelo Replit era `CREATE INDEX "businesses_name_trgm_idx" ON "businesses" USING gin (lower(name) gin_trgm_ops);` e falhava com `operator class "gin_trgm_ops" does not exist for access method "gin"`.

@@ -231,10 +231,6 @@ export default function Busca() {
               onChange={setLocalQuery}
               onSearch={handleSearch}
               onSelectSuggestion={handleSelectSuggestion}
-              showRegionFilter
-              region={region}
-              onRegionChange={setRegion}
-              dynamicRegions={dynamicRegions}
               variant="page"
             />
           </div>
