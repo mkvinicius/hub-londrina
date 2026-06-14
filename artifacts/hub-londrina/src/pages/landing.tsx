@@ -536,7 +536,7 @@ export default function Landing() {
               );
             })}
             <button
-              onClick={() => navigate("/categorias")}
+              onClick={() => navigate("/busca")}
               className="cat-pills-row inline-flex shrink-0 items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-cafe-700 hover:bg-cafe-800 text-white transition-all shadow-sm hover:shadow-md"
               data-testid="pill-category-ver-todos"
             >
