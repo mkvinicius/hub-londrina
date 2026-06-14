@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useLocation } from "wouter";
 import {
-  Search, MapPin, SlidersHorizontal,
-  ChevronDown, ChevronUp, X, ChevronLeft, ChevronRight, Navigation, Loader2, Star, Zap
+  MapPin, SlidersHorizontal, Search,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Navigation, Loader2, Star, Zap, X
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layout } from "@/components/Layout";
@@ -11,13 +11,12 @@ import { useSearch, useListCategories } from "@workspace/api-client-react";
 import type { Business, Category } from "@workspace/api-client-react";
 import { getCategoryIcon, getCategoryColorClasses } from "@/lib/icons";
 import { BusinessCard } from "@/components/BusinessCard";
+import { SearchBar } from "@/components/SearchBar";
 
 const PAGE_SIZE = 8;
 const API_BASE = (import.meta as any).env?.VITE_API_URL || "";
 
 const BTN_ELEVATION = "transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm";
-
-interface AcItem { id: number; name: string; categorySlug: string }
 
 export default function Busca() {
   const [, navigate] = useLocation();
@@ -40,14 +39,6 @@ export default function Busca() {
   const [catOpen, setCatOpen] = useState(true);
   const [regOpen, setRegOpen] = useState(true);
 
-  // Autocomplete state
-  const [acSponsored, setAcSponsored] = useState<AcItem[]>([]);
-  const [acSuggestions, setAcSuggestions] = useState<AcItem[]>([]);
-  const [acOpen, setAcOpen] = useState(false);
-  const [acLoading, setAcLoading] = useState(false);
-  const acRef = useRef<HTMLDivElement>(null);
-  const acTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Home featured businesses
   const [homeFeatured, setHomeFeatured] = useState<any[]>([]);
 
@@ -69,34 +60,6 @@ export default function Busca() {
       .catch(() => { if (!cancelled) setCategoryFeatured([]); });
     return () => { cancelled = true; };
   }, [categoria]);
-
-  const fetchAutocomplete = useCallback((q: string) => {
-    if (q.length < 2) { setAcSponsored([]); setAcSuggestions([]); setAcOpen(false); return; }
-    if (acTimer.current) clearTimeout(acTimer.current);
-    acTimer.current = setTimeout(async () => {
-      setAcLoading(true);
-      try {
-        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        setAcSponsored(data.sponsored || []);
-        setAcSuggestions(data.suggestions || []);
-        setAcOpen((data.sponsored?.length || data.suggestions?.length) > 0);
-      } catch {
-        setAcOpen(false);
-      } finally {
-        setAcLoading(false);
-      }
-    }, 250);
-  }, []);
-
-  // Close autocomplete on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (acRef.current && !acRef.current.contains(e.target as Node)) setAcOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const { data: searchData, isLoading } = useSearch({
     q: query || undefined,
@@ -212,7 +175,6 @@ export default function Busca() {
 
   function handleSearch() {
     setQuery(localQuery);
-    setAcOpen(false);
     const params = new URLSearchParams();
     if (localQuery) params.set("q", localQuery);
     if (region && region !== "todas") params.set("regiao", region);
@@ -221,9 +183,8 @@ export default function Busca() {
     navigate(`/busca?${params.toString()}`);
   }
 
-  function selectAcItem(name: string) {
+  function handleSelectSuggestion(name: string) {
     setLocalQuery(name);
-    setAcOpen(false);
     setQuery(name);
     const params = new URLSearchParams({ q: name });
     if (region && region !== "todas") params.set("regiao", region);
@@ -257,105 +218,18 @@ export default function Busca() {
       <div className="min-h-screen pb-20 bg-gray-50 transition-colors">
         <div className="bg-white border-b border-gray-100 py-5 px-4 transition-colors">
           <div className="max-w-3xl mx-auto">
-            {/* Search bar with autocomplete */}
-            <div ref={acRef} className="relative">
-              <div
-                className="flex flex-col sm:flex-row overflow-visible relative rounded-2xl p-1.5 gap-1.5 bg-white/97 border border-black/6"
-                style={{
-                  boxShadow: "var(--shadow-dropdown)",
-                }}
-              >
-                <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-gray-50/80">
-                  <Search className="h-5 w-5 text-[#d97706] flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={localQuery}
-                    onChange={(e) => { setLocalQuery(e.target.value); fetchAutocomplete(e.target.value); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); if (e.key === "Escape") setAcOpen(false); }}
-                    onFocus={() => { if (localQuery.length >= 2 && (acSponsored.length || acSuggestions.length)) setAcOpen(true); }}
-                    placeholder="Restaurante, salão, mecânica..."
-                    className="flex-1 text-base text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
-                    autoComplete="off"
-                  />
-                  {acLoading && <Loader2 className="h-4 w-4 text-gray-400 animate-spin flex-shrink-0" />}
-                  {localQuery && !acLoading && (
-                    <button onClick={() => { setLocalQuery(""); setAcOpen(false); }} className="flex-shrink-0 text-gray-400 hover:text-gray-600">
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="relative flex-shrink-0">
-                  <Select value={region} onValueChange={setRegion}>
-                    <SelectTrigger className="flex items-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap w-full sm:w-auto rounded-xl bg-gray-50/80 hover:bg-gray-100/80 transition-colors h-full border-0 shadow-none focus:ring-0">
-                      <SelectValue placeholder="Selecione a Região" />
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-0 shadow-xl" style={{ boxShadow: "var(--shadow-dropdown)" }}>
-                      <SelectItem value="todas">Todas as regiões</SelectItem>
-                      {dynamicRegions.map(r => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <BrandButton onClick={handleSearch} size="lg" className="flex-shrink-0 gap-2 w-full sm:w-auto">
-                  <Search className="h-4 w-4" />
-                  Buscar
-                </BrandButton>
-              </div>
-
-              {/* Autocomplete dropdown */}
-              {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
-                <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-2xl border border-gray-100 overflow-hidden"
-                  style={{ boxShadow: "var(--shadow-dropdown)" }}>
-                  {acSponsored.length > 0 && (
-                    <>
-                      <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
-                        <Zap className="h-3 w-3 text-amber-500" />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Patrocinados</span>
-                      </div>
-                      {acSponsored.map(item => {
-                        const Icon = getCategoryIcon(item.categorySlug);
-                        return (
-                          <button key={`sp-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 transition-colors text-left">
-                            <Icon className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                            <span className="text-sm font-semibold text-gray-800 flex-1">{item.name}</span>
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Patrocinado</span>
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
-                  {acSponsored.length > 0 && acSuggestions.length > 0 && (
-                    <div className="mx-4 border-t border-gray-100" />
-                  )}
-                  {acSuggestions.length > 0 && (
-                    <>
-                      {acSponsored.length > 0 && (
-                        <div className="px-4 pt-2 pb-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Sugestões</span>
-                        </div>
-                      )}
-                      {acSuggestions.map(item => {
-                        const Icon = getCategoryIcon(item.categorySlug);
-                        return (
-                          <button key={`sg-${item.id}`} onMouseDown={() => selectAcItem(item.name)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
-                            <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-700 flex-1">{item.name}</span>
-                            <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
-                  <div className="h-2" />
-                </div>
-              )}
-            </div>
+            {/* Search bar — componente compartilhado com a home */}
+            <SearchBar
+              value={localQuery}
+              onChange={setLocalQuery}
+              onSearch={handleSearch}
+              onSelectSuggestion={handleSelectSuggestion}
+              showRegionFilter
+              region={region}
+              onRegionChange={setRegion}
+              dynamicRegions={dynamicRegions}
+              variant="page"
+            />
           </div>
         </div>
 

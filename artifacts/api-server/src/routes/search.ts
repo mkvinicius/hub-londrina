@@ -21,8 +21,10 @@ const COMPLETENESS = sql<number>`(
   CASE WHEN ${businessesTable.address} != '' THEN 1 ELSE 0 END
 )`;
 
+// PLAIN must have exactly the same length as ACCENTED (48 chars).
+// Bug anterior: extra 'i' entre os o's e u's causava ç→'u' e quebrava toda busca com cedilha.
 const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
-const PLAIN    = "aaaaaeeeeiiiioooooiuuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
+const PLAIN    = "aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
 
 const CATEGORY_SYNONYMS: Record<string, string[]> = {
   "restaurantes": ["restaurante", "comida", "almoço", "almoco", "jantar", "refeição", "refeicao", "gastronomia", "churrascaria", "cantina", "lanchonete"],
@@ -142,7 +144,11 @@ router.get("/search", async (req, res) => {
       wordConditions.push(or(...variantConditions));
     }
 
-    conditions.push(and(...wordConditions)!);
+    // OR entre palavras: pelo menos UMA palavra deve ser encontrada.
+    // Antes era AND (todas deviam coincidir), o que falhava com nomes
+    // multi-palavra quando algum campo não continha todas as palavras.
+    // O ranking por relevância garante que matches completos apareçam primeiro.
+    conditions.push(or(...wordConditions)!);
   }
 
   if (region) conditions.push(eq(businessesTable.region, region));
@@ -150,14 +156,17 @@ router.get("/search", async (req, res) => {
 
   const where = and(...conditions);
 
+  // Relevance scoring: exact full-query name match > name contains full query >
+  // category/tag match > description match.
   let relevanceScore = sql<number>`0::int`;
   if (q) {
     const qNorm = stripAccents(q.toLowerCase());
     relevanceScore = sql<number>`(
-      CASE WHEN translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 10 ELSE 0 END +
+      CASE WHEN translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) = ${qNorm} THEN 100 ELSE 0 END +
+      CASE WHEN translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 50 ELSE 0 END +
       CASE WHEN translate(lower(${businessesTable.categorySlug}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 8 ELSE 0 END +
-      CASE WHEN translate(lower(${businessesTable.description}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 5 ELSE 0 END +
-      CASE WHEN translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 6 ELSE 0 END
+      CASE WHEN translate(lower(${businessesTable.tags}::text), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 6 ELSE 0 END +
+      CASE WHEN translate(lower(${businessesTable.description}), ${ACCENTED}, ${PLAIN}) LIKE ${`%${qNorm}%`} THEN 5 ELSE 0 END
     )`;
   }
 
