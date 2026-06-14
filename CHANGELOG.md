@@ -6,6 +6,19 @@
 
 ## 2026-06-14
 
+### Vagas de destaque da zona sempre cheias + arte de venda "Anuncie você também" (Task #118)
+
+**Pedido (dono)**: a seção de destaque da página de zona (antes "Os mais bem avaliados" / "Destaque para você") deve ficar **reservada** a quem compra o Destaque de Zona; nas vagas ainda não vendidas, mostrar uma **arte branded bonita "Anuncie você também"** com link para `/anuncie`. Estender o mesmo upsell ao **banner grande da Home** quando os anunciantes pagantes não preenchem todas as vagas (máx. 2).
+
+**Mudança (só apresentação no front — não toca capacidade/locks/preço/checkout)**:
+- `zona.tsx`: as duas seções antigas (paga "Destaque para você" + orgânica "Os mais bem avaliados") viraram **uma única** seção que reserva SEMPRE as 4 vagas (`ZONE_FEATURED_SLOTS=4`, espelha `ZONE_SLOTS` do backend). Vagas pagas mostram o `BusinessCard` com selo "Patrocinado"; vagas vazias mostram o novo `ZoneAdSlot` (cartão tracejado na cor da zona, ícone megafone, "VAGA DISPONÍVEL" / "Anuncie você também" / botão "Anunciar agora" → `/anuncie`). O ranking orgânico dos mais bem avaliados continua na grade "Todos os negócios" (ordenada plano→nota→cliques no backend). Removido o `topRated` órfão.
+- `landing.tsx`: o banner grande da Home injeta a arte de venda padrão na rotação quando há **< 2** banners pagos (`slides = homeBanners.length >= 2 ? homeBanners : [...homeBanners, defaultBanner]`). A tag "Publicidade" deixou de aparecer no slide de venda (`current.id !== 0`).
+- Docs: `replit.md`/`context.md` corrigidos de "3 vagas" → "4 vagas" na zona (RULES.md R15 e context.md já estavam em 4) e documentado o upsell.
+
+**Prova concreta**: screenshots `/sul` (1 vaga paga + 3 artes de venda) e `/centro` (4 artes de venda, cor vermelha da zona, cartões "Anuncie você também" com CTA). Validadores `doc-expired-invariant` e `lojista-rules` → **✓ OK** (R1/R2/R3/R9/R11/R15 intactos). Typecheck de `zona.tsx`/`landing.tsx` sem erros novos (os erros pré-existentes em `busca.tsx`/`negocio.tsx` são de tipos do client gerado, não tocados aqui).
+
+---
+
 ### Remover bloco "Destaques para você" da página /busca (pedido do dono)
 
 **Pedido (dono, screenshot)**: o bloco "DESTAQUES PARA VOCÊ" (com pin "Patrocinado") aparecia no topo da `/busca` quando não havia busca/filtro ativo. Esse destaque pertence à página de zonas, não à busca.

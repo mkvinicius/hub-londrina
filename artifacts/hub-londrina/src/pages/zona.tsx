@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ArrowRight, MapPin, Star, Zap } from "lucide-react";
+import { Search, ArrowRight, MapPin, Star, Zap, Megaphone } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { imgSrc } from "@/lib/utils";
 import { BusinessCard } from "@/components/BusinessCard";
@@ -34,6 +34,46 @@ interface ZoneBusinesses {
 }
 
 const BASE = import.meta.env.VITE_API_URL || "";
+
+// Espelha ZONE_SLOTS (fonte única no backend: api-server/src/lib/boost-locks.ts).
+// São 4 vagas pagas de destaque por zona; as vagas ainda não vendidas são
+// preenchidas com a arte de venda "Anuncie você também".
+const ZONE_FEATURED_SLOTS = 4;
+
+// Cartão de venda branded para as vagas de destaque ainda não vendidas.
+// Usa a cor da zona e leva para /anuncie. Altura casa com o BusinessCard (md).
+function ZoneAdSlot({ color, onClick }: { color: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex flex-col items-center justify-center text-center min-h-[540px] rounded-3xl border-2 border-dashed bg-white px-6 transition-all hover:shadow-lg hover:-translate-y-0.5"
+      style={{ borderColor: color + "55" }}
+    >
+      <div
+        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110"
+        style={{ backgroundColor: color + "18", color }}
+      >
+        <Megaphone className="h-8 w-8" />
+      </div>
+      <span className="text-[11px] font-black uppercase tracking-wider mb-2" style={{ color }}>
+        Vaga disponível
+      </span>
+      <h3 className="font-black text-xl text-[#3a2512] leading-tight mb-2">
+        Anuncie você também
+      </h3>
+      <p className="text-sm text-gray-500 leading-snug max-w-[220px] mb-6">
+        Apareça em destaque nesta região para quem está procurando o que você oferece.
+      </p>
+      <span
+        className="inline-flex items-center gap-2 text-white font-bold text-sm px-6 py-3 rounded-full shadow transition-opacity group-hover:opacity-90"
+        style={{ backgroundColor: color }}
+      >
+        Anunciar agora <ArrowRight className="h-4 w-4" />
+      </span>
+    </button>
+  );
+}
 
 export default function ZonePage({ zone }: { zone: ZoneSlug }) {
   const fallback = zoneConfig[zone];
@@ -78,7 +118,6 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
   });
 
   const businesses = (bizData?.data ?? []) as any[];
-  const topRated = (stats?.topRated ?? []) as any[];
   const zoneFeatured = (featuredData?.data ?? []) as any[];
   const byCategory = stats?.byCategory ?? [];
   const total = bizData?.total ?? 0;
@@ -148,61 +187,47 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
         </div>
       </section>
 
-      {/* SEÇÃO 2 — Destaques pagos da zona (zone boost buyers) */}
-      {zoneFeatured.length > 0 && (
-        <section className="py-12 bg-white">
-          <div className="max-w-7xl mx-auto px-4 md:px-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
-                style={{ background: cfg.color + "18", borderColor: cfg.color + "40", color: cfg.color }}
-              >
-                <Zap className="h-3.5 w-3.5" />
-                <span className="text-xs font-black uppercase tracking-wider">Destaque para você</span>
-              </div>
-              <span className="text-xs text-gray-400">
-                {zoneFeatured.length} negócio{zoneFeatured.length !== 1 ? "s" : ""} em destaque
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {zoneFeatured.map((biz: any) => (
-                <div key={biz.id} className="relative">
-                  <div
-                    className="absolute bottom-[180px] sm:bottom-[200px] right-3 z-10 flex items-center gap-1 text-white text-[10px] font-black px-2 py-1 rounded-full shadow"
-                    style={{ backgroundColor: cfg.color }}
-                  >
-                    <Star className="h-2.5 w-2.5 fill-white" />
-                    Patrocinado
-                  </div>
-                  <BusinessCard business={biz} />
+      {/* SEÇÃO 2 — Vagas de destaque da zona (reservadas a quem compra o boost de zona).
+          Sempre ZONE_FEATURED_SLOTS (4) vagas: as pagas (selo "Patrocinado") + a arte de
+          venda "Anuncie você também" preenchendo as vagas ainda não vendidas → /anuncie.
+          O ranking orgânico dos mais bem avaliados continua na grade "Todos os negócios"
+          (ordenada plano→nota→cliques no backend). */}
+      <section className="py-14 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="mb-8">
+            <span className="inline-flex items-center gap-1.5 font-bold text-sm uppercase tracking-wider mb-1" style={{ color: cfg.color }}>
+              <Zap className="h-3.5 w-3.5" />
+              Destaque para você
+            </span>
+            <h2 className="font-black text-2xl md:text-3xl text-[#3a2512]">
+              Destaques da {cfg.label}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {zoneFeatured.slice(0, ZONE_FEATURED_SLOTS).map((biz: any) => (
+              <div key={biz.id} className="relative">
+                <div
+                  className="absolute bottom-[180px] sm:bottom-[200px] right-3 z-10 flex items-center gap-1 text-white text-[10px] font-black px-2 py-1 rounded-full shadow"
+                  style={{ backgroundColor: cfg.color }}
+                >
+                  <Star className="h-2.5 w-2.5 fill-white" />
+                  Patrocinado
                 </div>
-              ))}
-            </div>
-            <div className="mt-6 border-t border-gray-100" />
+                <BusinessCard business={biz} />
+              </div>
+            ))}
+            {Array.from({
+              length: Math.max(0, ZONE_FEATURED_SLOTS - zoneFeatured.length),
+            }).map((_, i) => (
+              <ZoneAdSlot
+                key={`ad-${i}`}
+                color={cfg.color}
+                onClick={() => navigate("/anuncie")}
+              />
+            ))}
           </div>
-        </section>
-      )}
-
-      {/* SEÇÃO 3 — Os mais bem avaliados (orgânico) */}
-      {topRated.length > 0 && (
-        <section className="py-14 bg-white">
-          <div className="max-w-7xl mx-auto px-4 md:px-8">
-            <div className="mb-8">
-              <span className="font-bold text-sm uppercase tracking-wider mb-1 block" style={{ color: cfg.color }}>
-                Os mais bem avaliados
-              </span>
-              <h2 className="font-black text-2xl md:text-3xl text-[#3a2512]">
-                Destaques da {cfg.label}
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {topRated.map((biz: any) => (
-                <BusinessCard key={biz.id} business={biz} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* SEÇÃO 3 — Categorias com negócios na zona */}
       {byCategory.length > 0 && (

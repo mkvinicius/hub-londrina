@@ -286,11 +286,15 @@ export default function Landing() {
       .catch(() => {});
   }, [BASE]);
 
+  // Total de slides exibidos: quando há < 2 banners pagos, injetamos a arte de
+  // venda (defaultBanner) na rotação — espelha a lógica de `slides` no render.
+  const slideCount = homeBanners.length >= 2 ? homeBanners.length : homeBanners.length + 1;
+
   useEffect(() => {
-    if (homeBanners.length <= 1) return;
-    const t = setInterval(() => setBannerIdx(i => (i + 1) % homeBanners.length), 5000);
+    if (slideCount <= 1) return;
+    const t = setInterval(() => setBannerIdx(i => (i + 1) % slideCount), 5000);
     return () => clearInterval(t);
-  }, [homeBanners.length]);
+  }, [slideCount]);
 
   function handleSearch() {
     const params = new URLSearchParams();
@@ -408,7 +412,12 @@ export default function Landing() {
             businessId: null as number | null,
             requestedBy: null as string | null,
           };
-          const slides = homeBanners.length > 0 ? homeBanners : [defaultBanner];
+          // Upsell: o banner da Home comporta no máx. 2 anunciantes pagantes
+          // (/home-banners limita a 2). Enquanto as vagas não estão todas
+          // vendidas, a arte de venda "Anuncie aqui" entra na rotação ocupando
+          // a vaga restante (0 pagos → só a arte; 1 pago → pago + arte; 2 pagos
+          // → sem arte). Mesma lógica das vagas de destaque da zona.
+          const slides = homeBanners.length >= 2 ? homeBanners : [...homeBanners, defaultBanner];
           const current = slides[Math.min(bannerIdx, slides.length - 1)];
           type SlideLike = { id: number; linkUrl: string | null; businessId: number | null };
           const targetFor = (b: SlideLike) => b.linkUrl || (b.businessId ? `/negocio/${b.businessId}` : "/anuncie");
@@ -441,7 +450,7 @@ export default function Landing() {
                 {slides.map((banner, idx) => (
                   <img
                     key={banner.id}
-                    src={imgSrc(banner.imageUrl)}
+                    src={banner.id === 0 ? banner.imageUrl : imgSrc(banner.imageUrl)}
                     alt={banner.title || ""}
                     className={`w-full h-[220px] md:h-[280px] object-cover transition-opacity duration-700 ${idx === bannerIdx % slides.length ? "opacity-100" : "opacity-0 absolute inset-0"}`}
                     loading="lazy"
@@ -484,7 +493,7 @@ export default function Landing() {
                     ))}
                   </div>
                 )}
-                {homeBanners.length > 0 && (
+                {current.id !== 0 && (
                   <div className="absolute top-3 right-3 text-[10px] text-white/80 font-medium bg-black/40 px-2 py-0.5 rounded-full">
                     Publicidade
                   </div>
