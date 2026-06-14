@@ -57,6 +57,7 @@ export function Layout({ children }: LayoutProps) {
   const navLinks = [
     { href: "/", label: "Início" },
     { href: "/busca", label: "Busca" },
+    { href: "/sobre", label: "Sobre Nós" },
     { href: "/anuncie", label: "Anuncie" },
   ];
 
@@ -222,6 +223,7 @@ export function Layout({ children }: LayoutProps) {
                 <ul className="space-y-2">
                   <li><Link href="/categorias" className="text-white/70 hover:text-white transition-colors">Categorias</Link></li>
                   <li><Link href="/busca" className="text-white/70 hover:text-white transition-colors">Busca</Link></li>
+                  <li><Link href="/sobre" className="text-white/70 hover:text-white transition-colors">Sobre Nós</Link></li>
                 </ul>
               </div>
               <div>

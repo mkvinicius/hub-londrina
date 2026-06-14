@@ -15,6 +15,7 @@ import boostsRouter from "./boosts";
 import vitrineRouter from "./vitrine";
 import legalRouter from "./legal";
 import contactRouter from "./contact";
+import aboutRouter from "./about";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(storageRouter);
 router.use(documentsRouter);
 router.use(legalRouter);
 router.use(contactRouter);
+router.use(aboutRouter);
 
 export default router;

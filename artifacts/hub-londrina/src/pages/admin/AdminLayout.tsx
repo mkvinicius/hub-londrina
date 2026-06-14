@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare, Award, Scale, Mail, HelpCircle } from "lucide-react";
+import { LayoutDashboard, Store, Tag, Users, Zap, ImageIcon, ClipboardList, LogOut, Menu, X, CreditCard, Info, MapPin, FileText, Star, ScrollText, MessageSquare, Award, Scale, Mail, HelpCircle, BookOpen } from "lucide-react";
 import { clearToken, getStats } from "@/lib/admin-api";
 import { useEffect, useState } from "react";
 
@@ -26,6 +26,7 @@ const links: Array<{
   { href: "/admin/suporte", label: "Suporte", icon: MessageSquare },
   { href: "/admin/contato", label: "Contato", icon: Mail, badgeKey: "newContactMessages" },
   { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
+  { href: "/admin/sobre-nos", label: "Sobre Nós", icon: BookOpen },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/admin/legal", label: "Config Legal", icon: Scale },
 ];
