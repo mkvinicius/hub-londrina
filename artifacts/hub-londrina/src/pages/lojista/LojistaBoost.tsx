@@ -470,16 +470,17 @@ export default function LojistaBoost() {
                     </button>
                   ) : (
                     <div>
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-                        Todas as vagas estao ocupadas. Ao comprar, voce entra na fila e sera ativado automaticamente quando uma vaga abrir.
-                      </p>
                       <button
-                        onClick={() => handleBuyBoost("zone")}
-                        disabled={checkoutLoading === "zone"}
-                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl disabled:opacity-60 ${BTN_ELEVATION}`}
+                        type="button"
+                        disabled
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed opacity-70"
                       >
-                        {checkoutLoading === "zone" ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Clock className="w-4 h-4" />Entrar na lista de espera</>}
+                        <Clock className="w-4 h-4" />
+                        Vagas esgotadas este mês
                       </button>
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                        Todas as {z.total} vagas estão ocupadas. Aguarde uma vaga abrir para comprar o destaque da sua zona.
+                      </p>
                     </div>
                   )}
                 </div>

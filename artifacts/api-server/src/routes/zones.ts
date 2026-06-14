@@ -2,9 +2,10 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { validatePagination } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, categoriesTable, searchBoostsTable, zonesTable } from "@workspace/db/schema";
-import { eq, and, ne, desc, asc, sql, or } from "drizzle-orm";
+import { eq, and, ne, desc, asc, sql, or, inArray } from "drizzle-orm";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
 import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
+import { ZONE_SLOTS } from "../lib/boost-locks";
 
 const router: IRouter = Router();
 
@@ -93,9 +94,11 @@ function zoneCondition(zone: ZoneSlug) {
 }
 
 async function getActiveBoostMap(): Promise<Map<number, { position: number | null; boostType: string }>> {
+  // Apenas zone boosts aparecem como "Patrocinado" na listagem da zona.
   const boosts = await db.select().from(searchBoostsTable).where(
     and(
       eq(searchBoostsTable.status, "active"),
+      eq(searchBoostsTable.boostContext as any, "zone"),
       or(
         sql`${searchBoostsTable.expiresAt} IS NULL`,
         sql`${searchBoostsTable.expiresAt} > NOW()`
@@ -226,6 +229,59 @@ router.get("/zones/:zone/businesses", validatePagination, async (req: Request, r
   } catch (err) {
     console.error("[zones/businesses error]", err);
     res.status(500).json({ error: "Erro ao buscar negócios da zona" });
+  }
+});
+
+// ─── ZONE FEATURED (zone boosts públicos para a página da zona) ───────────────
+// Retorna até ZONE_SLOTS negócios com boost de zona ativo para a zona solicitada.
+// Usado pela página /zona/:slug para exibir a seção "Destaque para você".
+router.get("/zones/:zone/featured", async (req: Request, res: Response) => {
+  const zone = req.params.zone as ZoneSlug;
+  if (!VALID_ZONES.includes(zone)) {
+    res.status(400).json({ error: "Zona inválida.", code: "INVALID_ZONE" });
+    return;
+  }
+
+  try {
+    const boosts = await db
+      .select({ businessId: searchBoostsTable.businessId })
+      .from(searchBoostsTable)
+      .where(
+        and(
+          eq(searchBoostsTable.boostContext as any, "zone"),
+          eq(searchBoostsTable.status, "active"),
+          eq(searchBoostsTable.zone as any, zone),
+          or(
+            sql`${searchBoostsTable.expiresAt} IS NULL`,
+            sql`${searchBoostsTable.expiresAt} > NOW()`
+          )
+        )
+      )
+      .orderBy(sql`${searchBoostsTable.position} ASC NULLS LAST`)
+      .limit(ZONE_SLOTS);
+
+    if (!boosts.length) return res.json({ data: [] });
+
+    const ids = boosts.map(b => b.businessId);
+    const businesses = await db
+      .select()
+      .from(businessesTable)
+      .where(and(
+        inArray(businessesTable.id, ids),
+        eq(businessesTable.status, "active"),
+        ne(businessesTable.isVisible, false),
+        NOT_DOCUMENTATION_EXPIRED,
+      ));
+
+    const ordered = ids
+      .map(id => businesses.find(b => b.id === id))
+      .filter((b): b is NonNullable<typeof b> => Boolean(b))
+      .map(b => stripPrivateBusinessFields(b));
+
+    res.json({ data: ordered });
+  } catch (err) {
+    console.error("[zones/featured error]", err);
+    res.status(500).json({ error: "Erro ao buscar destaques da zona" });
   }
 });
 

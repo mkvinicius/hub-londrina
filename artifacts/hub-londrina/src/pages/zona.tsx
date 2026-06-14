@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ArrowRight, MapPin } from "lucide-react";
+import { Search, ArrowRight, MapPin, Star, Zap } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { imgSrc } from "@/lib/utils";
 import { BusinessCard } from "@/components/BusinessCard";
@@ -71,8 +71,15 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
     staleTime: 30_000,
   });
 
+  const { data: featuredData } = useQuery<{ data: unknown[] }>({
+    queryKey: [`/api/zones/${zone}/featured`],
+    queryFn: () => fetch(`${BASE}/api/zones/${zone}/featured`).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
   const businesses = (bizData?.data ?? []) as any[];
   const topRated = (stats?.topRated ?? []) as any[];
+  const zoneFeatured = (featuredData?.data ?? []) as any[];
   const byCategory = stats?.byCategory ?? [];
   const total = bizData?.total ?? 0;
   const hasMore = businesses.length < total;
@@ -141,7 +148,42 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
         </div>
       </section>
 
-      {/* SEÇÃO 2 — Destaques da zona */}
+      {/* SEÇÃO 2 — Destaques pagos da zona (zone boost buyers) */}
+      {zoneFeatured.length > 0 && (
+        <section className="py-12 bg-white">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
+                style={{ background: cfg.color + "18", borderColor: cfg.color + "40", color: cfg.color }}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span className="text-xs font-black uppercase tracking-wider">Destaque para você</span>
+              </div>
+              <span className="text-xs text-gray-400">
+                {zoneFeatured.length} negócio{zoneFeatured.length !== 1 ? "s" : ""} em destaque
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {zoneFeatured.map((biz: any) => (
+                <div key={biz.id} className="relative">
+                  <div
+                    className="absolute bottom-[180px] sm:bottom-[200px] right-3 z-10 flex items-center gap-1 text-white text-[10px] font-black px-2 py-1 rounded-full shadow"
+                    style={{ backgroundColor: cfg.color }}
+                  >
+                    <Star className="h-2.5 w-2.5 fill-white" />
+                    Patrocinado
+                  </div>
+                  <BusinessCard business={biz} />
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 border-t border-gray-100" />
+          </div>
+        </section>
+      )}
+
+      {/* SEÇÃO 3 — Os mais bem avaliados (orgânico) */}
       {topRated.length > 0 && (
         <section className="py-14 bg-white">
           <div className="max-w-7xl mx-auto px-4 md:px-8">

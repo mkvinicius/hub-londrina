@@ -331,7 +331,8 @@ POST /api/businesses/:id/click-whatsapp  Incrementa whatsappClicks
 GET  /api/regions                 Lista de regiões distintas
 GET  /api/stats                   totalBusinesses, totalCategories, totalZones (SSR)
 GET  /api/autocomplete?q=         Patrocinados (boostContext=search) + sugestões
-GET  /api/home-featured           Negócios em destaque na home (homeFeatured=true)
+GET  /api/home-featured           Negócios em destaque na home (boostContext='home_search')
+GET  /api/zones/:slug/featured    Até 4 negócios da zona com boost ativo (boostContext='zone') — seção "Destaque para você" em /zona/:slug
 GET  /api/categories/:slug/featured  Até 3 negócios da categoria com boost ativo (boostContext='category')
 GET  /api/home-banners            Banners ativos da home
 ```
@@ -669,7 +670,7 @@ Critério de desempate: rating DESC → completeness score → clicks DESC
 - **Vagas Mensais (Boost de Categoria)** (`boostContext=search`, `boostType=monthly`): 5 posições por categoria no autocomplete de busca. Preço fixo (1ª = R$149 → 5ª = R$59). Exclusivo Premium. Compra direta no cartão.
 - **Boost Avulso** (`boostContext=search`, `boostType=avulso`): 7/15/30 dias (R$29/R$49/R$79). Lojista solicita via WhatsApp e admin adiciona manualmente em `/admin/impulsionamento`.
 - **Destaque Home + Busca** (`boostContext=home_search`): 6 slots globais com 3 posições numeradas. Aparece no topo da home E em todos os resultados de busca. Exclusivo Premium. Cobrança mensal recorrente. Price ID: `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`.
-- **Destaque de Zona** (`boostContext=zone`): destaque na página da zona por 30 dias (R$79). Máximo 6 vagas por zona. Fila de espera automática. Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`.
+- **Destaque de Zona** (`boostContext=zone`): destaque na página da zona por 30 dias (R$79). Máximo **4 vagas** por zona. Quando esgotado, botão fica desabilitado (sem fila de espera). Requer plano Destaque+. Price ID: `STRIPE_ZONE_BOOST_PRICE_ID`. Os compradores aparecem na seção "Destaque para você" na página `/zona/:slug` — **não** em `/busca`.
 - **Banner na Home** (`home_banners`): R$299 **compra única** (`mode:payment`, `price_data` inline — NÃO é assinatura), ativo **30 dias a contar do pagamento** e depois **expira** (sem renovação; para continuar, compra de novo). Máx. 2 lojistas simultâneos. Exclusivo Premium. Sem fila de aprovação desde a Task #56 — após pagamento o lojista faz upload da imagem e o Sharp processa (1200×280) e ativa automaticamente. Gate de plano (`PLAN_REQUIRED`) é checado ANTES do estado do negócio (`BUSINESS_INACTIVE`) em `POST /api/lojista/home-banner/checkout`. As dimensões aceitas (1200×280 · 4:1 · JPG/PNG/WebP · máx 10 MB) aparecem ANTES da compra (Task #64, fonte única `BANNER_SPECS_LINE`).
 - **Boost Direto Admin** (`businesses.boostedUntil`): admin define período sem cobrança (cortesia/promoção interna). Sobrescreve `boostedUntil` direto no negócio.
 

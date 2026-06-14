@@ -11,7 +11,7 @@ const DURATION_OPTIONS = [
   { days: 30, label: "30 dias", price: 49 },
 ];
 
-const MAX_SLOTS = 6;
+const MAX_SLOTS = 4;
 
 interface Zone {
   id: number;

@@ -87,9 +87,12 @@ function unaccentLike(column: any, pattern: string) {
 }
 
 async function getActiveBoosts(): Promise<Map<number, { position: number | null; boostType: string; monthlyBid: string }>> {
+  // Zone boosts pertencem à página da zona, NÃO à busca geral.
+  // Apenas home_search e category boosts aparecem como "Patrocinado" em /busca.
   const boosts = await db.select().from(searchBoostsTable).where(
     and(
       eq(searchBoostsTable.status, "active"),
+      ne(searchBoostsTable.boostContext as any, "zone"),
       or(
         sql`${searchBoostsTable.expiresAt} IS NULL`,
         sql`${searchBoostsTable.expiresAt} > NOW()`

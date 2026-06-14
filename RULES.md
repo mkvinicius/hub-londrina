@@ -201,7 +201,7 @@ O autoscale só considera o deploy saudável quando o processo abre sua porta (`
 
 ### R15 · Capacidade de vagas dos boosts por contexto (fonte única)
 As constantes de capacidade vivem em `api-server/src/lib/boost-locks.ts` e são a **fonte única** usada por disponibilidade (`boosts.ts`), checkout/sync e webhook Stripe (`stripe.ts`), job de expiração/waitlist (`boost-expiration.ts`) **e criação avulsa pelo admin (`admin.ts` → `/admin/boosts-extra`)**:
-- `ZONE_SLOTS = 3` — vagas ativas de "Destaque de Zona" **por zona** (Task #66, reduzido de 6). 4º+ comprador entra na `waitlist` e é promovido quando uma vaga abre.
+- `ZONE_SLOTS = 4` — vagas ativas de "Destaque de Zona" **por zona** (1 linha cheia no grid `lg:grid-cols-4` da página da zona). Quando todas as 4 vagas estão ocupadas, o botão no painel lojista fica **desabilitado** com mensagem "aguarde uma vaga" (sem fila de espera).
 - `HOME_SEARCH_SLOTS = 6` — contador **legado** do `home_search` antigo. O modelo vigente é por **posição numerada** (3 vagas: #1 R$249, #2 R$179, #3 R$129) via `/lojista/boosts/home-search-checkout`; o `/boosts/checkout` genérico só aceita `zone`.
 
 **Proibido** hardcodar `6` (ou qualquer número) no caminho da zona — sempre importar `ZONE_SLOTS`. Reduzir a zona **não pode** afetar o teto do home_search nem de nenhum outro contexto (são constantes separadas de propósito).

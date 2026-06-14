@@ -11,9 +11,9 @@ const ZONE_INDEX: Record<string, number> = {
 };
 
 // Capacidade de vagas ativas por contexto. ZONE_SLOTS é dedicada à zona
-// (reduzida de 6 para 3 — Task #66) e desacoplada do contador legado de
-// home_search, para que reduzir a zona não afete nenhum outro contexto.
-export const ZONE_SLOTS = 3;
+// (ajustada para 4 — 1 linha cheia no grid lg:grid-cols-4 da página da zona)
+// e desacoplada do contador legado de home_search.
+export const ZONE_SLOTS = 4;
 export const HOME_SEARCH_SLOTS = 6;
 
 function pack(ns: number, slot: number): number {
