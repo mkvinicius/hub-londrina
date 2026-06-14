@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ArrowRight, MapPin, Star, Zap, Megaphone } from "lucide-react";
+import { ArrowRight, MapPin, Star, Zap, Megaphone } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { imgSrc } from "@/lib/utils";
 import { BusinessCard } from "@/components/BusinessCard";
 import { getCategoryIcon } from "@/lib/icons";
 import { zoneConfig, type ZoneSlug } from "@/lib/zones";
+import { SearchBar } from "@/components/SearchBar";
 
 interface ZoneApiData {
   id: number;
@@ -163,26 +164,18 @@ export default function ZonePage({ zone }: { zone: ZoneSlug }) {
             {stats ? `${stats.totalBusinesses} negócios verificados nesta região` : cfg.description}
           </p>
 
-          {/* Barra de busca */}
-          <div className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
-            <div className="flex flex-1 items-center px-4 py-3 gap-3 rounded-xl bg-white shadow-sm border border-gray-100">
-              <Search className="h-4 w-4 flex-shrink-0" style={{ color: cfg.color }} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSearch()}
-                placeholder={`Buscar na ${cfg.label}...`}
-                className="flex-1 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
-              />
-            </div>
-            <button
-              onClick={handleSearch}
-              className="px-6 py-3 rounded-xl text-white font-bold text-sm flex-shrink-0 transition-opacity hover:opacity-90"
-              style={{ backgroundColor: cfg.color }}
-            >
-              Buscar
-            </button>
+          {/* Barra de busca em modo zona (Task #119): autocomplete restrito à zona,
+              patrocinados = Boost de Zona da região + upsell quando não há nenhum. */}
+          <div className="max-w-xl mx-auto">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSearch={handleSearch}
+              variant="page"
+              placeholder={`Buscar na ${cfg.label}...`}
+              zone={zone}
+              zoneLabel={cfg.label}
+            />
           </div>
         </div>
       </section>

@@ -10,6 +10,7 @@ import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields
 import { sanitizeBusiness } from "../lib/sanitize";
 import { NOT_DOCUMENTATION_EXPIRED } from "../lib/documentation-state";
 import { buildMatchCondition, buildRelevanceScore } from "../lib/search-engine";
+import { ZONE_SLOTS } from "../lib/boost-locks";
 import { z } from "zod";
 import {
   ListBusinessesQueryParams,
@@ -563,9 +564,20 @@ router.get("/stats/public", async (_req: Request, res: Response) => {
 // (name/description/categorySlug/address/region/tags) + variantes + ranking de
 // relevância (nome exato > contém > categoria > tags > descrição). Antes o
 // autocomplete buscava só name+categorySlug, divergindo dos resultados da /busca.
+const AUTOCOMPLETE_ZONES = ["centro", "norte", "sul", "leste", "oeste"];
+
 router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Response) => {
   const q = ((req.query.q as string) || "").trim();
   if (!q || q.length < 2) return res.json({ sponsored: [], suggestions: [] });
+
+  // Zona opcional (Task #119): quando presente e válida, o autocomplete fica
+  // restrito à zona e a seção "Patrocinados" passa a ser os compradores do
+  // Boost de Zona daquela região (mesma fonte do "Destaque para você" em
+  // /api/zones/:zone/featured), em vez dos boosts globais home_search/categoria.
+  // Regra "geográfico puro": o patrocinado da zona aparece SEMPRE que o dropdown
+  // abre, independente de o termo casar com ele — ele pagou pela região.
+  const zoneParam = ((req.query.zone as string) || "").trim().toLowerCase();
+  const zone = AUTOCOMPLETE_ZONES.includes(zoneParam) ? zoneParam : null;
 
   // qNorm normaliza acentos para a checagem de boost de categoria abaixo.
   const qNorm = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -576,12 +588,67 @@ router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Respo
     eq(businessesTable.status, "active"),
     eq(businessesTable.isVisible, true),
     NOT_DOCUMENTATION_EXPIRED,
+    ...(zone ? [eq(businessesTable.zone, zone)] : []),
   );
 
   const match = buildMatchCondition(q);
   const relevanceScore = buildRelevanceScore(q);
   const whereClause = match ? and(activeVisible, match) : activeVisible;
 
+  // ─── Caminho ZONA (Task #119) ───────────────────────────────────────────────
+  if (zone) {
+    const [organicMatches, zoneBoosts] = await Promise.all([
+      db.select({ id: businessesTable.id, name: businessesTable.name, categorySlug: businessesTable.categorySlug })
+        .from(businessesTable)
+        .where(whereClause)
+        .orderBy(desc(relevanceScore), desc(businessesTable.rating))
+        .limit(12),
+      // Boost de Zona ativo da região (mesma lógica de /zones/:zone/featured),
+      // ordenado pela posição comprada e limitado ao teto de vagas (ZONE_SLOTS).
+      db.select({ businessId: searchBoostsTable.businessId, position: searchBoostsTable.position })
+        .from(searchBoostsTable)
+        .where(
+          and(
+            eq(searchBoostsTable.boostContext as any, "zone"),
+            eq(searchBoostsTable.status, "active"),
+            eq(searchBoostsTable.zone as any, zone),
+            or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > NOW()`)
+          )
+        )
+        .orderBy(sql`${searchBoostsTable.position} ASC NULLS LAST`)
+        .limit(ZONE_SLOTS),
+    ]);
+
+    const sponsoredZone: { id: number; name: string; categorySlug: string }[] = [];
+    const sponsoredSet = new Set<number>();
+    if (zoneBoosts.length) {
+      const ids = zoneBoosts.map(b => b.businessId);
+      // Reaplica os filtros de visibilidade/documentação (R2) aos negócios com boost.
+      const bizRows = await db
+        .select({ id: businessesTable.id, name: businessesTable.name, categorySlug: businessesTable.categorySlug })
+        .from(businessesTable)
+        .where(and(
+          inArray(businessesTable.id, ids),
+          eq(businessesTable.status, "active"),
+          eq(businessesTable.isVisible, true),
+          NOT_DOCUMENTATION_EXPIRED,
+          eq(businessesTable.zone, zone),
+        ));
+      const byId = new Map(bizRows.map(b => [b.id, b]));
+      for (const b of zoneBoosts) {
+        const m = byId.get(b.businessId);
+        if (m && !sponsoredSet.has(m.id)) {
+          sponsoredZone.push(m);
+          sponsoredSet.add(m.id);
+        }
+      }
+    }
+
+    const suggestions = organicMatches.filter(b => !sponsoredSet.has(b.id)).slice(0, 6);
+    return res.json({ sponsored: sponsoredZone, suggestions });
+  }
+
+  // ─── Caminho GLOBAL (Home / Busca) — comportamento original ──────────────────
   const [allMatches, homeSearchBoosts, categoryBoosts] = await Promise.all([
     db.select({ id: businessesTable.id, name: businessesTable.name, categorySlug: businessesTable.categorySlug })
       .from(businessesTable)

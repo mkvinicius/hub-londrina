@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Search, Zap, Loader2, X, ChevronDown } from "lucide-react";
+import { Search, Zap, Loader2, X, ChevronDown, Megaphone } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BrandButton } from "@/components/BrandButton";
 import { getCategoryIcon } from "@/lib/icons";
@@ -27,6 +27,12 @@ interface SearchBarProps {
   /** 'hero' = sem borda, z-40 (para hero do home); 'page' = com borda (para /busca) */
   variant?: "hero" | "page";
   placeholder?: string;
+  /** Modo zona (Task #119): quando definido, o autocomplete fica restrito à zona,
+   *  os "Patrocinados" passam a ser os compradores do Boost de Zona daquela região,
+   *  e — quando não há nenhum — aparece uma linha de upsell para /anuncie. */
+  zone?: string;
+  /** Rótulo de exibição da zona (ex.: "Zona Sul"), usado na linha de upsell. */
+  zoneLabel?: string;
 }
 
 export function SearchBar({
@@ -40,8 +46,11 @@ export function SearchBar({
   dynamicRegions = ["Centro", "Zona Norte", "Zona Sul", "Zona Leste", "Zona Oeste"],
   variant = "page",
   placeholder = "Restaurante, salão, mecânica...",
+  zone,
+  zoneLabel,
 }: SearchBarProps) {
   const [, navigate] = useLocation();
+  const zoneMode = Boolean(zone);
   const [acSponsored, setAcSponsored] = useState<AcItem[]>([]);
   const [acSuggestions, setAcSuggestions] = useState<AcItem[]>([]);
   const [acOpen, setAcOpen] = useState(false);
@@ -60,18 +69,21 @@ export function SearchBar({
     acTimer.current = setTimeout(async () => {
       setAcLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(q)}`);
+        const zoneQs = zone ? `&zone=${encodeURIComponent(zone)}` : "";
+        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(q)}${zoneQs}`);
         const data = await res.json();
         setAcSponsored(data.sponsored || []);
         setAcSuggestions(data.suggestions || []);
-        setAcOpen((data.sponsored?.length || data.suggestions?.length) > 0);
+        // Em modo zona o dropdown abre mesmo sem patrocinados/sugestões, pois
+        // mostra a linha de upsell "Anuncie sua marca nesta região".
+        setAcOpen(Boolean(zone) || (data.sponsored?.length || data.suggestions?.length) > 0);
       } catch {
         setAcOpen(false);
       } finally {
         setAcLoading(false);
       }
     }, 250);
-  }, []);
+  }, [zone]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -103,8 +115,16 @@ export function SearchBar({
     if (onSelectSuggestion) {
       onSelectSuggestion(item.name);
     } else {
-      navigate(`/busca?${new URLSearchParams({ q: item.name }).toString()}`);
+      // Em modo zona, preserva o escopo da zona na navegação para /busca.
+      const params = new URLSearchParams({ q: item.name });
+      if (zone) params.set("zona", zone);
+      navigate(`/busca?${params.toString()}`);
     }
+  }
+
+  function handleUpsellClick() {
+    setAcOpen(false);
+    navigate("/anuncie");
   }
 
   const wrapperClass = variant === "hero"
@@ -114,6 +134,11 @@ export function SearchBar({
   const dropdownPositionClass = variant === "hero"
     ? "absolute left-1.5 right-1.5 top-full mt-2 bg-white rounded-2xl border border-gray-100 overflow-hidden text-left"
     : "absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-2xl border border-gray-100 overflow-hidden";
+
+  // Upsell aparece no lugar dos "Patrocinados" quando a zona não tem nenhum
+  // Boost de Zona vendido. hasTopSection controla divisor/rótulo das sugestões.
+  const showUpsell = zoneMode && acSponsored.length === 0;
+  const hasTopSection = acSponsored.length > 0 || showUpsell;
 
   return (
     <div ref={acRef} className="relative">
@@ -130,7 +155,7 @@ export function SearchBar({
             onChange={(e) => handleInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onFocus={() => {
-              if (value.length >= 2 && (acSponsored.length || acSuggestions.length)) setAcOpen(true);
+              if (value.length >= 2 && (zoneMode || acSponsored.length || acSuggestions.length)) setAcOpen(true);
             }}
             placeholder={placeholder}
             className="flex-1 text-base text-gray-700 placeholder:text-gray-400 outline-none bg-transparent font-medium"
@@ -177,11 +202,34 @@ export function SearchBar({
       </div>
 
       {/* Dropdown de autocomplete */}
-      {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0) && (
+      {acOpen && (acSponsored.length > 0 || acSuggestions.length > 0 || showUpsell) && (
         <div
           className={dropdownPositionClass}
           style={{ boxShadow: "var(--shadow-dropdown)", zIndex: 50 }}
         >
+          {showUpsell && (
+            <button
+              type="button"
+              onMouseDown={handleUpsellClick}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-50 transition-colors text-left"
+            >
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
+                <Megaphone className="h-4 w-4 text-amber-600" />
+              </span>
+              <span className="flex-1">
+                <span className="block text-sm font-bold text-gray-800">
+                  Anuncie sua marca {zoneLabel ? `na ${zoneLabel}` : "nesta região"}
+                </span>
+                <span className="block text-xs text-gray-500">
+                  Seja o destaque patrocinado quando alguém buscar aqui
+                </span>
+              </span>
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                Anunciar
+              </span>
+            </button>
+          )}
+
           {acSponsored.length > 0 && (
             <>
               <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
@@ -208,13 +256,13 @@ export function SearchBar({
             </>
           )}
 
-          {acSponsored.length > 0 && acSuggestions.length > 0 && (
+          {hasTopSection && acSuggestions.length > 0 && (
             <div className="mx-4 border-t border-gray-100" />
           )}
 
           {acSuggestions.length > 0 && (
             <>
-              {acSponsored.length > 0 && (
+              {hasTopSection && (
                 <div className="px-4 pt-2 pb-1">
                   <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Sugestões</span>
                 </div>

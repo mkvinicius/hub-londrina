@@ -330,10 +330,19 @@ POST /api/businesses/:id/review   Enviar avaliação (CSRF + rate limit)
 POST /api/businesses/:id/click-whatsapp  Incrementa whatsappClicks
 GET  /api/regions                 Lista de regiões distintas
 GET  /api/stats                   totalBusinesses, totalCategories, totalZones (SSR)
-GET  /api/autocomplete?q=         Patrocinados (boostContext=search) + sugestões
+GET  /api/autocomplete?q=[&zone=] Patrocinados + sugestões
      Sugestões usam o MESMO motor da busca (lib/search-engine.ts): 6 campos
      (name/description/categorySlug/address/region/tags) + variantes + score
      de relevância; exclui lojas com documentationStatus='expired' (R2)
+     • SEM zone (Home/Busca): sponsored = boostContext=search (home_search por
+       posição ≤3 + boost de categoria quando a query bate o categorySlug).
+     • COM zone válida (centro/norte/sul/leste/oeste): autocomplete restrito à
+       zona; sponsored = compradores do Boost de Zona ativo daquela região
+       (boostContext='zone', mesma fonte de /zones/:zone/featured, ordenado por
+       position, limit ZONE_SLOTS). "Geográfico puro": o patrocinado aparece
+       SEMPRE que há ≥2 chars, independente de casar o termo (ele pagou pela
+       região). Quando a zona não tem Boost de Zona vendido, sponsored=[] e o
+       front injeta a linha de upsell "Anuncie sua marca nesta região" → /anuncie.
 GET  /api/home-featured           Negócios em destaque na home (boostContext='home_search')
 GET  /api/zones/:slug/featured    Até 4 negócios da zona com boost ativo (boostContext='zone') — seção "Destaque para você" em /zona/:slug
 GET  /api/categories/:slug/featured  Até 3 negócios da categoria com boost ativo (boostContext='category')
@@ -833,6 +842,11 @@ expired   → Prazo vencido, loja offline e planFrozen=true
 ### Autocomplete Patrocinado
 - `GET /api/autocomplete?q=` retorna `sponsored` (boostContext=search, status=active) + `suggestions`
 - Patrocinados aparecem em destaque com badge "Patrocinado" e ícone Zap
+- **Modo zona** (`&zone=<slug>`, usado pela busca na página `/zona/:slug`): autocomplete
+  restrito à zona e `sponsored` = compradores do Boost de Zona ativo daquela região
+  (geográfico puro — aparece independente do termo). Sem Boost de Zona vendido, o front
+  (`SearchBar.tsx`, props `zone`/`zoneLabel`) mostra a linha de upsell → `/anuncie`.
+  Só apresentação/leitura: não toca capacidade/locks/preço/checkout (ZONE_SLOTS é fonte única, R15).
 
 ### Plano Free — Expiração Automática
 - Após 30 dias do 1º login com `planType=free` → `isVisible=false` automaticamente
