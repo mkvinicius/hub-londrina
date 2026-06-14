@@ -18,3 +18,4 @@ export * from "./legal-config";
 export * from "./contact-messages";
 export * from "./faqs";
 export * from "./about-page";
+export * from "./search-analytics";

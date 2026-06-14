@@ -142,6 +142,11 @@ export default function Busca() {
       .catch(() => {});
   }, []);
 
+  // Fuzzy fallback: quando o backend retornou 0 resultados exatos mas encontrou
+  // sugestões por trigramas, exibe banner amarelo com link clicável.
+  const fuzzyUsed = !nearbyMode && (searchData as any)?.fuzzyUsed === true;
+  const normalizedQuery: string | undefined = (searchData as any)?.normalizedQuery;
+
   const results: Business[] = nearbyMode && nearbyResults !== null
     ? nearbyResults
     : searchData?.data ?? [];
@@ -346,6 +351,23 @@ export default function Busca() {
             <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 flex items-center gap-2">
               <Navigation className="h-4 w-4 flex-shrink-0" />
               {nearbyError}
+            </div>
+          )}
+
+          {/* Banner fuzzy — aparece quando não houve resultado exato mas o backend encontrou
+              sugestões por similaridade de trigramas (erro de digitação, acento errado, etc.) */}
+          {fuzzyUsed && normalizedQuery && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3 flex-wrap">
+              <span>
+                Nenhum resultado exato. Mostrando resultados similares a{" "}
+                <strong>"{query}"</strong>.
+              </span>
+              <button
+                onClick={() => handleSelectSuggestion(normalizedQuery)}
+                className="text-amber-700 underline font-bold whitespace-nowrap hover:text-amber-900"
+              >
+                Você quis dizer "{normalizedQuery}"?
+              </button>
             </div>
           )}
 

@@ -558,28 +558,39 @@ router.get("/stats/public", async (_req: Request, res: Response) => {
 });
 
 // ─── AUTOCOMPLETE ────────────────────────────────────────────────────────────
+// PLAIN/ACCENTED são os mesmos usados em search.ts para garantir consistência
+// no tratamento de acentos entre autocomplete e busca completa.
+const AUTOCOMPLETE_ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
+const AUTOCOMPLETE_PLAIN    = "aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
+
 router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Response) => {
   const q = ((req.query.q as string) || "").trim();
   if (!q || q.length < 2) return res.json({ sponsored: [], suggestions: [] });
 
-  const pattern = `%${q}%`;
+  // Usa translate() como o motor de busca principal para consistência de acentos.
+  // Antes usava ilike nativo o que causava divergência quando o usuário digitava
+  // variantes de acento (ex: "cafe" vs "café").
+  const qNorm = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const pattern = `%${qNorm}%`;
   const activeVisible = and(
     eq(businessesTable.status, "active"),
     eq(businessesTable.isVisible, true),
   );
 
-  const [allMatches, sponsoredBoosts] = await Promise.all([
+  const nameMatch = sql`translate(lower(${businessesTable.name}), ${AUTOCOMPLETE_ACCENTED}, ${AUTOCOMPLETE_PLAIN}) like ${pattern}`;
+  const catMatch  = sql`translate(lower(${businessesTable.categorySlug}), ${AUTOCOMPLETE_ACCENTED}, ${AUTOCOMPLETE_PLAIN}) like ${pattern}`;
+
+  const [allMatches, homeSearchBoosts, categoryBoosts] = await Promise.all([
     db.select({ id: businessesTable.id, name: businessesTable.name, categorySlug: businessesTable.categorySlug })
       .from(businessesTable)
-      .where(and(activeVisible, or(ilike(businessesTable.name, pattern), ilike(businessesTable.categorySlug, pattern))!))
+      .where(and(activeVisible, or(nameMatch, catMatch)!))
       .orderBy(desc(businessesTable.rating))
       .limit(12),
-    // Boost home_search ordenado por posição numerada (#1 → #2 → #3 → legacy NULL).
-    // Modelo novo: 3 vagas numeradas com preços decrescentes. Modelo legacy
-    // (position=NULL) ainda aparece, mas DEPOIS dos numerados.
+    // Boosts home_search — ordenados por posição numerada (#1 → #2 → #3 → legacy NULL)
     db.select({
       businessId: searchBoostsTable.businessId,
       position: searchBoostsTable.position,
+      boostContext: searchBoostsTable.boostContext,
     })
       .from(searchBoostsTable)
       .where(
@@ -590,17 +601,59 @@ router.get("/autocomplete", autocompleteLimiter, async (req: Request, res: Respo
         )
       )
       .orderBy(sql`${searchBoostsTable.position} ASC NULLS LAST`),
+    // Boosts de categoria — negócios cujo categorySlug tem boost ativo.
+    // Aparecem como patrocinados quando a query coincide com a categoria.
+    db.select({
+      businessId: searchBoostsTable.businessId,
+      position: searchBoostsTable.position,
+      boostContext: searchBoostsTable.boostContext,
+    })
+      .from(searchBoostsTable)
+      .where(
+        and(
+          eq(searchBoostsTable.boostContext as any, "category"),
+          eq(searchBoostsTable.status, "active"),
+          or(sql`${searchBoostsTable.expiresAt} IS NULL`, sql`${searchBoostsTable.expiresAt} > NOW()`)
+        )
+      ),
   ]);
 
-  // Preserva a ordem por posição: monta a lista de sponsored seguindo a ordem dos boosts
   const matchById = new Map(allMatches.map(b => [b.id, b]));
+
+  // Conjunto de IDs que têm boost de categoria e correspondem à query atual
+  const categoryBoostedIds = new Set(
+    categoryBoosts
+      .filter(b => {
+        const biz = matchById.get(b.businessId);
+        return biz !== undefined; // negócio está nos resultados da query atual
+      })
+      .map(b => b.businessId)
+  );
+
+  // Monta sponsored: home_search por posição primeiro, depois category boosts
   const sponsored: typeof allMatches = [];
-  for (const b of sponsoredBoosts) {
+  const sponsoredSet = new Set<number>();
+
+  for (const b of homeSearchBoosts) {
     const m = matchById.get(b.businessId);
-    if (m && !sponsored.find(s => s.id === m.id)) sponsored.push(m);
+    if (m && !sponsoredSet.has(m.id)) {
+      sponsored.push(m);
+      sponsoredSet.add(m.id);
+    }
     if (sponsored.length >= 3) break;
   }
-  const sponsoredSet = new Set(sponsored.map(b => b.id));
+
+  // Category boosts que não foram adicionados ainda (até 3 total)
+  if (sponsored.length < 3) {
+    for (const m of allMatches) {
+      if (!sponsoredSet.has(m.id) && categoryBoostedIds.has(m.id)) {
+        sponsored.push(m);
+        sponsoredSet.add(m.id);
+        if (sponsored.length >= 3) break;
+      }
+    }
+  }
+
   const suggestions = allMatches.filter(b => !sponsoredSet.has(b.id)).slice(0, 6);
 
   res.json({ sponsored, suggestions });

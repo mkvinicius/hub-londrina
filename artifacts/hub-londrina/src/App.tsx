@@ -31,6 +31,7 @@ import AdminLegalConfig from "@/pages/admin/AdminLegalConfig";
 import AdminContato from "@/pages/admin/AdminContato";
 import AdminFaqPage from "@/pages/admin/AdminFaq";
 import AdminSobreNos from "@/pages/admin/AdminSobreNos";
+import AdminBuscas from "@/pages/admin/AdminBuscas";
 import SobreNos from "@/pages/sobre";
 import LojistaLogin from "@/pages/lojista/LojistaLogin";
 import EsqueciSenha from "@/pages/lojista/EsqueciSenha";
@@ -105,6 +106,7 @@ function Router() {
       <Route path="/admin/contato">{() => <PrivateRoute component={AdminContato} />}</Route>
       <Route path="/admin/faq">{() => <PrivateRoute component={AdminFaqPage} />}</Route>
       <Route path="/admin/sobre-nos">{() => <PrivateRoute component={AdminSobreNos} />}</Route>
+      <Route path="/admin/buscas">{() => <PrivateRoute component={AdminBuscas} />}</Route>
       <Route path="/admin">{() => <PrivateRoute component={AdminDashboard} />}</Route>
       <Route path="/lojista/login" component={LojistaLogin} />
       <Route path="/lojista/esqueci-senha" component={EsqueciSenha} />

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { businessesTable, searchBoostsTable } from "@workspace/db/schema";
+import { businessesTable, searchBoostsTable, searchAnalyticsTable } from "@workspace/db/schema";
 import { or, and, eq, desc, asc, sql, ne } from "drizzle-orm";
 import { SearchQueryParams } from "@workspace/api-zod";
 import { stripPrivateBusinessFields } from "../lib/strip-private-business-fields";
@@ -250,7 +250,60 @@ router.get("/search", searchLimiter, async (req, res) => {
   destaque.sort(sortFallback);
   free.sort(sortFallback);
 
-  const result = { data: [...monthlyBoosted, ...avulsoBoosted, ...directBoosted, ...premium, ...destaque, ...free], total: countResult[0]?.count ?? 0 };
+  const total = countResult[0]?.count ?? 0;
+
+  // Analytics — fire-and-forget (sem await, erro silencioso).
+  // Registra apenas chamadas que chegam ao banco (não cache hits).
+  // Sem IP, sem usuário: somente o termo, zona e contagem.
+  if (q) {
+    void db.insert(searchAnalyticsTable).values({
+      term: q.trim().toLowerCase().slice(0, 200),
+      resultsCount: total,
+      zone: zone ?? null,
+    }).catch(() => {});
+  }
+
+  // Fuzzy fallback: quando a busca exata retorna 0, tenta trigramas (pg_trgm).
+  // Threshold 0.2 é permissivo o suficiente para "restarante" → "restaurante"
+  // sem retornar resultados completamente irrelevantes.
+  if (total === 0 && q && q.trim().length >= 3) {
+    const qNorm = stripAccents(q.toLowerCase().trim()).slice(0, 100);
+    try {
+      const fuzzyRows = await db
+        .select()
+        .from(businessesTable)
+        .where(
+          and(
+            ne(businessesTable.isVisible, false),
+            eq(businessesTable.status, "active"),
+            NOT_DOCUMENTATION_EXPIRED,
+            sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm}) > 0.2`,
+          )
+        )
+        .orderBy(
+          desc(sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm})`),
+        )
+        .limit(8);
+
+      if (fuzzyRows.length > 0) {
+        // Melhor sugestão = nome mais similar ao que foi digitado
+        const bestMatch = fuzzyRows[0]!.name;
+        const fuzzyResult = {
+          data: fuzzyRows.map(b => ({ ...stripPrivateBusinessFields(b), boostInfo: null })),
+          total: fuzzyRows.length,
+          fuzzyUsed: true,
+          normalizedQuery: bestMatch,
+        };
+        setSearchCache(cacheKey, fuzzyResult);
+        res.json(fuzzyResult);
+        return;
+      }
+    } catch {
+      // pg_trgm indisponível ou outro erro — retorna resultado vazio normalmente
+    }
+  }
+
+  const result = { data: [...monthlyBoosted, ...avulsoBoosted, ...directBoosted, ...premium, ...destaque, ...free], total };
   setSearchCache(cacheKey, result);
   res.json(result);
 });

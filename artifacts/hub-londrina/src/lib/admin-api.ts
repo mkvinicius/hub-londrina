@@ -417,3 +417,21 @@ export async function deleteAdminFaq(id: number): Promise<{ success: true }> {
   }
   return res.json();
 }
+
+// ─── SEARCH ANALYTICS ────────────────────────────────────────────────────────
+export interface SearchAnalyticsRow {
+  term: string;
+  searches: number;
+  zeroResults: number;
+  zeroResultsPct: number;
+}
+
+export async function getSearchAnalytics(params: { days?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.days !== undefined) qs.set("days", String(params.days));
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return adminFetch(`/api/admin/search-analytics${suffix}`) as Promise<{
+    data: SearchAnalyticsRow[];
+    days: number;
+  }>;
+}

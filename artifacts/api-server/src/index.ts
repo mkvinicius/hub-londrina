@@ -7,7 +7,7 @@ import { startDocumentationJob } from "./lib/documentation-job";
 import { startRetentionJob } from "./lib/retention-job";
 import { startSubscriptionJob } from "./lib/subscription-job";
 import { startSubscriptionReminderJob } from "./lib/subscription-reminder-job";
-import { ensureViews } from "./lib/startup-views";
+import { ensureViews, ensurePgTrgm } from "./lib/startup-views";
 import { healPaidInvisibleBusinesses, healOverflowingProductLimits, healZoneRegionDisplayNames, healDocumentationConsistency, backfillFirstLoginAt } from "./lib/startup-heal";
 import fs from "fs";
 import path from "path";
@@ -79,6 +79,7 @@ async function runStartupTasks() {
     await initSentry();
     await runStartupSeed();
     await ensureViews();
+    await ensurePgTrgm();
     await backfillFirstLoginAt();
     await healDocumentationConsistency();
     await healPaidInvisibleBusinesses();

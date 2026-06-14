@@ -6,7 +6,7 @@ import { loginLimiter } from "../middleware/rateLimiter";
 import { sendEmail, emails } from "../services/email";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
-import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable, partnersTable, contactMessagesTable } from "@workspace/db/schema";
+import { businessesTable, categoriesTable, businessClicksTable, businessUsersTable, productsTable, homeBannersTable, searchBoostsTable, subscriptionsTable, zonesTable, reviewsTable, adminActionsTable, supportTicketsTable, vitrineBoostsTable, partnersTable, contactMessagesTable, searchAnalyticsTable } from "@workspace/db/schema";
 import { eq, ilike, sql, and, desc, gte, asc, or, ne, isNull } from "drizzle-orm";
 import { logAdminAction, getReqIp, ADMIN_DEFAULT_ID } from "../lib/audit";
 import { csrfProtection } from "../middleware/csrf";
@@ -2005,6 +2005,34 @@ router.delete("/admin/legal-config/:key", csrfProtection, async (req: Request, r
     getReqIp(req),
   );
   res.json({ success: true });
+});
+
+// ─── SEARCH ANALYTICS ────────────────────────────────────────────────────────
+router.get("/admin/search-analytics", async (req: Request, res: Response) => {
+  const days = Math.min(90, Math.max(1, Number(req.query.days) || 30));
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const rows = await db
+    .select({
+      term: searchAnalyticsTable.term,
+      searches: sql<number>`count(*)::int`,
+      zeroResults: sql<number>`count(*) filter (where ${searchAnalyticsTable.resultsCount} = 0)::int`,
+    })
+    .from(searchAnalyticsTable)
+    .where(gte(searchAnalyticsTable.searchedAt, since))
+    .groupBy(searchAnalyticsTable.term)
+    .orderBy(desc(sql`count(*)`))
+    .limit(50);
+
+  const data = rows.map(r => ({
+    term: r.term,
+    searches: r.searches,
+    zeroResults: r.zeroResults,
+    zeroResultsPct: r.searches > 0 ? Math.round((r.zeroResults / r.searches) * 100) : 0,
+  }));
+
+  res.json({ data, days });
 });
 
 export default router;

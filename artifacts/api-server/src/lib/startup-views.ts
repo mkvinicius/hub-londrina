@@ -62,3 +62,15 @@ export async function ensureViews(): Promise<void> {
     logger.error({ err }, "Erro ao criar view business_placements_active");
   }
 }
+
+// Task #111 — pg_trgm é necessário para fuzzy search (similarity()).
+// Idempotente: não falha se já existir. Roda em startup para garantir
+// que esteja disponível antes de qualquer consulta de busca fuzzy.
+export async function ensurePgTrgm(): Promise<void> {
+  try {
+    await db.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pg_trgm"));
+    logger.info("Extensão pg_trgm garantida");
+  } catch (err) {
+    logger.warn({ err }, "Não foi possível criar extensão pg_trgm — fuzzy search desativado");
+  }
+}
