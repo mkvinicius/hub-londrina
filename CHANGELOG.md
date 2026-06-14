@@ -6,6 +6,16 @@
 
 ## 2026-06-14
 
+### Remover bloco "Destaques para você" da página /busca (pedido do dono)
+
+**Pedido (dono, screenshot)**: o bloco "DESTAQUES PARA VOCÊ" (com pin "Patrocinado") aparecia no topo da `/busca` quando não havia busca/filtro ativo. Esse destaque pertence à página de zonas, não à busca.
+
+**Correção**: `busca.tsx` — removido o bloco HOME FEATURED SECTION (alimentado por `/api/home-featured`), junto com o estado `homeFeatured`, o `useEffect` de fetch e a flag `showHomeFeatured` (código órfão). Os imports `Zap`/`Star` permanecem (ainda usados pela seção "Destaques em [Categoria]" e pelo divisor de zona). O endpoint `/api/home-featured` continua existindo (usado pela Home).
+
+**Prova concreta**: screenshot `/busca` sem o bloco — agora mostra só a barra de busca + "20 negócios encontrados" + listagem/filtros. Typecheck `busca.tsx` sem erros novos (os 4 erros `distanceKm` em linhas 146-147 são pré-existentes, do modo "perto de mim").
+
+---
+
 ### Autocomplete unificado com a busca completa + input da /busca limpo (Task #116)
 
 **Pedido (dono)**: as sugestões enquanto digita pareciam "menos inteligentes" que os resultados da página de busca, e o input da `/busca` ainda tinha o dropdown "Selecione a Região" dentro do campo (a Home não tem).
