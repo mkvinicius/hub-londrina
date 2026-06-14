@@ -67,30 +67,25 @@ export async function ensureViews(): Promise<void> {
 // Idempotente: não falha se já existir. Roda em startup para garantir
 // que esteja disponível antes de qualquer consulta de busca fuzzy.
 //
-// IMPORTANTE: o índice usa lower(name) puro (sem translate) para que o
-// SQL do CREATE INDEX contenha apenas ASCII. Índices com chars acentuados
-// embutidos no sql.raw() ficam registrados em pg_indexes.indexdef com
-// UTF-8 bruto; o sistema de migrations do Replit lê esse campo e gera SQL
-// corrompido ("unterminated quoted string") ao fazer deploy. A query de
-// similarity em search.ts usa o mesmo lower(name) para que o índice seja
-// utilizado pelo planner. O qNorm já é ASCII-normalizado pelo JS
-// (stripAccents), então similarity(lower(name), qNorm) ≥ 0.3 cobre
-// erros de digitação e variações com acento igualmente bem.
+// IMPORTANTE — NÃO criar índice GIN trigram aqui (nem em runtime nem no
+// schema Drizzle). O sistema de deploy do Replit faz diff do schema do
+// dev DB contra produção e RASTREIA índices, mas NÃO rastreia extensões.
+// Resultado: ele gera uma migration `CREATE INDEX ... gin_trgm_ops` que
+// roda ANTES do app subir — quando a extensão pg_trgm ainda não existe em
+// produção — e falha com "operator class gin_trgm_ops does not exist".
+// A extensão só é criada aqui, em runtime (request-time já tem pg_trgm,
+// então similarity() funciona). O índice é dispensável nesta escala:
+// o fuzzy fallback só roda quando a busca exata retorna 0 e o dataset
+// (negócios locais) é pequeno — sequential scan de similarity() é
+// sub-milissegundo. Se algum dia o volume crescer, criar o índice via
+// uma migration manual que faça `CREATE EXTENSION` + `CREATE INDEX` na
+// mesma transação, nunca dependendo do diff automático do deploy.
 
 export async function ensurePgTrgm(): Promise<void> {
   try {
     await db.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pg_trgm"));
-    logger.info("Extensão pg_trgm garantida");
-
-    // Índice GIN trigram sobre lower(name) — expressão 100% ASCII.
-    // Compatível com similarity(lower(name), qNorm) nas queries fuzzy.
-    await db.execute(sql.raw(`
-      CREATE INDEX IF NOT EXISTS businesses_name_trgm_idx
-      ON businesses
-      USING gin (lower(name) gin_trgm_ops)
-    `));
-    logger.info("Índice trigram businesses_name_trgm_idx garantido");
+    logger.info("Extensão pg_trgm garantida (fuzzy search habilitado)");
   } catch (err) {
-    logger.warn({ err }, "Não foi possível criar extensão pg_trgm ou índice trigram — fuzzy search desativado");
+    logger.warn({ err }, "Não foi possível criar extensão pg_trgm — fuzzy search desativado");
   }
 }

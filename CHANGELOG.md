@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-06-14
+
+### Deploy travado: índice GIN trigram x extensão pg_trgm ausente em produção
+
+**Problema (dono, print do painel de Publishing)**: a publicação parava em "Migrations failed validation". A migration auto-gerada pelo Replit era `CREATE INDEX "businesses_name_trgm_idx" ON "businesses" USING gin (lower(name) gin_trgm_ops);` e falhava com `operator class "gin_trgm_ops" does not exist for access method "gin"`.
+
+**Causa raiz**: o deploy do Replit faz diff do schema do **dev DB** contra produção. Ele **rastreia índices** (gera `CREATE INDEX`) mas **NÃO rastreia extensões** (não emite `CREATE EXTENSION`). A migration roda **antes** do app subir; em produção a `pg_trgm` ainda não existe (ela só nasce no startup via `ensurePgTrgm()`), então o `CREATE INDEX` com `gin_trgm_ops` quebra. O índice era criado em runtime, gerando o drift que o Replit tentava reconciliar. (Variante anterior já corrigida: índice com chars acentuados embutidos em `sql.raw()` → `unterminated quoted string`.)
+
+**Correção**: 
+- `DROP INDEX businesses_name_trgm_idx` do dev DB (elimina o drift).
+- `startup-views.ts` → `ensurePgTrgm()` agora cria **somente** a extensão (`CREATE EXTENSION IF NOT EXISTS pg_trgm`), sem o índice. Comentário no código explica por que o índice não pode voltar e como criá-lo via migration manual (`CREATE EXTENSION` + `CREATE INDEX` na mesma transação) se o volume exigir.
+- `search.ts` → queries `similarity(lower(name), qNorm)` já funcionavam sem índice (sequential scan), mantidas.
+
+**Por que é seguro**: `similarity()` roda em request-time (após o startup que cria a extensão), então o fuzzy search funciona em produção. O índice só acelerava o fallback fuzzy (busca exata = 0 resultado); na escala de negócios locais o sequential scan é sub-ms — era otimização prematura.
+
+**Prova concreta (dev)**:
+- `pg_extension`: `pg_trgm` presente ✓ · `pg_indexes`: `businesses_name_trgm_idx` **ausente** ✓ (sem drift).
+- **curl** `"restarante"` → `fuzzyUsed=true`, "Restaurante Sabor do Sul"; `"restarante&zone=norte"` → `didYouMean="Restaurante Sabor do Sul"`; `"padaria"` (exata) → `fuzzyUsed=null`, total=5 (caminho normal intacto).
+- **Validadores verdes**: `lojista-rules` ✓ OK · `doc-expired-invariant` ✓ OK.
+- Typecheck: erros remanescentes são pré-existentes (Express 5 `string|string[]` em `admin.ts`/`validateId.ts`/`objectStorage.ts`), nenhum nos arquivos tocados; api-server builda via esbuild.
+
+---
+
 ## 2026-06-13
 
 ### Aprovação manual em massa (grandfathering das lojas já cadastradas)
