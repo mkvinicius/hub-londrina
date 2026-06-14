@@ -66,23 +66,28 @@ export async function ensureViews(): Promise<void> {
 // Task #111 — pg_trgm é necessário para fuzzy search (similarity()).
 // Idempotente: não falha se já existir. Roda em startup para garantir
 // que esteja disponível antes de qualquer consulta de busca fuzzy.
-// PLAIN/ACCENTED: mesmas constantes de search.ts (centralizadas aqui para o índice).
-const TRGM_ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ";
-const TRGM_PLAIN    = "aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN";
+//
+// IMPORTANTE: o índice usa lower(name) puro (sem translate) para que o
+// SQL do CREATE INDEX contenha apenas ASCII. Índices com chars acentuados
+// embutidos no sql.raw() ficam registrados em pg_indexes.indexdef com
+// UTF-8 bruto; o sistema de migrations do Replit lê esse campo e gera SQL
+// corrompido ("unterminated quoted string") ao fazer deploy. A query de
+// similarity em search.ts usa o mesmo lower(name) para que o índice seja
+// utilizado pelo planner. O qNorm já é ASCII-normalizado pelo JS
+// (stripAccents), então similarity(lower(name), qNorm) ≥ 0.3 cobre
+// erros de digitação e variações com acento igualmente bem.
 
 export async function ensurePgTrgm(): Promise<void> {
   try {
     await db.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pg_trgm"));
     logger.info("Extensão pg_trgm garantida");
 
-    // Índice GIN trigram sobre o nome normalizado (sem acentos).
-    // Acelera as consultas similarity() do fuzzy fallback em /api/search.
-    // CREATE INDEX IF NOT EXISTS é idempotente; não usa CONCURRENTLY para
-    // compatibilidade com o startup síncrono (índice criado apenas uma vez).
+    // Índice GIN trigram sobre lower(name) — expressão 100% ASCII.
+    // Compatível com similarity(lower(name), qNorm) nas queries fuzzy.
     await db.execute(sql.raw(`
       CREATE INDEX IF NOT EXISTS businesses_name_trgm_idx
       ON businesses
-      USING gin (translate(lower(name), '${TRGM_ACCENTED}', '${TRGM_PLAIN}') gin_trgm_ops)
+      USING gin (lower(name) gin_trgm_ops)
     `));
     logger.info("Índice trigram businesses_name_trgm_idx garantido");
   } catch (err) {

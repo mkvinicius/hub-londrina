@@ -291,7 +291,7 @@ router.get("/search", searchLimiter, async (req, res) => {
         ne(businessesTable.isVisible, false),
         eq(businessesTable.status, "active"),
         NOT_DOCUMENTATION_EXPIRED,
-        sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm}) > 0.3`,
+        sql`similarity(lower(${businessesTable.name}), ${qNorm}) > 0.3`,
       ] as const;
 
       // Query 1: fuzzy NO ESCOPO (respeita zone/region/category do usuário)
@@ -304,7 +304,7 @@ router.get("/search", searchLimiter, async (req, res) => {
         .select()
         .from(businessesTable)
         .where(and(...scopeConditions))
-        .orderBy(desc(sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm})`))
+        .orderBy(desc(sql`similarity(lower(${businessesTable.name}), ${qNorm})`))
         .limit(8);
 
       if (fuzzyRowsScoped.length > 0) {
@@ -327,7 +327,7 @@ router.get("/search", searchLimiter, async (req, res) => {
           .select({ name: businessesTable.name })
           .from(businessesTable)
           .where(and(...baseConditions))
-          .orderBy(desc(sql`similarity(translate(lower(${businessesTable.name}), ${ACCENTED}, ${PLAIN}), ${qNorm})`))
+          .orderBy(desc(sql`similarity(lower(${businessesTable.name}), ${qNorm})`))
           .limit(1);
 
         if (globalSuggestion) {
