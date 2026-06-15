@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, MapPin, Star, Zap, Megaphone } from "lucide-react";
+import { ArrowRight, MapPin, Star, Zap, ImagePlus, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { imgSrc } from "@/lib/utils";
 import { BusinessCard } from "@/components/BusinessCard";
@@ -41,37 +41,91 @@ const BASE = import.meta.env.VITE_API_URL || "";
 // preenchidas com a arte de venda "Anuncie você também".
 const ZONE_FEATURED_SLOTS = 4;
 
-// Cartão de venda branded para as vagas de destaque ainda não vendidas.
-// Usa a cor da zona e leva para /anuncie. Altura casa com o BusinessCard (md).
+// Vaga de destaque ainda não vendida: "card-fantasma" que espelha a estrutura
+// e a altura do BusinessCard (md) — banner tingido na cor da zona, logo-fantasma
+// "Seu logo aqui", placeholders de nome/região e estrelas fantasma + badge de
+// venda "Esta vaga pode ser sua!". É SÓ apresentação no front (RULES R15): não
+// usa nenhum negócio real e não toca em capacidade/locks/preço/checkout.
 function ZoneAdSlot({ color, onClick }: { color: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex flex-col items-center justify-center text-center min-h-[540px] rounded-3xl border-2 border-dashed bg-white px-6 transition-all hover:shadow-lg hover:-translate-y-0.5"
-      style={{ borderColor: color + "55" }}
+      aria-label="Anuncie nesta vaga de destaque"
+      className="group relative flex w-full flex-col text-left min-h-[540px] rounded-3xl overflow-hidden border-2 border-dashed bg-white shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#d97706]"
+      style={{ borderColor: color + "66" }}
     >
+      {/* Banner fantasma tingido com a cor da zona (espelha o h-64 do card real) */}
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110"
-        style={{ backgroundColor: color + "18", color }}
+        className="relative h-64 flex-shrink-0"
+        style={{ backgroundImage: `linear-gradient(135deg, ${color}, #3a2512)` }}
       >
-        <Megaphone className="h-8 w-8" />
+        <div className="absolute inset-0 bg-black/10" />
+        {/* Badge de venda — hero da vaga */}
+        <div
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[10px] font-black shadow"
+          style={{ color }}
+        >
+          <Sparkles className="h-2.5 w-2.5" />
+          Esta vaga pode ser sua!
+        </div>
       </div>
-      <span className="text-[11px] font-black uppercase tracking-wider mb-2" style={{ color }}>
-        Vaga disponível
-      </span>
-      <h3 className="font-black text-xl text-[#3a2512] leading-tight mb-2">
-        Anuncie você também
-      </h3>
-      <p className="text-sm text-gray-500 leading-snug max-w-[220px] mb-6">
-        Apareça em destaque nesta região para quem está procurando o que você oferece.
-      </p>
-      <span
-        className="inline-flex items-center gap-2 text-white font-bold text-sm px-6 py-3 rounded-full shadow transition-opacity group-hover:opacity-90"
-        style={{ backgroundColor: color }}
-      >
-        Anunciar agora <ArrowRight className="h-4 w-4" />
-      </span>
+
+      {/* Logo-fantasma redonda flutuante na divisa (mesma posição do card real) */}
+      <div className="relative">
+        <div className="absolute left-1/2 -translate-x-1/2 -top-9 z-10">
+          <div className="w-[104px] h-[104px] rounded-full bg-white shadow-md border-[3px] border-white flex items-center justify-center">
+            <div
+              className="w-[92px] h-[92px] rounded-full border-2 border-dashed flex flex-col items-center justify-center gap-1"
+              style={{ borderColor: color + "88", color }}
+            >
+              <ImagePlus className="h-5 w-5" />
+              <span className="text-[9px] font-bold leading-tight px-1 text-center">
+                Seu logo aqui
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Conteúdo fantasma — espelha nome → badges → descrição → região → botão */}
+      <div className="px-5 pb-5 pt-20 flex flex-col flex-grow items-center text-center">
+        {/* Nome fantasma */}
+        <div className="h-4 w-32 rounded-full bg-gray-200" />
+
+        {/* Linha de badges fantasma: categoria + estrelas */}
+        <div className="flex items-center justify-center gap-1.5 mt-2 min-h-[22px]">
+          <span
+            className="h-4 w-16 rounded-full"
+            style={{ backgroundColor: color + "22" }}
+          />
+          <span className="inline-flex items-center gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} className="h-3 w-3 text-gray-200 fill-gray-200" />
+            ))}
+          </span>
+        </div>
+
+        {/* Descrição fantasma (2 linhas reservadas) */}
+        <div className="mt-3 w-full max-w-[220px] space-y-1.5">
+          <div className="h-2.5 w-full rounded-full bg-gray-100" />
+          <div className="h-2.5 w-3/4 mx-auto rounded-full bg-gray-100" />
+        </div>
+
+        {/* Região fantasma */}
+        <div className="flex items-center justify-center gap-1.5 text-gray-400 mt-auto mb-3">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color }} />
+          <span className="h-2.5 w-20 rounded-full bg-gray-200" />
+        </div>
+
+        {/* CTA real — leva para /anuncie */}
+        <span
+          className="mt-auto inline-flex w-full items-center justify-center gap-2 text-white font-bold text-sm px-6 py-3 rounded-2xl shadow transition-all group-hover:brightness-110 group-hover:-translate-y-0.5"
+          style={{ backgroundColor: color }}
+        >
+          Anunciar agora <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
     </button>
   );
 }
