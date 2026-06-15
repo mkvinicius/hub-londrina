@@ -4,11 +4,14 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendEmail, emails } from "../services/email";
 
-// Espelha PRODUCT_LIMITS em routes/lojista.ts. Mantenha em sincronia.
+// FONTE ÚNICA do limite de produtos ATIVOS por plano (RULES R1).
+// Usado por: criação e reativação de produtos em routes/lojista.ts (via
+// getProductLimitForPlan) e pelo downgrade em enforceProductLimitForBusiness.
+// Decisão do dono: Destaque=10, Premium=20 (NÃO reverter para 6/10).
 export const PRODUCT_LIMITS_BY_PLAN: Record<string, number> = {
   free: 0,
-  destaque: 6,
-  premium: 10,
+  destaque: 10,
+  premium: 20,
 };
 
 export function getProductLimitForPlan(plan: string | null | undefined): number {

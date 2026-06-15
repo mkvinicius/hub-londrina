@@ -53,6 +53,7 @@ export const PLANS: PlanDef[] = [
     features: [
       "Perfil completo e verificado",
       "Até 10 fotos na galeria",
+      "Até 10 produtos no catálogo",
       "Link para WhatsApp e Redes",
       "Prioridade nas buscas locais",
       "Recebe e responde avaliações",
@@ -77,6 +78,7 @@ export const PLANS: PlanDef[] = [
     features: [
       "Tudo do plano Base",
       "Fotos ilimitadas na galeria",
+      "Até 20 produtos no catálogo",
       "Vídeo de apresentação",
       "Banner rotativo na página inicial",
       "1º lugar absoluto nas buscas",

@@ -339,12 +339,20 @@ export async function createSupportTicket(input: {
 }
 
 // ===== R11 — Vitrine de Produtos =====
+// Espelha GET /api/lojista/vitrine-boost/status (routes/lojista.ts).
 export interface VitrineBoostStatus {
-  occupiedSlots: number;
-  totalSlots: number;
-  myBoost: { id: number; status: "active" | "pending" | "waitlist" | "cancelled"; productId: number | null } | null;
+  eligible: boolean;
+  planType: string;
   hasApprovedVideo: boolean;
-  approvedVideoCount: number;
+  totalSlots: number;
+  used: number;
+  available: number;
+  mySlot: {
+    id: number;
+    status: "active" | "pending" | "waitlist" | "cancelled";
+    productId: number | null;
+    endsAt: string | null;
+  } | null;
 }
 export async function getVitrineBoostStatus(): Promise<VitrineBoostStatus> {
   return lojistaFetch("/lojista/vitrine-boost/status");

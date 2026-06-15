@@ -10,7 +10,7 @@ import os from "os";
 import { validateId, parseId } from "../middleware/validateId";
 import { db } from "@workspace/db";
 import { businessesTable, businessUsersTable, productsTable, businessClicksTable, reviewsTable, searchBoostsTable, subscriptionsTable, homeBannersTable, supportTicketsTable, vitrineBoostsTable } from "@workspace/db/schema";
-import { eq, sql, and, gte, lte, desc, asc, or } from "drizzle-orm";
+import { eq, sql, and, gte, lte, desc, asc, or, inArray } from "drizzle-orm";
 import { uploadBufferToGCS, deleteGCSObject } from "../lib/gcsUpload";
 import { vitrineSlotLockKey } from "../lib/boost-locks";
 import { generatePdfReport } from "../lib/pdf-report.js";
@@ -22,6 +22,7 @@ import { z } from "zod/v4";
 import { sanitizeBusiness, sanitizeText } from "../lib/sanitize";
 import { validateMagicBytes } from "../lib/validateUpload";
 import { requirePlan } from "../middleware/checkPlan";
+import { getProductLimitForPlan } from "../lib/enforce-product-limits";
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripeClient: Stripe | null = STRIPE_SECRET_KEY
@@ -698,9 +699,9 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
     return;
   }
 
-  // Limites de produtos/vitrine por plano: Gratuito=0, Destaque=10, Premium=ilimitado.
-  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 10, premium: Infinity };
-  const limit = PRODUCT_LIMITS[biz.planType] ?? 0;
+  // Limite de produtos ativos por plano (RULES R1, fonte única em
+  // enforce-product-limits.ts): Gratuito=0, Destaque=10, Premium=20.
+  const limit = getProductLimitForPlan(biz.planType);
   if (limit === 0) {
     res.status(403).json({ error: "Cadastro de produtos disponível nos planos Base e Premium", code: "PLAN_REQUIRED", requiredPlan: "destaque", currentPlan: biz.planType });
     return;
@@ -712,9 +713,11 @@ router.post("/lojista/products", async (req: Request, res: Response) => {
     .select({ count: sql<number>`count(*)::int` })
     .from(productsTable)
     .where(and(eq(productsTable.businessId, businessId), eq(productsTable.isActive, true)));
-  if (limit !== Infinity && existing >= limit) {
+  if (existing >= limit) {
     res.status(400).json({
-      error: `Limite de ${limit} produto(s) ativo(s) atingido para o plano ${biz.planType}. Faça upgrade para Premium para produtos ilimitados.`,
+      error: biz.planType === "premium"
+        ? `Limite de ${limit} produtos ativos atingido no plano Premium. Desative algum produto para cadastrar outro.`
+        : `Limite de ${limit} produtos ativos atingido no plano ${biz.planType}. Faça upgrade para Premium (até ${getProductLimitForPlan("premium")} produtos).`,
       code: "PRODUCT_LIMIT_REACHED",
       currentPlan: biz.planType,
       limit,
@@ -818,8 +821,7 @@ router.patch("/lojista/products/:id", validateId, async (req: Request, res: Resp
       return;
     }
     if (existingProd.isActive === false) {
-      const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
-      const limit = PRODUCT_LIMITS[biz.planType] ?? 0;
+      const limit = getProductLimitForPlan(biz.planType);
       const [{ count: activeCount }] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(productsTable)
@@ -1821,7 +1823,22 @@ router.get("/lojista/vitrine-boost/status", async (req: Request, res: Response) 
       or(sql`${vitrineBoostsTable.endsAt} IS NULL`, sql`${vitrineBoostsTable.endsAt} > ${now}`)!,
     ));
   const used = allActive.length;
-  const mine = allActive.find((b) => b.businessId === businessId) ?? null;
+
+  // mySlot reflete a vaga do PRÓPRIO lojista em qualquer estado aberto
+  // (active | waitlist | pending) — não só 'active'. Sem isso, um lojista em
+  // waitlist recarrega a página e vê o botão de compra de novo (em vez de "Na
+  // fila de espera"), e ao clicar leva 409 BOOST_ALREADY_EXISTS. `used`/
+  // `available` continuam contando só 'active' (ocupação real das 4 vagas).
+  const [mine] = await db
+    .select()
+    .from(vitrineBoostsTable)
+    .where(and(
+      eq(vitrineBoostsTable.businessId, businessId),
+      inArray(vitrineBoostsTable.status, ["active", "waitlist", "pending"]),
+      or(sql`${vitrineBoostsTable.endsAt} IS NULL`, sql`${vitrineBoostsTable.endsAt} > ${now}`)!,
+    ))
+    .orderBy(desc(vitrineBoostsTable.id))
+    .limit(1);
 
   const approvedVideos = await db
     .select({ count: sql<number>`count(*)::int` })

@@ -18,7 +18,7 @@ Plano free **NUNCA** pode comprar nenhum boost ou banner. Gates obrigatórios em
 | Logo / Banner upload | Gratuito (todos os planos) | `POST /api/lojista/upload/{logo,banner}` (sem gate de plano) | `LojistaPerfil.tsx` (upload disponível para todos, sem aviso de bloqueio) |
 | Instagram / Website | Destaque | `PATCH /api/lojista/profile` | `LojistaPerfil.tsx` (LockedFeature) |
 | Vídeo do card | Premium | `POST /api/lojista/upload/business-video` (`requirePlan("premium")`, multer memória **mp4-only ≤50MB**, grava `businesses.videoUrl`) | `LojistaPerfil.tsx` (upload + preview, LockedFeature). **NÃO** é vídeo de vitrine/produto (esse usa `products.videoStatus` com aprovação admin). O player do card só toca **.mp4** — por isso é upload, não link YouTube/Vimeo. |
-| Vitrine produtos | Destaque (10) / Premium (ilimitado) | `POST /api/lojista/products` | `LojistaProdutos.tsx` (LockedFeature) |
+| Vitrine produtos | Destaque (10) / Premium (20) | `POST /api/lojista/products` | `LojistaProdutos.tsx` (LockedFeature) |
 | Métricas | Destaque (números) / Premium (gráfico) | `GET /api/lojista/metrics` | `LojistaMetricas.tsx` (LockedFeature) |
 | Resposta a review | Destaque | `POST /api/lojista/reviews/:id/respond` | `LojistaAvaliacoes.tsx` |
 | Relatório PDF | Premium | endpoint dedicado | — |
@@ -168,9 +168,12 @@ Bloco "Vitrine de Produtos" em `landing.tsx` segue regras estritas:
 
 **Endpoint público**: `GET /api/vitrine` retorna até 12 cards (4 fixos + 8 aleatórios) com `{productId, businessId, name, price, videoUrl, photoUrl, whatsapp, businessName}`. **Não cacheia em CDN** — randomização precisa rodar a cada request.
 
-**Endpoint compra boost**: `POST /api/lojista/vitrine-boost/checkout` cria Stripe checkout de R$ 49/mês (subscription). Gate `planType === "premium"` antes de criar sessão.
+**Compra self-service (lojista)**: a Vitrine é comprada pelo próprio lojista em `/lojista/boost` (card "Vitrine" em `LojistaBoost.tsx`, R12) — não depende de admin. Fluxo:
+- `GET /api/lojista/vitrine-boost/status` → `{eligible, planType, hasApprovedVideo, totalSlots, used, available, mySlot}`. `eligible=true` **sse** `planType==="premium"` **e** `hasApprovedVideo===true`. `used`/`available` contam só vagas `active` (ocupação real das 4); `mySlot` reflete a vaga do **próprio** lojista em qualquer estado aberto (`active`/`waitlist`/`pending`) — sem isso o lojista em waitlist recarregaria e veria o botão de compra de novo. O card mostra o gate certo: free/base → "Exclusivo Premium"; premium sem vídeo aprovado → aviso "suba e aprove ≥1 vídeo de produto"; `mySlot.status==="active"` → "Sua vaga está ATIVA"; `mySlot.status==="waitlist"` → "Na fila de espera"; elegível com vaga livre → botão de compra; esgotado (4/4) sem vaga própria → botão desabilitado "esgotado este mês".
+- `POST /api/lojista/vitrine-boost/checkout` cria Stripe checkout de **R$ 49/mês (subscription)**. Gates na ordem: `planType==="premium"` (`PLAN_REQUIRED`/403) → vídeo aprovado (`NO_APPROVED_VIDEO`/409) → reserva atômica de **uma linha aberta por lojista** (partial unique `vitrine_boosts_one_open_per_business`; clique duplicado/boost já existente → `BOOST_ALREADY_EXISTS`/409). **Não há gate de lotação no checkout** — a lotação é resolvida na ativação (sync/webhook): se as 4 vagas `active` estiverem cheias o boost pago entra como `waitlist`. A UI desabilita o botão quando `available===0`, mas um pagamento que feche numa corrida ainda cai em waitlist com segurança. `success_url` inclui `?vitrine=success` e `cancel_url` `?vitrine=cancelled`.
+- **Ativação idempotente** acontece por DOIS caminhos que se espelham (R10): o webhook `checkout.session.completed` (em `stripe.ts`) **e** o fallback `POST /api/lojista/vitrine-boost/sync` (chamado pelo front ao detectar `?vitrine=success`). Ambos, sob `pg_advisory_xact_lock(vitrineSlotLockKey())`, contam vagas `active`, decidem `active` (se `occupied < 4`) ou `waitlist`, e abortam se a linha já está `active`/`waitlist` — rodar os dois não cria vaga dobrada nem reprocessa.
 
-**Esgotado**: quando os 4 slots de boost estão vendidos, `/lojista/boost` mostra "Vitrine Destaque — esgotado este mês" com botão desabilitado.
+**Esgotado**: quando as 4 vagas `active` estão vendidas, `/lojista/boost` mostra "Vitrine Destaque — esgotado este mês" com botão desabilitado. **Não é um beco sem saída**: diferente do boost de Zona (sem fila), a Vitrine tem `waitlist` — um pagamento que feche com 4/4 cheio é aceito e fica na fila, promovido quando uma vaga abrir.
 
 ---
 

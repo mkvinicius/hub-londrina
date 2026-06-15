@@ -248,7 +248,9 @@ export default function AdminImpulsionamento() {
   const [hsBizId, setHsBizId] = useState<number | "">("");
   const [hsBizSearch, setHsBizSearch] = useState("");
   const [hsDays, setHsDays] = useState(7);
-  const HS_MAX = 6;
+  // Modelo vigente: 3 posições numeradas (1ª R$249 · 2ª R$179 · 3ª R$129).
+  // O contador legado HOME_SEARCH_SLOTS=6 do backend não reflete o produto atual.
+  const HS_MAX = 3;
   const HS_OPTIONS = [
     { days: 7, label: "7 dias", price: 39 },
     { days: 15, label: "15 dias", price: 69 },
@@ -467,7 +469,7 @@ export default function AdminImpulsionamento() {
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
                 <Video className="w-3.5 h-3.5 text-[#FF9800]" /> Vitrine de Produtos
               </p>
-              <p>4 slots fixos pagos no carrossel da home. Lojistas enviam vídeos curtos do produto e o admin aprova/rejeita antes de publicar. Excedentes vão para waitlist.</p>
+              <p>4 vagas fixas pagas no carrossel de vídeos da home (R$49/mês, exclusivo Premium). O lojista contrata sozinho pelo painel (autosserviço, sem intermediação do admin) e o produto entra na vitrine. Pré-requisito: ter ao menos 1 <strong>vídeo de produto aprovado</strong> — todo vídeo novo entra como "pendente" e o admin aprova/rejeita abaixo. Excedentes vão para waitlist.</p>
             </div>
             <div className="bg-amber-50/40 border border-amber-100 rounded-xl p-3">
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
@@ -497,13 +499,13 @@ export default function AdminImpulsionamento() {
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
                 <MapPin className="w-3.5 h-3.5 text-emerald-600" /> Destaque de Zona
               </p>
-              <p>3 vagas por zona (Centro/Norte/Sul/Leste/Oeste) que destacam o negócio na página da região por 30 dias (R$79). Disponível para planos Destaque e Premium. Gerenciado em "Zonas".</p>
+              <p>4 vagas por zona (Centro/Norte/Sul/Leste/Oeste) que destacam o negócio na página da região por 30 dias (R$79). Disponível para planos Destaque e Premium. Gerenciado em "Zonas".</p>
             </div>
             <div className="bg-rose-50/40 border border-rose-100 rounded-xl p-3 md:col-span-2">
               <p className="flex items-center gap-1.5 font-bold text-gray-800 mb-1">
                 <ImageIcon className="w-3.5 h-3.5 text-rose-500" /> Banner na Home
               </p>
-              <p>O maior destaque da plataforma: imagem ocupa o topo da home (máx. 2 simultâneos, R$299/mês). Exclusivo Premium e sujeito a aprovação do admin antes de publicar. Gerenciado em "Banners da Home".</p>
+              <p>O maior destaque da plataforma: imagem ocupa o topo da home (máx. 2 simultâneos). Exclusivo Premium, <strong>compra única de R$299</strong> que fica ativo por <strong>30 dias</strong> a contar do pagamento e depois expira (sem renovação). <strong>Publicação imediata</strong>: assim que o lojista paga e envia a imagem, o banner entra no ar automaticamente (sem fila de aprovação). Gerenciado em "Banners da Home".</p>
             </div>
           </div>
         )}
@@ -801,7 +803,7 @@ export default function AdminImpulsionamento() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-1 gap-2">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Home className="w-5 h-5 text-indigo-500" />
-            Destaque Home + Busca — {homeSearch.length}/{HS_MAX} ocupados
+            Destaque Home + Busca — {homeSearch.length}/{HS_MAX} posições ocupadas
           </h2>
           {homeSearch.length < HS_MAX && (
             <button
@@ -813,14 +815,14 @@ export default function AdminImpulsionamento() {
           )}
         </div>
         <p className="text-xs text-gray-500 mt-0.5 ml-7 mb-3">
-          6 slots globais que aparecem na home e em todas as buscas. Exclusivo Premium.
+          3 posições numeradas (1ª R$249 · 2ª R$179 · 3ª R$129) que aparecem na home e em todas as buscas. Exclusivo Premium.
         </p>
 
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">Carregando...</div>
         ) : homeSearch.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400">
-            Nenhum destaque Home+Busca ativo. Esses 6 slots aparecem na home e em todas as buscas.
+            Nenhum destaque Home+Busca ativo. As 3 posições aparecem na home e em todas as buscas.
           </div>
         ) : (
           <div className="space-y-3">
@@ -903,7 +905,7 @@ export default function AdminImpulsionamento() {
                 </select>
               </div>
               <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-800">
-                Este destaque aparece na home e em todas as buscas (limite global de 6 slots).
+                Este destaque aparece na home e em todas as buscas (3 posições numeradas).
               </div>
               <button
                 onClick={handleAddHomeSearch}

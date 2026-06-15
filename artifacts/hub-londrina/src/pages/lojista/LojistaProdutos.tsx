@@ -67,10 +67,10 @@ export default function LojistaProdutos() {
     return <LojistaLayout><div className="flex items-center justify-center h-64 text-gray-400">Carregando...</div></LojistaLayout>;
   }
 
-  // Limites de produtos por plano: Gratuito=0, Base/Destaque=6, Premium=10.
+  // Limites de produtos por plano: Gratuito=0, Base/Destaque=10, Premium=20.
   // Plano Gratuito não pode criar novos produtos, mas pode editar/excluir
   // os que foram migrados do antigo upload de fotos.
-  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 6, premium: 10 };
+  const PRODUCT_LIMITS: Record<string, number> = { free: 0, destaque: 10, premium: 20 };
   const productLimit = PRODUCT_LIMITS[profile?.planType] ?? 0;
   const activeCount = products.filter(p => p.isActive).length;
   const reachedLimit = activeCount >= productLimit;
@@ -447,7 +447,7 @@ export default function LojistaProdutos() {
               {autoDeactivated} produto{autoDeactivated === 1 ? "" : "s"} foi{autoDeactivated === 1 ? "" : "ram"} desativado{autoDeactivated === 1 ? "" : "s"} após mudança de plano
             </p>
             <p>
-              Seu plano atual permite até <strong>{productLimit}</strong> produto{productLimit === 1 ? "" : "s"} ativo{productLimit === 1 ? "" : "s"}.
+              Seu plano atual permite até <strong>{productLimit}</strong> produto{productLimit === 1 ? "" : "s"} ativo{productLimit === 1 ? "" : "s"}. Faça upgrade para Premium e cadastre até 20.
               Os mais recentes foram ocultados do perfil público, mas continuam salvos abaixo. Clique em <strong>Inativo</strong> para reativar
               {productLimit === 0 ? " (requer upgrade do plano)" : " — desative outro antes se já estiver no limite"}.
             </p>
@@ -487,7 +487,7 @@ export default function LojistaProdutos() {
           <> · {products.length - activeCount} inativo{products.length - activeCount === 1 ? "" : "s"}</>
         )}
         {isFree && (
-          <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Faça upgrade</a> para cadastrar produtos (Base: 6 · Premium: 10)</>
+          <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Faça upgrade</a> para cadastrar produtos (Base: 10 · Premium: 20)</>
         )}
         {profile?.planType === "destaque" && (
           <> · <a href="/lojista/plano" className="text-[#d97706] font-bold hover:underline">Upgrade para Premium</a> para cadastrar mais</>

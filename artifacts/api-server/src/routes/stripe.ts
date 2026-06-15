@@ -991,6 +991,59 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           break; // não cai no fluxo de subscription de plano
         }
 
+        // Boost "Vitrine Destaque" (R$49/mês, subscription) — ativa o slot de
+        // forma idempotente. Espelha POST /lojista/vitrine-boost/sync (mesmo
+        // advisory lock + cap de 4 + duplicate-guard) para que a ativação não
+        // dependa do retorno do navegador. Não cai no fluxo de plano abaixo.
+        if (session.metadata?.kind === "vitrine_boost") {
+          const bizId = Number(session.metadata.businessId);
+          const subId = session.subscription ? String(session.subscription) : null;
+          if (Number.isFinite(bizId) && bizId > 0 && subId) {
+            try {
+              const result = await db.transaction(async (tx) => {
+                await tx.execute(sql`SELECT pg_advisory_xact_lock(${vitrineSlotLockKey()})`);
+                const now = new Date();
+                const occupied = await tx
+                  .select({ id: vitrineBoostsTable.id })
+                  .from(vitrineBoostsTable)
+                  .where(and(
+                    eq(vitrineBoostsTable.status, "active"),
+                    or(sql`${vitrineBoostsTable.endsAt} IS NULL`, sql`${vitrineBoostsTable.endsAt} > ${now}`)!,
+                  ));
+                const newStatus: "active" | "waitlist" = occupied.length < 4 ? "active" : "waitlist";
+
+                const [row] = await tx.select().from(vitrineBoostsTable)
+                  .where(eq(vitrineBoostsTable.stripeSessionId, session.id));
+                if (!row) return { error: "not_found" as const };
+                if (row.status === "active" || row.status === "waitlist") {
+                  return { duplicate: true as const, status: row.status };
+                }
+
+                await tx.update(vitrineBoostsTable)
+                  .set({
+                    status: newStatus,
+                    stripeSubscriptionId: subId,
+                    startsAt: newStatus === "active" ? new Date() : null,
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(vitrineBoostsTable.id, row.id));
+                return { status: newStatus };
+              });
+
+              if ("error" in result) {
+                logger.warn(`[Stripe Webhook] Vitrine boost: row não encontrada para session ${session.id} (biz ${bizId})`);
+              } else if ("duplicate" in result) {
+                logger.info(`[Stripe Webhook] Vitrine boost já ativado (${result.status}) — biz ${bizId} session ${session.id}`);
+              } else {
+                logger.info(`[Stripe Webhook] Vitrine boost ${result.status} — biz ${bizId} session ${session.id}`);
+              }
+            } catch (err) {
+              logger.error({ err }, "[Stripe Webhook] Erro ativando vitrine boost");
+            }
+          }
+          break; // não cai no fluxo de subscription de plano
+        }
+
         if (session.subscription) {
           // Task #32 — captura plano anterior ANTES do sync para detectar upgrade.
           let prevPlan: string | null = null;

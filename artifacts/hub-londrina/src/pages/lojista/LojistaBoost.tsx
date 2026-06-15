@@ -8,8 +8,12 @@ import {
   createHomeSearchBoostCheckout,
   uploadHomeBanner,
   deleteHomeBanner,
+  getVitrineBoostStatus,
+  createVitrineBoostCheckout,
+  syncVitrineBoost,
+  type VitrineBoostStatus,
 } from "@/lib/lojista-api";
-import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload, Trash2 } from "lucide-react";
+import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload, Trash2, Video } from "lucide-react";
 import { Link } from "wouter";
 import { ImageUploadButton } from "@/components/ImageEditor";
 
@@ -98,6 +102,8 @@ export default function LojistaBoost() {
   const [catCheckoutLoading, setCatCheckoutLoading] = useState<number | null>(null);
   const [hsPositions, setHsPositions] = useState<HomeSearchPositionsResponse | null>(null);
   const [hsCheckoutLoading, setHsCheckoutLoading] = useState<number | null>(null);
+  const [vitrine, setVitrine] = useState<VitrineBoostStatus | null>(null);
+  const [vitrineCheckoutLoading, setVitrineCheckoutLoading] = useState(false);
   const [syncingPlan, setSyncingPlan] = useState(false);
   const [bannerImageUploading, setBannerImageUploading] = useState(false);
   const [bannerDeleting, setBannerDeleting] = useState(false);
@@ -184,18 +190,20 @@ export default function LojistaBoost() {
       setDocExpired(null);
     }
     try {
-      const [posData, avail, hb, cats, hs] = await Promise.all([
+      const [posData, avail, hb, cats, hs, vit] = await Promise.all([
         lojistaFetch("/lojista/boost-positions").catch(() => ({ positions: [] })),
         lojistaFetch("/lojista/boosts/availability").catch(() => null),
         lojistaFetch("/lojista/home-banner/status").catch(() => ({ banner: null })),
         getCategoryBoostPositions().catch(() => null),
         getHomeSearchBoostPositions().catch(() => null),
+        getVitrineBoostStatus().catch(() => null),
       ]);
       setPositions(posData?.positions || []);
       setAvailability(avail);
       setHomeBanner(hb?.banner || null);
       setCatPositions(cats);
       setHsPositions(hs);
+      setVitrine(vit);
     } catch {
       // falhas secundárias não derrubam a página
     } finally {
@@ -210,6 +218,7 @@ export default function LojistaBoost() {
     const isCatSuccess = params.get("cat_success") === "1";
     const isHsSuccess = params.get("hs_success") === "1";
     const isBannerSuccess = params.get("banner") === "success";
+    const isVitrineSuccess = params.get("vitrine") === "success";
     const anySuccess = isBoostSuccess || isCatSuccess || isHsSuccess || isBannerSuccess;
 
     // Limpa a URL antes de qualquer trabalho async (capturamos os flags acima)
@@ -218,6 +227,31 @@ export default function LojistaBoost() {
     }
 
     async function maybeSyncAndShow() {
+      // Vitrine usa endpoint de sync próprio (?vitrine=success&session_id=...)
+      if (isVitrineSuccess && sessionId) {
+        setBanner({ type: "info", msg: "Confirmando seu pagamento..." });
+        try {
+          const r = await syncVitrineBoost(sessionId);
+          if (r?.ok && r.status === "active") {
+            setBanner({ type: "success", msg: "Pagamento confirmado! Seu produto está em destaque na Vitrine da Home. Verifique seu email." });
+          } else if (r?.ok && r.status === "waitlist") {
+            setBanner({ type: "info", msg: "Pagamento confirmado! As 4 vagas fixas da Vitrine estão ocupadas — você entrou na fila e será promovido assim que uma abrir." });
+          } else if (r?.duplicate) {
+            setBanner({ type: "info", msg: "Boost de vitrine já estava ativo. Nenhuma duplicação foi criada." });
+          } else {
+            setBanner({ type: "success", msg: "Pagamento confirmado!" });
+          }
+        } catch {
+          setBanner({ type: "error", msg: "Pagamento recebido, mas a ativação da vitrine falhou. Atualize a página ou contate o suporte." });
+        }
+        await loadAll();
+        return;
+      }
+      if (params.get("vitrine") === "cancelled") {
+        setBanner({ type: "info", msg: "Pagamento do boost de vitrine cancelado. Você pode tentar novamente quando quiser." });
+        await loadAll();
+        return;
+      }
       if (anySuccess && sessionId) {
         // Banner provisório enquanto sync roda
         setBanner({ type: "info", msg: "Confirmando seu pagamento..." });
@@ -282,6 +316,20 @@ export default function LojistaBoost() {
       setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
     } finally {
       setBannerCheckoutLoading(false);
+    }
+  }
+
+  async function handleBuyVitrine() {
+    setVitrineCheckoutLoading(true);
+    setBanner(null);
+    try {
+      const res = await createVitrineBoostCheckout();
+      if (res?.url) { window.location.href = res.url; return; }
+      setBanner({ type: "error", msg: "Erro ao iniciar o checkout" });
+    } catch (e: any) {
+      setBanner({ type: "error", msg: e?.message || "Erro de conexão" });
+    } finally {
+      setVitrineCheckoutLoading(false);
     }
   }
 
@@ -587,6 +635,121 @@ export default function LojistaBoost() {
 
                 <p className="text-[10px] text-amber-900/70 mt-2 leading-tight">
                   Cobrança mensal recorrente. A 1ª posição aparece sempre no topo dos resultados patrocinados.
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* CARD 3 — VITRINE DE PRODUTOS DA HOME (R$49/mês, exclusivo Premium) */}
+          {vitrine && (() => {
+            const mine = vitrine.mySlot;
+            const blockedNoVideo = vitrine.planType === "premium" && !vitrine.hasApprovedVideo;
+            return (
+              <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 border border-purple-200 rounded-2xl p-5 flex flex-col">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-purple-100 text-purple-600">
+                    <Video className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-base font-bold text-gray-800">Vitrine de Produtos</h3>
+                      {!vitrine.eligible && (
+                        <span className="text-[10px] font-black text-white bg-[#d97706] px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                          Exclusivo Premium
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      4 vagas fixas no carrossel de vídeos da <strong>página inicial</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-700 leading-relaxed bg-white/70 border border-purple-100 rounded-lg px-3 py-2 mb-3">
+                  Seu produto aparece com <strong>vídeo em destaque</strong> na Vitrine da Home — uma das vagas fixas, sempre visível (sem rodízio). É a vitrine mais cobiçada do site: quem entra na página inicial vê seu produto rodando em vídeo. Exige plano <strong>Premium</strong> e pelo menos <strong>1 vídeo de produto já aprovado</strong> pelo nosso time.
+                </p>
+
+                {!vitrine.eligible && vitrine.planType !== "premium" && (
+                  <div className="mb-3 px-3 py-2 bg-amber-100/60 border border-amber-200 rounded-lg text-xs text-amber-800">
+                    Exclusivo para o plano <strong>Premium</strong>.{" "}
+                    <Link href="/lojista/plano" className="font-bold underline hover:no-underline">Ver planos</Link>
+                  </div>
+                )}
+
+                {blockedNoVideo && (
+                  <div className="mb-3 px-3 py-2 bg-amber-100/60 border border-amber-200 rounded-lg text-xs text-amber-800">
+                    Você é Premium, mas ainda não tem nenhum vídeo de produto aprovado. Suba um vídeo em{" "}
+                    <Link href="/lojista/produtos" className="font-bold underline hover:no-underline">Meus Produtos</Link>{" "}
+                    e aguarde a aprovação do admin para contratar a vitrine.
+                  </div>
+                )}
+
+                <div className="mt-2 mb-4 px-3 py-2 bg-white/70 rounded-lg text-sm flex items-center justify-between">
+                  <span className="text-gray-600">Vagas disponíveis</span>
+                  <span className="font-bold text-gray-800">
+                    {vitrine.available} de {vitrine.totalSlots}
+                  </span>
+                </div>
+
+                <div className="text-3xl font-black text-gray-800 mb-1">
+                  R$49
+                  <span className="text-sm font-normal text-gray-500">/mês</span>
+                </div>
+
+                <div className="mt-auto pt-4">
+                  {mine && mine.status === "active" ? (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded-xl text-sm font-bold text-green-700">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Sua vaga na Vitrine está ATIVA
+                    </div>
+                  ) : mine && mine.status === "waitlist" ? (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-bold text-amber-700">
+                      <Clock className="w-4 h-4" />
+                      Na fila de espera
+                    </div>
+                  ) : mine && mine.status === "pending" ? (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-sm font-bold text-blue-700">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Pagamento em processamento
+                    </div>
+                  ) : !vitrine.eligible ? (
+                    <div>
+                      <button
+                        type="button"
+                        disabled
+                        title="Exige plano Premium e 1 vídeo de produto aprovado"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed opacity-70"
+                      >
+                        Contratar vitrine — R$49/mês
+                      </button>
+                    </div>
+                  ) : vitrine.available > 0 ? (
+                    <button
+                      onClick={handleBuyVitrine}
+                      disabled={vitrineCheckoutLoading}
+                      className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl disabled:opacity-60 ${BTN_ELEVATION}`}
+                    >
+                      {vitrineCheckoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Contratar vitrine — R$49/mês</>}
+                    </button>
+                  ) : (
+                    <div>
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed opacity-70"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Vitrine Destaque — esgotado este mês
+                      </button>
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                        As {vitrine.totalSlots} vagas fixas estão ocupadas. Volte em breve — avisaremos quando uma vaga abrir.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[10px] text-purple-900/70 mt-2 leading-tight">
+                  Cobrança mensal recorrente. Cancele quando quiser pelo portal de assinatura.
                 </p>
               </div>
             );
