@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "./AdminLayout";
-import { adminFetch } from "@/lib/admin-api";
+import { adminFetch, uploadZoneBanner } from "@/lib/admin-api";
+import { imgSrc } from "@/lib/utils";
+import { ImageUploadButton } from "@/components/ImageEditor";
 import { MapPin, Plus, Trash2, X, RefreshCw, Clock, Edit3, Save } from "lucide-react";
 
 const BTN_ELEVATION = "shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-all";
@@ -396,15 +398,50 @@ export default function AdminZonas() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">URL do banner (opcional)</label>
-                <input
-                  type="text"
-                  placeholder="https://..."
-                  value={zoneForm.bannerUrl}
-                  onChange={e => setZoneForm({ ...zoneForm, bannerUrl: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
-                />
-                <p className="text-xs text-gray-400 mt-1">Dimensão recomendada: 1200×400px (proporção 3:1). Prefira imagem horizontal sem textos importantes nas bordas.</p>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Imagem do banner (opcional)</label>
+                {zoneForm.bannerUrl ? (
+                  <div className="mb-2 rounded-xl overflow-hidden border border-gray-200" style={{ aspectRatio: "3 / 1" }}>
+                    <img src={imgSrc(zoneForm.bannerUrl)} alt="Banner da zona" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="mb-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400" style={{ aspectRatio: "3 / 1" }}>
+                    Nenhuma imagem enviada
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <ImageUploadButton
+                    aspect={3 / 1}
+                    label={zoneForm.bannerUrl ? "Trocar imagem" : "Enviar imagem"}
+                    title="Ajustar banner da zona"
+                    hint="A imagem final fica 1200×400px (proporção 3:1). Ajuste o recorte, o zoom e a rotação como quiser — o sistema corta e salva."
+                    confirmLabel="Salvar banner"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-bold text-white bg-[#d97706] hover:bg-[#b45309] rounded-xl shadow-sm"
+                    onUpload={async blob => {
+                      const { bannerUrl } = await uploadZoneBanner(blob);
+                      setZoneForm(f => ({ ...f, bannerUrl }));
+                    }}
+                  />
+                  {zoneForm.bannerUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setZoneForm(f => ({ ...f, bannerUrl: "" }))}
+                      className="px-3 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+                <details className="mt-2">
+                  <summary className="text-xs text-gray-500 cursor-pointer select-none">Opção avançada: colar URL externa</summary>
+                  <input
+                    type="text"
+                    placeholder="https://..."
+                    value={zoneForm.bannerUrl}
+                    onChange={e => setZoneForm({ ...zoneForm, bannerUrl: e.target.value })}
+                    className="mt-2 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Dimensão recomendada: 1200×400px (proporção 3:1).</p>
+                </details>
               </div>
               <button
                 onClick={handleSaveZone}

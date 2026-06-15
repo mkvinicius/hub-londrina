@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-api";
 import { imgSrc } from "@/lib/utils";
 import { Award, Plus, Trash2, Eye, EyeOff, RefreshCw, Pencil, Upload, ExternalLink } from "lucide-react";
+import { ImageUploadButton } from "@/components/ImageEditor";
 
 interface ListBusiness {
   id: number;
@@ -49,7 +50,6 @@ export default function AdminPatrocinadores() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"master" | "apoiador" | "all">("master");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function fetchPartners() {
     setLoading(true);
@@ -93,19 +93,17 @@ export default function AdminPatrocinadores() {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFile(blob: Blob) {
     setUploading(true);
     setError("");
     try {
-      const { logoUrl } = await uploadPartnerLogo(file);
+      const { logoUrl } = await uploadPartnerLogo(blob);
       setForm((f) => ({ ...f, logoUrl }));
     } catch (err: any) {
       setError(err.message || "Erro ao enviar logo");
+      throw err;
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -247,15 +245,18 @@ export default function AdminPatrocinadores() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    onChange={handleFile}
-                    className="text-sm"
-                    data-testid="input-partner-logo"
+                  <ImageUploadButton
+                    aspect={undefined}
+                    outputType="image/png"
+                    label={form.logoUrl ? "Trocar logo" : "Enviar logo"}
+                    title="Ajustar logo do patrocinador"
+                    hint="Recorte livre (sem proporção fixa). A logo é salva em PNG, preservando transparência. Ajuste o enquadramento, o zoom e a rotação."
+                    confirmLabel="Salvar logo"
+                    disabled={uploading}
+                    className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2 rounded-xl text-sm transition-colors disabled:opacity-50"
+                    onUpload={handleFile}
                   />
-                  <p className="text-xs text-gray-400 mt-1">PNG/JPG/WEBP/SVG até 2MB · máx 300×200px recomendado. Prefira fundo transparente (PNG/SVG).</p>
+                  <p className="text-xs text-gray-400 mt-1">Salvo em PNG (fundo transparente preservado) · máx 300×200px recomendado.</p>
                   {uploading && <p className="text-xs text-amber-600 mt-1">Enviando...</p>}
                 </div>
               </div>

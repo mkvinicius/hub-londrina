@@ -3,6 +3,7 @@ import { LojistaLayout } from "./LojistaLayout";
 import { getProfile, updateProfile, lookupCep, updateLocation, lojistaFetch, getLojistaToken, clearToken, uploadLogo, uploadBanner, uploadBusinessVideo } from "@/lib/lojista-api";
 import { imgSrc } from "@/lib/utils";
 import { Save, Search, MapPin, Lock, Info, Download, ShieldAlert, Loader2, Upload } from "lucide-react";
+import { ImageUploadButton } from "@/components/ImageEditor";
 import { PasswordInput } from "@/components/PasswordInput";
 import { useLegalConfig } from "@/lib/legal-config";
 import { csrfFetch } from "@/lib/csrf";
@@ -32,8 +33,6 @@ export default function LojistaPerfil() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [photoMsg, setPhotoMsg] = useState("");
-  const logoFileRef = useRef<HTMLInputElement>(null);
-  const bannerFileRef = useRef<HTMLInputElement>(null);
 
   // Upload do vídeo do card (Premium) — arquivo .mp4, ≤50MB.
   const [videoUploading, setVideoUploading] = useState(false);
@@ -182,45 +181,33 @@ export default function LojistaPerfil() {
     }
   }
 
-  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (logoFileRef.current) logoFileRef.current.value = "";
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setPhotoMsg("Erro: logo deve ter até 2 MB.");
-      return;
-    }
+  async function handleLogoUpload(blob: Blob) {
     setLogoUploading(true);
     setPhotoMsg("");
     try {
-      const data: { logoUrl: string } = await uploadLogo(file);
+      const data: { logoUrl: string } = await uploadLogo(blob);
       setProfile((prev: any) => prev ? { ...prev, logoUrl: data.logoUrl } : prev);
       setPhotoMsg("Logo atualizada!");
       setTimeout(() => setPhotoMsg(""), 4000);
     } catch (err: any) {
       setPhotoMsg(`Erro: ${err.message}`);
+      throw err;
     } finally {
       setLogoUploading(false);
     }
   }
 
-  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (bannerFileRef.current) bannerFileRef.current.value = "";
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setPhotoMsg("Erro: foto de capa deve ter até 5 MB.");
-      return;
-    }
+  async function handleBannerUpload(blob: Blob) {
     setBannerUploading(true);
     setPhotoMsg("");
     try {
-      const data = await uploadBanner(file);
+      const data = await uploadBanner(blob);
       setProfile((prev: any) => prev ? { ...prev, bannerUrl: data.bannerUrl, cardImageUrl: data.cardImageUrl } : prev);
       setPhotoMsg("Foto de capa atualizada!");
       setTimeout(() => setPhotoMsg(""), 4000);
     } catch (err: any) {
       setPhotoMsg(`Erro: ${err.message}`);
+      throw err;
     } finally {
       setBannerUploading(false);
     }
@@ -327,24 +314,17 @@ export default function LojistaPerfil() {
                 <p className="text-xs text-gray-400 mt-0.5">Exibida no card de busca e no topo do perfil público</p>
               </div>
             </div>
-            <input
-              type="file"
-              ref={logoFileRef}
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleLogoUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => logoFileRef.current?.click()}
+            <ImageUploadButton
+              aspect={1}
+              label={logoUploading ? "Enviando..." : profile?.logoUrl ? "Trocar logo" : "Enviar logo"}
+              title="Ajustar logo"
+              hint="A logo final fica 400×400px (quadrada, 1:1). Ajuste o recorte, o zoom e a rotação."
+              confirmLabel="Salvar logo"
+              outputType="image/png"
               disabled={logoUploading}
               className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
-            >
-              {logoUploading
-                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                : <Upload className="w-4 h-4" />}
-              {logoUploading ? "Enviando..." : profile?.logoUrl ? "Trocar logo" : "Enviar logo"}
-            </button>
+              onUpload={handleLogoUpload}
+            />
           </div>
 
           {/* Foto de capa */}
@@ -365,24 +345,16 @@ export default function LojistaPerfil() {
             <p className="text-xs text-gray-500 mb-3">
               1200×400px (proporção 3:1) · JPG, PNG, WebP · máx 5 MB · Aparece no topo do perfil público do negócio
             </p>
-            <input
-              type="file"
-              ref={bannerFileRef}
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleBannerUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => bannerFileRef.current?.click()}
+            <ImageUploadButton
+              aspect={3 / 1}
+              label={bannerUploading ? "Enviando..." : profile?.bannerUrl ? "Trocar capa" : "Enviar foto de capa"}
+              title="Ajustar foto de capa"
+              hint="A capa final fica 1200×400px (proporção 3:1). Ajuste o recorte, o zoom e a rotação."
+              confirmLabel="Salvar capa"
               disabled={bannerUploading}
               className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:border-[#d97706] text-gray-700 hover:text-[#d97706] font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
-            >
-              {bannerUploading
-                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                : <Upload className="w-4 h-4" />}
-              {bannerUploading ? "Enviando..." : profile?.bannerUrl ? "Trocar capa" : "Enviar foto de capa"}
-            </button>
+              onUpload={handleBannerUpload}
+            />
           </div>
 
           <p className="text-xs text-gray-400 border-t border-gray-100 pt-4">

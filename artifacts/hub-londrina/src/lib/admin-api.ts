@@ -261,11 +261,29 @@ export async function deleteAdminPartner(id: number): Promise<{ success: true }>
   return adminFetch(`/api/admin/partners/${id}`, { method: "DELETE" });
 }
 
-export async function uploadPartnerLogo(file: File): Promise<{ logoUrl: string }> {
+export async function uploadPartnerLogo(file: File | Blob): Promise<{ logoUrl: string }> {
   const token = getAdminToken();
   const fd = new FormData();
-  fd.append("file", file);
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  fd.append("file", file, `partner-logo.${ext}`);
   const res = await fetch(`${API_BASE}/api/admin/upload/partner-logo`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+// Banner de zona (admin) — imagem já recortada (3:1) pelo editor; Sharp normaliza 1200×400.
+export async function uploadZoneBanner(blob: Blob): Promise<{ bannerUrl: string }> {
+  const token = getAdminToken();
+  const fd = new FormData();
+  fd.append("file", blob, "zone-banner.jpg");
+  const res = await fetch(`${API_BASE}/api/admin/upload/zone-banner`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: fd,

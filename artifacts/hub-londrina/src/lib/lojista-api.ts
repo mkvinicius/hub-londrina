@@ -112,15 +112,15 @@ export async function updateProfile(data: Record<string, unknown>) {
   return lojistaFetch("/lojista/profile", { method: "PATCH", body: JSON.stringify(data) });
 }
 
-export async function uploadLogo(file: File) {
+export async function uploadLogo(file: File | Blob) {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", file, "logo.jpg");
   return lojistaFetch("/lojista/upload/logo", { method: "POST", body: formData });
 }
 
-export async function uploadBanner(file: File): Promise<{ bannerUrl: string; cardImageUrl: string }> {
+export async function uploadBanner(file: File | Blob): Promise<{ bannerUrl: string; cardImageUrl: string }> {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", file, "banner.jpg");
   return lojistaFetch("/lojista/upload/banner", { method: "POST", body: formData });
 }
 
@@ -140,15 +140,15 @@ export async function deleteHomeBanner() {
 
 // Banner Home (R$299/mês) — upload pós-pagamento. Usa o helper centralizado
 // (token único + tratamento de 401) em vez de ler o localStorage direto (R4).
-export async function uploadHomeBanner(file: File) {
+export async function uploadHomeBanner(file: File | Blob) {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", file, "home-banner.jpg");
   return lojistaFetch("/lojista/home-banner/upload", { method: "POST", body: formData });
 }
 
-export async function uploadPhoto(file: File) {
+export async function uploadPhoto(file: File | Blob) {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", file, "photo.jpg");
   return lojistaFetch("/lojista/upload/photo", { method: "POST", body: formData });
 }
 

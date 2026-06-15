@@ -18,6 +18,7 @@ import {
 } from "../lib/legal-config-store";
 import { ZONE_SLOTS, HOME_SEARCH_SLOTS } from "../lib/boost-locks";
 import { legalConfigTable } from "@workspace/db/schema";
+import sharp from "sharp";
 import { uploadBufferToGCS } from "../lib/gcsUpload";
 import { z } from "zod/v4";
 import { validateMagicBytes } from "../lib/validateUpload";
@@ -1904,6 +1905,42 @@ router.post("/admin/upload/partner-logo", partnerUpload.single("file"), async (r
   const filename = `partner-${Date.now()}${ext}`;
   const logoUrl = await uploadBufferToGCS(req.file.buffer, "partners", filename, req.file.mimetype);
   res.json({ logoUrl });
+});
+
+// ─── POST /api/admin/upload/zone-banner ───────────────────────────────────────
+// Banner da zona enviado pelo admin (substitui o antigo campo "URL do banner").
+// A imagem já chega recortada do editor avançado no front (3:1); o Sharp só
+// normaliza para a dimensão canônica 1200×400. Retorna a URL — a gravação em
+// zones.bannerUrl continua no PATCH /api/admin/zones/:id.
+const zoneBannerUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(png|jpe?g|webp)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Apenas PNG, JPG ou WEBP"));
+  },
+});
+
+router.post("/admin/upload/zone-banner", zoneBannerUpload.single("file"), async (req: Request, res: Response) => {
+  if (!req.file) { res.status(400).json({ error: "Nenhum arquivo enviado" }); return; }
+
+  const isValid = validateMagicBytes(req.file.buffer, req.file.mimetype);
+  if (!isValid) {
+    res.status(400).json({ error: "Arquivo inválido ou corrompido" });
+    return;
+  }
+
+  try {
+    const buf = await sharp(req.file.buffer)
+      .resize(1200, 400, { fit: "cover", position: "attention" })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    const bannerUrl = await uploadBufferToGCS(buf, "zones", `zone-${Date.now()}.jpg`, "image/jpeg");
+    res.json({ bannerUrl });
+  } catch (err: any) {
+    req.log.error({ err }, "[UploadZoneBanner] Erro processando imagem");
+    res.status(500).json({ error: "Erro ao processar a imagem. Tente novamente." });
+  }
 });
 
 // ============================================================================

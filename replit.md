@@ -52,6 +52,8 @@ Diretório SaaS de negócios locais de Londrina/PR.
 
 **Documentação** (resumo — ver RULES.md R2): estado da documentação tem **fonte única de verdade** em `lib/documentation-state.ts` (`syncDocumentationState` deriva `documentationStatus`/`timerPaused`/`businesses.verified` dos docs reais; `verified` sse os 3 aprovados). Timer de 10 dias com **banking** (decrementa só dias ativos; envio dos 3 docs pausa, rejeição retoma). Ao expirar sem aprovação → loja **offline para TODOS os planos** (`isVisible=false`); pagamento/heal **não** republicam loja expirada (`isDocumentationExpired` gate) — só a aprovação dos 3 docs religa.
 
+**Editor de imagem**: TODA tela de upload (admin: zona 3:1, patrocinador livre PNG; lojista: logo 1:1, capa 3:1, galeria negócio 1:1, galeria produto 4:3, banner Home 1200×280) usa o componente único `src/components/ImageEditor.tsx` (`ImageUploadButton`/`ImageEditorDialog`: recorte interativo + zoom + rotação → Blob). `outputType="image/png"` nos logos (o backend de logo não re-encoda — JPEG achataria a transparência); demais superfícies = JPEG. Backend redimensiona via Sharp para a dimensão canônica de cada superfície.
+
 **API client gerado**: `@workspace/api-client-react` — hooks Orval (apenas para públicos). Admin/lojista usam `src/lib/{admin,lojista}-api.ts` direto.
 
 **Required secrets** (Stripe): `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_BASE_PRICE_ID`, `STRIPE_BASE_ANNUAL_PRICE_ID`, `STRIPE_PREMIUM_PRICE_ID`, `STRIPE_PREMIUM_ANNUAL_PRICE_ID`, `STRIPE_ZONE_BOOST_PRICE_ID`, `STRIPE_HOME_SEARCH_BOOST_PRICE_ID`, `STRIPE_BOOST_CAT_{1..5}_PRICE_ID`. Outros: `JWT_SECRET`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `RESEND_API_KEY`, `SENTRY_DSN` (opcional).

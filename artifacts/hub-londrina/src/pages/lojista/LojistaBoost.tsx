@@ -11,6 +11,10 @@ import {
 } from "@/lib/lojista-api";
 import { Zap, Crown, Flame, MessageCircle, ExternalLink, AlertTriangle, MapPin, Star, CheckCircle2, Clock, Loader2, ImageIcon, Upload, Trash2 } from "lucide-react";
 import { Link } from "wouter";
+import { ImageUploadButton } from "@/components/ImageEditor";
+
+// Banner Home: proporção final 1200×280 (≈ 4.286:1). O editor recorta nesse aspect.
+const HOME_BANNER_ASPECT = 1200 / 280;
 
 interface CategoryPosition {
   position: number;
@@ -104,20 +108,12 @@ export default function LojistaBoost() {
   // Tri-state: true = expirada (offline), false = ok, null = status desconhecido
   // (ex.: o fetch de profile falhou) — nesse caso NÃO afirmamos "ativo na Home".
   const [docExpired, setDocExpired] = useState<boolean | null>(null);
-  const bannerImageRef = useRef<HTMLInputElement>(null);
 
-  async function handleBannerImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (bannerImageRef.current) bannerImageRef.current.value = "";
-    if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      setBanner({ type: "error", msg: "Imagem muito grande. Máximo 15 MB." });
-      return;
-    }
+  async function handleBannerImageUpload(blob: Blob) {
     setBannerImageUploading(true);
     setBanner(null);
     try {
-      await uploadHomeBanner(file);
+      await uploadHomeBanner(blob);
       setBanner(
         docExpired === true
           ? {
@@ -129,6 +125,7 @@ export default function LojistaBoost() {
       await loadAll();
     } catch (err: any) {
       setBanner({ type: "error", msg: err?.message || "Erro ao enviar a imagem." });
+      throw err;
     } finally {
       setBannerImageUploading(false);
     }
@@ -643,23 +640,16 @@ export default function LojistaBoost() {
               <p className="text-xs text-blue-700 mb-3">
                 {BANNER_SPECS_LINE}
               </p>
-              <input
-                type="file"
-                ref={bannerImageRef}
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleBannerImageUpload}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => bannerImageRef.current?.click()}
+              <ImageUploadButton
+                aspect={HOME_BANNER_ASPECT}
+                label="Escolher imagem do banner"
+                title="Ajustar banner da Home"
+                hint="O banner final fica 1200×280px (proporção ~4:1). Ajuste o recorte, o zoom e a rotação — o sistema corta e publica na hora."
+                confirmLabel="Publicar banner"
                 disabled={bannerImageUploading}
                 className={`w-full bg-[#d97706] hover:bg-[#b45309] text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${BTN_ELEVATION}`}
-              >
-                {bannerImageUploading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando imagem...</>
-                  : <><Upload className="w-4 h-4" /> Escolher imagem do banner</>}
-              </button>
+                onUpload={handleBannerImageUpload}
+              />
             </div>
           )}
 
@@ -711,23 +701,16 @@ export default function LojistaBoost() {
               <p className="text-xs text-gray-600 mb-2">
                 Dentro dos 30 dias pagos você pode trocar a arte quantas vezes quiser. A nova imagem é tratada (1200×280, recorte automático) e entra no ar na hora, substituindo a anterior. Ao fim dos 30 dias o banner expira e some da Home.
               </p>
-              <input
-                type="file"
-                ref={bannerImageRef}
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleBannerImageUpload}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => bannerImageRef.current?.click()}
+              <ImageUploadButton
+                aspect={HOME_BANNER_ASPECT}
+                label="Trocar arte do banner"
+                title="Ajustar banner da Home"
+                hint="O banner final fica 1200×280px (proporção ~4:1). Ajuste o recorte, o zoom e a rotação — a nova arte substitui a anterior na hora."
+                confirmLabel="Publicar banner"
                 disabled={bannerImageUploading || bannerDeleting}
                 className="w-full border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {bannerImageUploading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
-                  : <><Upload className="w-4 h-4" /> Trocar arte do banner</>}
-              </button>
+                onUpload={handleBannerImageUpload}
+              />
               <button
                 type="button"
                 onClick={handleBannerDelete}
@@ -752,23 +735,16 @@ export default function LojistaBoost() {
                 {homeBanner.rejectionReason && <p className="text-xs mt-1">{homeBanner.rejectionReason}</p>}
               </div>
               <p className="text-xs text-gray-600 mb-2">Você pode enviar uma nova imagem:</p>
-              <input
-                type="file"
-                ref={bannerImageRef}
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleBannerImageUpload}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => bannerImageRef.current?.click()}
+              <ImageUploadButton
+                aspect={HOME_BANNER_ASPECT}
+                label="Enviar nova imagem"
+                title="Ajustar banner da Home"
+                hint="O banner final fica 1200×280px (proporção ~4:1). Ajuste o recorte, o zoom e a rotação."
+                confirmLabel="Publicar banner"
                 disabled={bannerImageUploading}
                 className="w-full border border-[#d97706] text-[#d97706] hover:bg-amber-50 font-bold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {bannerImageUploading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
-                  : <><Upload className="w-4 h-4" /> Enviar nova imagem</>}
-              </button>
+                onUpload={handleBannerImageUpload}
+              />
             </div>
           )}
 
