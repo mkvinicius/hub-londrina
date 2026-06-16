@@ -53,3 +53,4 @@ Thumbs.db
 .claude/skills/
 .extract-design-system/
 skills-lock.json
+.claude/settings.local.json
