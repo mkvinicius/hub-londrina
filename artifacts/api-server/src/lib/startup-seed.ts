@@ -1,4 +1,4 @@
-import { db, categoriesTable, businessesTable, reviewsTable, businessUsersTable, productsTable, businessDocumentsTable } from "@workspace/db";
+import { db, categoriesTable, businessesTable, reviewsTable, businessUsersTable, productsTable, businessDocumentsTable, zonesTable } from "@workspace/db";
 import { count, eq } from "drizzle-orm";
 import { VALID_DOC_TYPES } from "./documentation-state";
 import { logger } from "./logger";
@@ -34,6 +34,15 @@ export async function runStartupSeed() {
       .returning();
 
     logger.info({ count: categories.length }, "Categories seeded");
+
+    await db.insert(zonesTable).values([
+      { slug: "centro", name: "Centro", description: "Centro de Londrina", color: "#f97316" },
+      { slug: "norte", name: "Zona Norte", description: "Zona Norte de Londrina", color: "#3182CE" },
+      { slug: "sul", name: "Zona Sul", description: "Zona Sul de Londrina", color: "#38A169" },
+      { slug: "leste", name: "Zona Leste", description: "Zona Leste de Londrina", color: "#D69E2E" },
+      { slug: "oeste", name: "Zona Oeste", description: "Zona Oeste de Londrina", color: "#805AD5" },
+    ]);
+    logger.info("Zones seeded");
 
     const businesses = await db
       .insert(businessesTable)
