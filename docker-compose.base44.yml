@@ -1,0 +1,89 @@
+# Base44 dev environment for Hub Londrina.
+# Runs the app from cloned source with live-reload where possible.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: hublondrina
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: hubpass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub -d hublondrina"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  install:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    command: sh -c "npm install -g pnpm@9 && pnpm install --no-frozen-lockfile"
+    environment:
+      - NODE_ENV=development
+
+  migrate:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    env_file:
+      - ./.env.base44-defaults
+    environment:
+      - DATABASE_URL=postgresql://hub:hubpass@db:5432/hublondrina
+      - NODE_ENV=development
+    command: sh -c "npm install -g pnpm@9 && pnpm --filter @workspace/db exec drizzle-kit push --config ./drizzle.config.ts"
+    depends_on:
+      db:
+        condition: service_healthy
+      install:
+        condition: service_completed_successfully
+
+  api:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    env_file:
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    environment:
+      - DATABASE_URL=postgresql://hub:hubpass@db:5432/hublondrina
+      - PORT=3001
+      - NODE_ENV=development
+      - BASE44_PUBLIC_HOST_SUFFIX=${BASE44_PUBLIC_HOST_SUFFIX}
+    command: sh -c "npm install -g pnpm@9 && cd artifacts/api-server && pnpm run build && pnpm run start"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:3001"
+
+  web:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    env_file:
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - BASE44_PUBLIC_HOST_SUFFIX=${BASE44_PUBLIC_HOST_SUFFIX}
+    command: sh -c "npm install -g pnpm@9 && cd artifacts/hub-londrina && pnpm run dev"
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  node_modules:
